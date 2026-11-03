@@ -47,7 +47,7 @@ func set_contents(drink_tex: Texture2D, pastry_tex: Texture2D) -> void:
 	drink.visible = drink_tex != null
 	if drink_tex != null:
 		drink.texture = drink_tex
-		_drink_pos = DRINK_POS - BrewArt.content_offset(drink_tex) * 4.0   # рисунок по центру своего места
+		_drink_pos = DRINK_POS - BrewArt.content_offset(drink_tex, true) * 4.0   # рисунок по центру своего места
 		drink.position = _drink_pos
 	pastry.visible = pastry_tex != null
 	if pastry_tex != null:

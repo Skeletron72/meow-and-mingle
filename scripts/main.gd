@@ -60,6 +60,7 @@ var _served_label: Label
 
 
 func _ready() -> void:
+	Fx.unit = BrewArt.G   # эффекты крупного плана: пиксель эффекта = пиксель спрайтов (4)
 	_build_wall()
 	_cat_layer = Node2D.new()
 	add_child(_cat_layer)
@@ -82,6 +83,10 @@ func _ready() -> void:
 	_served_label.text = tr("Подано: %d") % GameState.served_total
 	_refresh_cup()
 	_spawn_cat()
+
+
+func _exit_tree() -> void:
+	Fx.unit = 2.0
 
 
 # ---------------------------------------------------------------- построение сцены
@@ -135,7 +140,7 @@ func _build_table() -> void:
 		_table.plates.append(s["center"])
 	_table.queue_redraw()
 	for s in _sources:
-		var rest := (s["center"] as Vector2) - BrewArt.content_offset(s["tex"]) * 4.0   # рисунок по центру тарелки
+		var rest := (s["center"] as Vector2) - BrewArt.content_offset(s["tex"], String(s["kind"]) != "pastry") * 4.0   # рисунок по центру тарелки
 		s["rest"] = rest
 		var icon := _sprite(s["tex"], rest, 4.0)
 		s["icon"] = icon
@@ -287,7 +292,7 @@ func _show_bubble() -> void:
 		drink_x = -32.0
 		title += " + " + String(Data.pastries[pastry_id]["name"]).to_lower()
 		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(32, -14) - BrewArt.content_offset(_pastry_tex(pastry_id)) * 2.0, 2.0, _bubble))
-	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14) - BrewArt.content_offset(_drink_tex(_order["drink"])) * 2.0, 2.0, _bubble))
+	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14) - BrewArt.content_offset(_drink_tex(_order["drink"]), true) * 2.0, 2.0, _bubble))
 	_label(title, Rect2(-120, 2, 240, 28), INK, _bubble, true)
 	Fx.rise_in(_bubble, 24.0, 0.3, 2.0)
 	for i in icons.size():   # значки подпрыгивают друг за другом

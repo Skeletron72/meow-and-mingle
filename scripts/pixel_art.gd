@@ -307,11 +307,11 @@ static func blob(rx: int, ry: int, levels := 3) -> ImageTexture:
 	return _cache[key]
 
 
-## Спрайт из текстуры арта в масштабе 2 (центрирован; позиция привязывается к сетке арта).
-static func sprite(tex: Texture2D, pos: Vector2, centered := true) -> Sprite2D:
+## Спрайт из текстуры арта в масштабе px (по умолчанию 2; центрирован; позиция привязывается к сетке).
+static func sprite(tex: Texture2D, pos: Vector2, centered := true, px := 2.0) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = tex
-	s.scale = Vector2(2, 2)
+	s.scale = Vector2(px, px)
 	s.centered = centered
-	s.position = Vector2(roundf(pos.x / 2.0) * 2.0, roundf(pos.y / 2.0) * 2.0)
+	s.position = Vector2(roundf(pos.x / px) * px, roundf(pos.y / px) * px)
 	return s

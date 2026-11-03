@@ -71,17 +71,42 @@ static func _ellipse_on(ci: CanvasItem, c: Vector2, rx: float, ry: float, color:
 		dy += G
 
 
-## Смещение содержимого клетки 16×16 от её центра в пикселях спрайта (целое): чтобы чашку на тарелке ставить по центру рисунка, а не клетки.
-static func content_offset(tex: Texture2D) -> Vector2:
+## Смещение «центра» рисунка в клетке 16×16 от центра клетки, целое число пикселей спрайта.
+## Для посуды (bowl = true) центр — это ЧАША (колонки, почти такие же плотные, как самая широкая), без ручки:
+## чашку ставят по центру чаши, а не по середине между чашей и ручкой. Для выпечки — середина рисунка.
+static func content_offset(tex: Texture2D, bowl := false) -> Vector2:
 	var at := tex as AtlasTexture
-	var key: Variant = at.region if at != null else 0
+	if at == null:
+		return Vector2.ZERO
+	var key := [at.region, bowl]
 	if _offsets.has(key):
 		return _offsets[key]
+	var img := at.atlas.get_image().get_region(Rect2i(at.region))
+	var used := img.get_used_rect()
 	var off := Vector2.ZERO
-	if at != null:
-		var used := at.atlas.get_image().get_region(Rect2i(at.region)).get_used_rect()
-		if used.size.x > 0:
-			off = Vector2(roundf(used.position.x + used.size.x / 2.0 - at.region.size.x / 2.0), roundf(used.position.y + used.size.y / 2.0 - at.region.size.y / 2.0))
+	if used.size.x > 0:
+		var x0 := float(used.position.x)
+		var x1 := float(used.end.x)
+		if bowl:
+			var counts: Array[int] = []
+			var best := 0
+			for x in img.get_width():
+				var n := 0
+				for y in img.get_height():
+					if img.get_pixel(x, y).a > 0.0:
+						n += 1
+				counts.append(n)
+				best = maxi(best, n)
+			var first := -1
+			var last := -1
+			for x in counts.size():
+				if float(counts[x]) >= best * 0.75:
+					if first < 0:
+						first = x
+					last = x
+			x0 = float(first)
+			x1 = float(last + 1)
+		off = Vector2(roundf((x0 + x1) / 2.0 - img.get_width() / 2.0), roundf(used.position.y + used.size.y / 2.0 - img.get_height() / 2.0))
 	_offsets[key] = off
 	return off
 

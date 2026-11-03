@@ -7,6 +7,10 @@ extends RefCounted
 const PX_GRID := 4.0   # пиксель арта «крупного плана» (мини-игра): спрайты там ×4
 const PX := 2.0
 
+## Размер «пикселя эффектов» в текущей сцене (логических px). Не меньше пикселя игры: в городе 2, в мини-игре готовки (спрайты ×4) — 4.
+## Сцена ставит его при старте и возвращает 2 при выходе. Все частицы, кольца, монеты и свечения считаются от него.
+static var unit := 2.0
+
 const ART := {
 	"heart": [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."],
 	"star": ["...#...", "...#...", "..###..", "#######", "..###..", ".##.##.", ".#...#."],
@@ -14,6 +18,7 @@ const ART := {
 	"drop": [".#.", "###", "###", ".#."],
 	"puff": ["#..#", ".##.", ".##.", "#..#"],
 	"dot": ["##", "##"],
+	"mote": ["#"],
 	"confetti": ["###", "###"],
 	"coin": ["..YY..", ".YhhY.", "YhYYoY", "YhYYoY", ".YooY.", "..YY.."],
 	"zzz": ["####", "..#.", ".#..", "####"],
@@ -68,8 +73,9 @@ static func burst(parent: Node, pos: Vector2, tex_name: String, color: Color, co
 	p.initial_velocity_min = speed * 0.45
 	p.initial_velocity_max = speed
 	p.gravity = Vector2(0, gravity)
-	p.scale_amount_min = PX * size * 0.8
-	p.scale_amount_max = PX * size * 1.25
+	var k := maxf(1.0, roundf(size))   # целое число пикселей сетки: частица не мельче пикселя игры
+	p.scale_amount_min = unit * k
+	p.scale_amount_max = unit * k
 	var g := Gradient.new()
 	g.colors = PackedColorArray([color, Color(color, 0.0)])
 	g.offsets = PackedFloat32Array([0.55, 1.0])
@@ -88,8 +94,6 @@ static func confetti(parent: Node, pos: Vector2, count := 28) -> CPUParticles2D:
 	g.colors = PackedColorArray([Color("ff6b8b"), Color("ffd640"), Color("6bd5ff"), Color("8dff7a"), Color("c48bff")])
 	g.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
 	p.color_initial_ramp = g
-	p.angular_velocity_min = -360.0
-	p.angular_velocity_max = 360.0
 	return p
 
 
@@ -105,8 +109,8 @@ static func steam(parent: Node, pos: Vector2, amount := 7) -> CPUParticles2D:
 	p.initial_velocity_min = 14.0
 	p.initial_velocity_max = 26.0
 	p.gravity = Vector2.ZERO
-	p.scale_amount_min = PX * 0.9
-	p.scale_amount_max = PX * 1.5
+	p.scale_amount_min = unit
+	p.scale_amount_max = unit
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	p.emission_sphere_radius = 6.0
 	var g := Gradient.new()
@@ -122,7 +126,7 @@ static func steam(parent: Node, pos: Vector2, amount := 7) -> CPUParticles2D:
 ## Пылинки в луче света: медленно плавают и мерцают.
 static func motes(parent: Node, rect: Rect2, amount := 16) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
-	p.texture = tex("dot")
+	p.texture = tex("mote")
 	p.position = rect.get_center()
 	p.amount = amount
 	p.lifetime = 7.0
@@ -132,8 +136,8 @@ static func motes(parent: Node, rect: Rect2, amount := 16) -> CPUParticles2D:
 	p.initial_velocity_min = 3.0
 	p.initial_velocity_max = 9.0
 	p.gravity = Vector2.ZERO
-	p.scale_amount_min = PX * 0.5
-	p.scale_amount_max = PX * 1.0
+	p.scale_amount_min = unit
+	p.scale_amount_max = unit
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 	p.emission_rect_extents = rect.size / 2.0
 	var g := Gradient.new()
@@ -226,7 +230,7 @@ static func coins_fly(parent: Node, from: Vector2, to: Vector2, count: int, on_l
 	for i in count:
 		var s := Sprite2D.new()
 		s.texture = tex("coin")
-		s.scale = Vector2(PX, PX)
+		s.scale = Vector2(unit, unit)
 		s.position = from
 		s.z_index = 60
 		s.visible = false
@@ -236,36 +240,38 @@ static func coins_fly(parent: Node, from: Vector2, to: Vector2, count: int, on_l
 		t.tween_interval(0.07 * i)
 		t.tween_callback(func() -> void: s.visible = true)
 		var step := func(u: float) -> void:
-			s.position = from.lerp(mid, u).lerp(mid.lerp(to, u), u)
-			s.scale = Vector2(PX * absf(cos(u * TAU * 2.0)) + 0.4, PX)
+			var pos := from.lerp(mid, u).lerp(mid.lerp(to, u), u)
+			s.position = Vector2(snappedf(pos.x, unit), snappedf(pos.y, unit))
+			s.flip_h = int(u * 6.0) % 2 == 1   # «вращение» монеты зеркалом, без дробного масштаба
 		t.tween_method(step, 0.0, 1.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		t.tween_callback(func() -> void:
 			on_land.call()
 			s.queue_free())
 
 
-## Крупная надпись: выпрыгивает, зависает и улетает вверх.
+## Крупная надпись: выезжает снизу шагами по сетке, зависает и улетает вверх (без масштаба).
 static func banner(parent: Node, text: String, pos: Vector2, color: Color, outline := Ui.INK) -> void:
 	var l := Ui.label(text, Rect2(pos - Vector2(170, 24), Vector2(340, 48)), Ui.FONT_SIZE_BIG, color, parent, HORIZONTAL_ALIGNMENT_CENTER, true)
 	l.add_theme_color_override("font_outline_color", outline)
 	l.add_theme_constant_override("outline_size", 8)
-	l.pivot_offset = Vector2(170, 24)
 	l.z_index = 90
-	l.scale = Vector2.ZERO
+	var base_y := l.position.y
 	var t := l.create_tween()
-	t.tween_property(l, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_method(func(u: float) -> void:
+		l.position.y = base_y + snappedf(24.0 * (1.0 - u), 4.0)
+		l.modulate.a = 1.0 if u > 0.2 else 0.0, 0.0, 1.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_interval(0.55)
-	t.set_parallel(true)
-	t.tween_property(l, "position:y", l.position.y - 40.0, 0.5)
-	t.tween_property(l, "modulate:a", 0.0, 0.5)
-	t.chain().tween_callback(l.queue_free)
+	t.tween_method(func(u: float) -> void:
+		l.position.y = base_y - snappedf(40.0 * u, 4.0)
+		l.modulate.a = 1.0 - u, 0.0, 1.0, 0.5)
+	t.tween_callback(l.queue_free)
 
 
 ## Пиксельное свечение: постеризованное, с дизерингом; размер size — в логических px (диаметры по x и y), позиция привязана к сетке арта.
 static func pixel_light(pos: Vector2, size: Vector2, color: Color, levels := 4, power := 1.5) -> Sprite2D:
-	var rx := maxi(2, roundi(size.x / 4.0))
-	var ry := maxi(2, roundi(size.y / 4.0))
-	var s := PixelArt.sprite(PixelArt.glow(rx, ry, levels, power), pos)
+	var rx := maxi(2, roundi(size.x / (2.0 * unit)))
+	var ry := maxi(2, roundi(size.y / (2.0 * unit)))
+	var s := PixelArt.sprite(PixelArt.glow(rx, ry, levels, power), pos, true, unit)
 	s.modulate = color
 	s.material = additive()
 	return s
@@ -281,7 +287,7 @@ static func glow(parent: Node, pos: Vector2, size: Vector2, color: Color) -> Spr
 	return s
 
 
-## Пиксельное кольцо (рисуется квадратиками по сетке 2 px).
+## Пиксельное кольцо (квадратики по сетке эффектов: сторона 2 unit).
 class Ring extends Node2D:
 	var radius := 4.0:
 		set(v):
@@ -294,8 +300,9 @@ class Ring extends Node2D:
 	var color := Color.WHITE
 
 	func _draw() -> void:
-		var n := maxi(12, int(radius * 0.9))
+		var u := Fx.unit
+		var n := maxi(12, int(radius * 0.9 / (u / 2.0)))
 		for i in n:
 			var a := TAU * i / n
-			var p := Vector2(roundf(cos(a) * radius / 2.0) * 2.0, roundf(sin(a) * radius / 2.0) * 2.0)
-			draw_rect(Rect2(p - Vector2(2, 2), Vector2(4, 4)), Color(color, alpha))
+			var p := Vector2(roundf(cos(a) * radius / u) * u, roundf(sin(a) * radius / u) * u)
+			draw_rect(Rect2(p - Vector2(u, u), Vector2(u * 2.0, u * 2.0)), Color(color, alpha))
