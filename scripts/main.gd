@@ -52,6 +52,7 @@ var _cup_hint: Label
 var _coach_label: Label
 var _coach_hand: TextureRect
 var _coach_glow: Sprite2D
+var _coach_base := Vector2.ZERO
 var _bubble: Node2D
 var _coin_icon: Sprite2D
 var _coins_label: Label
@@ -81,6 +82,7 @@ func _ready() -> void:
 	post.night_threshold = 0.97
 	post.day_bloom = 0.4
 	post.night_bloom = 0.4
+	post.vignette_mul = 0.5
 	add_child(post)
 	GameState.coins_changed.connect(_on_coins_changed)
 	_shown_coins = GameState.coins
@@ -99,11 +101,7 @@ func _build_wall() -> void:
 	var title := Ui.label("Тёплая Лапка", Rect2(76, 58, 208, 36), Ui.FONT_SIZE, Color("ffe6b0"), self, HORIZONTAL_ALIGNMENT_CENTER, true)
 	title.add_theme_color_override("font_outline_color", Color("3f2815"))
 	title.add_theme_constant_override("outline_size", Ui.PX * 2)
-	# банки и чашки на боковых полках
-	for i in 2:
-		_sprite(_cell(i, 3), Vector2(30 + i * 28, 184), 2.0)
-	_sprite(_cell(0, 0), Vector2(310, 184), 2.0)
-	_sprite(_cell(3, 3), Vector2(338, 184), 2.0)
+	# банки и чашки на боковых полках рисует BrewArt
 	for x in [44.0, 316.0]:
 		var lamp := BrewArt.PendantLamp.new()
 		lamp.position = Vector2(x, 48)
@@ -119,12 +117,8 @@ func _build_counter() -> void:
 	var machine := _sprite(_atlas(FURN, Rect2(131, 67, 11, 13)), Vector2(46, 288), 4.0)
 	machine.offset = Vector2(0, -6.5)
 	Fx.steam(self, Vector2(46, 252), 5).emitting = true
-	var plant := _sprite(_atlas(FURN, Rect2(97, 80, 14, 16)), Vector2(322, 284), 4.0)
+	var plant := _sprite(_atlas(FURN, Rect2(97, 80, 14, 16)), Vector2(324, 284), 4.0)
 	plant.offset = Vector2(0, -8)
-	plant.rotation = -0.03
-	var sway := plant.create_tween().set_loops()
-	sway.tween_property(plant, "rotation", 0.03, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	sway.tween_property(plant, "rotation", -0.03, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_bin = BrewArt.Bin.new()
 	_bin.position = BIN_POS
 	add_child(_bin)
@@ -143,7 +137,7 @@ func _build_table() -> void:
 	for id in Data.pastries:
 		pastries.append({"kind": "pastry", "id": id, "title": String(Data.pastries[id]["name"]), "tex": _pastry_tex(id)})
 	_lay_row(bases, 452.0)
-	_lay_row(pastries, 566.0)
+	_lay_row(pastries, 564.0)
 	_table.plates = []
 	for s in _sources:
 		_table.plates.append(s["center"])
@@ -154,10 +148,12 @@ func _build_table() -> void:
 		var cap := _label(s["title"], Rect2((s["center"] as Vector2).x - 54, (s["center"] as Vector2).y + 40, 108, 28), Color("fff1d6"), null, true)
 		cap.add_theme_color_override("font_outline_color", Color("3f2815"))
 		cap.add_theme_constant_override("outline_size", Ui.PX * 2)
-		var bob := icon.create_tween().set_loops()   # предметы на столе чуть «дышат»
-		bob.tween_interval(randf() * 1.5)
-		bob.tween_property(icon, "scale", Vector2(4.2, 3.9), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		bob.tween_property(icon, "scale", Vector2(4, 4), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		var rest_y := icon.position.y
+		var bob := icon.create_tween().set_loops()   # предметы на столе «дышат» — приподнимаются на целый пиксель сетки, без масштаба
+		bob.tween_interval(0.8 + randf() * 0.3)
+		bob.tween_callback(func() -> void: icon.position.y = rest_y - Fx.PX_GRID)
+		bob.tween_interval(0.8)
+		bob.tween_callback(func() -> void: icon.position.y = rest_y)
 
 
 ## Какие источники на столе: в обучении — заданные, иначе по купленным улучшениям (молочник, витрина).
@@ -181,8 +177,8 @@ func _lay_row(items: Array[Dictionary], y: float) -> void:
 	var xs: Array = []
 	match shown.size():
 		1: xs = [180.0]
-		2: xs = [110.0, 250.0]
-		_: xs = [70.0, 180.0, 290.0]
+		2: xs = [108.0, 252.0]
+		_: xs = [68.0, 180.0, 292.0]
 	for i in shown.size():
 		var s: Dictionary = shown[i]
 		var c := Vector2(float(xs[i]), y)
@@ -270,19 +266,20 @@ func _on_cat_left(cat: CatCustomer) -> void:
 	get_tree().create_timer(NEXT_CAT_DELAY).timeout.connect(_spawn_cat)
 
 
-## Заказ-«чек»: бумажка с напитком и выпечкой, выпрыгивает над котом.
+## Заказ-«чек»: бумажка с напитком и выпечкой, выезжает над котом. Иконки в масштабе 2 (как рамка и шрифт интерфейса),
+## подпись целиком над нижней тенью рамки.
 func _show_bubble() -> void:
 	_hide_bubble()
 	_bubble = Node2D.new()
 	_bubble.position = Vector2(180, 146)
 	_bubble.z_index = 6
 	add_child(_bubble)
-	Ui.panel(Rect2(-120, -50, 240, 100), Ui.UI_CREAM, _bubble)
+	Ui.panel(Rect2(-120, -46, 240, 92), Ui.UI_CREAM, _bubble)
 	# хвостик чека к коту
 	for i in 3:
 		var w := 16.0 - i * 4.0
 		var tail := ColorRect.new()
-		tail.position = Vector2(-w / 2.0, 50 + i * 4)
+		tail.position = Vector2(-w / 2.0, 46 + i * 4)
 		tail.size = Vector2(w, 4)
 		tail.color = Color("fff0cd")
 		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -293,24 +290,26 @@ func _show_bubble() -> void:
 	var drink_x := 0.0
 	var icons: Array[Sprite2D] = []
 	if pastry_id != "":
-		drink_x = -40.0
+		drink_x = -32.0
 		title += " + " + String(Data.pastries[pastry_id]["name"]).to_lower()
-		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(44, -10), 4.0, _bubble))
-	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -10), 4.0, _bubble))
-	_label(title, Rect2(-120, 20, 240, 28), INK, _bubble, true)
-	Fx.pop_in(_bubble, 0.5)
+		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(32, -14), 2.0, _bubble))
+	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14), 2.0, _bubble))
+	_label(title, Rect2(-120, 2, 240, 28), INK, _bubble, true)
+	Fx.rise_in(_bubble, 24.0, 0.3, 2.0)
 	for i in icons.size():   # значки подпрыгивают друг за другом
-		Fx.pop(icons[i], 1.5, 0.55)
+		var icon := icons[i]
+		get_tree().create_timer(0.3 + i * 0.12).timeout.connect(func() -> void:
+			if is_instance_valid(icon):
+				Fx.hop(icon, 8.0, 0.3, 2.0))
 
 
 func _hide_bubble() -> void:
 	if _bubble:
 		var b := _bubble
 		_bubble = null
-		var t := b.create_tween().set_parallel(true)
-		t.tween_property(b, "scale", Vector2(0.2, 0.2), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-		t.tween_property(b, "modulate:a", 0.0, 0.2)
-		t.chain().tween_callback(b.queue_free)
+		var t := b.create_tween()   # без масштаба: плашка просто гаснет
+		t.tween_property(b, "modulate:a", 0.0, 0.15)
+		t.tween_callback(b.queue_free)
 
 
 # ---------------------------------------------------------------- перетаскивание
@@ -332,29 +331,24 @@ func _begin_drag(p: Vector2) -> void:
 	if not _tray.is_empty() and Rect2(_tray.position - Vector2(100, 80), Vector2(200, 120)).has_point(p):
 		_drag = {"kind": "tray", "grab": _tray.position - p}
 		_tray.z_index = 50
-		var t := _tray.create_tween().set_parallel(true)
-		t.tween_property(_tray, "lift", 12.0, 0.12)
-		t.tween_property(_tray, "scale", Vector2(1.08, 1.08), 0.12)
+		_tray.create_tween().tween_property(_tray, "lift", 12.0, 0.12)   # поднимается — тень уезжает вниз
 		return
 	for s in _sources:
 		if (s["rect"] as Rect2).has_point(p):
 			var ghost := _sprite(s["tex"], p + Vector2(0, -24), 4.0)
 			ghost.z_index = 100
 			_drag = {"kind": s["kind"], "id": s["id"], "ghost": ghost, "src": s}
-			Fx.pop(s["icon"], 1.35, 0.3)
+			Fx.hop(s["icon"], 8.0, 0.25)
 			Fx.burst(_fx, (s["center"] as Vector2) + Vector2(0, 10), "dot", Color("ffffff"), 4, 50.0, 60.0, 0.35, 0.8)
 			return
 
 
 func _drag_to(p: Vector2) -> void:
 	if _drag["kind"] == "tray":
-		_tray.position = p + (_drag["grab"] as Vector2)
-		_tray.rotation = lerpf(_tray.rotation, clampf(((_tray.position.x - 180.0) / 180.0) * 0.12, -0.12, 0.12), 0.5)
+		_tray.position = _snap(p + (_drag["grab"] as Vector2))
 		return
 	var ghost: Sprite2D = _drag["ghost"]
-	var target := p + Vector2(0, -24)
-	ghost.rotation = lerpf(ghost.rotation, clampf((target.x - ghost.position.x) * 0.03, -0.35, 0.35), 0.4)
-	ghost.position = target
+	ghost.position = _snap(p + Vector2(0, -24))
 
 
 func _end_drag() -> void:
@@ -372,18 +366,12 @@ func _end_drag() -> void:
 		_add_ingredient(String(d["kind"]), String(d["id"]), drop)
 	else:   # промах: ингредиент возвращается на место
 		var src: Dictionary = d["src"]
-		var t := ghost.create_tween().set_parallel(true)
-		t.tween_property(ghost, "position", (src["center"] as Vector2) + Vector2(0, -4), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(ghost, "rotation", 0.0, 0.2)
-		t.chain().tween_callback(ghost.queue_free)
+		_glide(ghost, (src["center"] as Vector2) + Vector2(0, -4), 0.2).tween_callback(ghost.queue_free)
 	_refresh_cup()
 
 
 func _drop_tray() -> void:
-	var t := _tray.create_tween().set_parallel(true)
-	t.tween_property(_tray, "lift", 0.0, 0.12)
-	t.tween_property(_tray, "rotation", 0.0, 0.12)
-	t.tween_property(_tray, "scale", Vector2.ONE, 0.12)
+	_tray.create_tween().tween_property(_tray, "lift", 0.0, 0.12)
 	_tray.z_index = 0
 	var drop := _tray.position
 	if drop.distance_to(BIN_POS) < 52.0:
@@ -395,8 +383,7 @@ func _drop_tray() -> void:
 
 
 func _return_tray() -> void:
-	var t := _tray.create_tween()
-	t.tween_property(_tray, "position", TRAY_HOME, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_glide(_tray, TRAY_HOME, 0.22)
 
 
 ## Всё с подноса — в корзину.
@@ -406,8 +393,7 @@ func _discard_cup() -> void:
 	_cup.clear()
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
-	var t := _tray.create_tween()
-	t.tween_property(_tray, "position", TRAY_HOME, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_glide(_tray, TRAY_HOME, 0.25)
 	_refresh_cup()
 
 
@@ -415,7 +401,7 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 	var err := _cup.add(kind, id)
 	if err != "":
 		_toast(err, _tray.position + Vector2(0, -90))
-		Fx.shake(_tray, 6.0, 0.3, 5)
+		Fx.shake(_tray, 8.0, 0.3, 5, Fx.PX_GRID)
 		return
 	var color := Color("ffffff")
 	match id:
@@ -474,10 +460,7 @@ func _serve() -> void:
 func _play_serve(ok: bool, total: int, tip: int, bonus: int) -> void:
 	_tray.set_ready(false)
 	var cat := _cat
-	var t := _tray.create_tween().set_parallel(true)
-	t.tween_property(_tray, "position", CAT_POS + Vector2(0, 40), 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	t.tween_property(_tray, "scale", Vector2(0.75, 0.75), 0.25)
-	t.chain().tween_callback(_on_tray_delivered.bind(cat, ok, total, tip, bonus))
+	_glide(_tray, CAT_POS + Vector2(0, 40), 0.25, Tween.TRANS_BACK, Tween.EASE_IN).tween_callback(_on_tray_delivered.bind(cat, ok, total, tip, bonus))
 
 
 func _on_tray_delivered(cat: CatCustomer, ok: bool, total: int, tip: int, bonus: int) -> void:
@@ -518,9 +501,8 @@ func _finish_serve(cat: CatCustomer, ok: bool) -> void:
 
 func _reset_tray() -> void:
 	_tray.position = TRAY_HOME
-	_tray.scale = Vector2.ONE
 	_tray.visible = true
-	Fx.pop_in(_tray, 0.4)
+	Fx.rise_in(_tray, 24.0, 0.3)
 	_refresh_cup()
 
 
@@ -530,19 +512,19 @@ func _reject_in_tutorial() -> void:
 	_cup.clear()
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
-	Fx.shake(_tray, 8.0, 0.4, 6)
+	Fx.shake(_tray, 8.0, 0.4, 6, Fx.PX_GRID)
 	if is_instance_valid(_cat):
 		_cat.react_no()
 		Fx.burst(_fx, _cat.center() + Vector2(30, -50), "sweat", Color("8fd6ff"), 3, 80.0, 200.0, 0.8, 1.0, 40.0, Vector2(1, -0.4))
 	_toast("%s просит: %s" % [String(_cat.def.get("name", "Кот")), String(drink["name"]).to_lower()], Vector2(180, 392))
-	var t := _tray.create_tween()
-	t.tween_interval(0.35)
-	t.tween_property(_tray, "position", TRAY_HOME, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	get_tree().create_timer(0.35).timeout.connect(func() -> void:
+		if is_instance_valid(_tray):
+			_glide(_tray, TRAY_HOME, 0.25))
 	_refresh_cup()
 
 
 func _on_coin_landed() -> void:
-	Fx.pop(_coin_icon, 1.6, 0.3)
+	Fx.hop(_coin_icon, 6.0, 0.25, 2.0)
 	Fx.burst(_fx, COIN_POS, "sparkle", Color("fff3b0"), 3, 60.0, 0.0, 0.35, 0.7)
 
 
@@ -550,7 +532,7 @@ func _shake_screen(amp: float) -> void:
 	var base := position
 	var t := create_tween()
 	for i in 6:
-		t.tween_property(self, "position", base + Vector2(randf_range(-amp, amp), randf_range(-amp, amp)) * (1.0 - i / 6.0), 0.04)
+		t.tween_property(self, "position", base + _snap(Vector2(randf_range(-amp, amp), randf_range(-amp, amp)) * (1.0 - i / 6.0)), 0.04)
 	t.tween_property(self, "position", base, 0.04)
 
 
@@ -630,6 +612,7 @@ func _update_coach() -> void:
 	elif step.has("target"):
 		target = step["target"]
 	_coach_hand.visible = target != Vector2.ZERO
+	_coach_base = target
 	_coach_hand.position = target
 	if _coach_glow != null:
 		_coach_glow.queue_free()
@@ -637,9 +620,11 @@ func _update_coach() -> void:
 	if step.has("source") and target != Vector2.ZERO:
 		_coach_glow = Fx.glow(self, target + Vector2(0, -40), Vector2(170, 150), Color("fff0a0"))
 	if not _coach_hand.has_meta("bob"):
-		var bob := _coach_hand.create_tween().set_loops()
-		bob.tween_property(_coach_hand, "scale", Vector2(1.15, 1.15), 0.4).set_trans(Tween.TRANS_SINE)
-		bob.tween_property(_coach_hand, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_SINE)
+		var bob := _coach_hand.create_tween().set_loops()   # рука «тычет» вниз на пиксель сетки
+		bob.tween_callback(func() -> void: _coach_hand.position = _coach_base + Vector2(0, 4))
+		bob.tween_interval(0.4)
+		bob.tween_callback(func() -> void: _coach_hand.position = _coach_base)
+		bob.tween_interval(0.4)
 		_coach_hand.set_meta("bob", true)
 
 
@@ -672,6 +657,19 @@ func _atlas(tex: Texture2D, region: Rect2) -> AtlasTexture:
 	a.atlas = tex
 	a.region = region
 	return a
+
+
+## Привязка к сетке крупного плана (4 px): всё, что движется под пальцем, стоит только на целых пикселях.
+func _snap(p: Vector2) -> Vector2:
+	return Vector2(snappedf(p.x, Fx.PX_GRID), snappedf(p.y, Fx.PX_GRID))
+
+
+## Плавно ведёт узел к точке, но кадры стоят на сетке (без дробных пикселей). Возвращает Tween — к нему можно добавить шаг.
+func _glide(n: Node2D, to: Vector2, time: float, trans := Tween.TRANS_BACK, ease := Tween.EASE_OUT) -> Tween:
+	var from := n.position
+	var t := n.create_tween()
+	t.tween_method(func(u: float) -> void: n.position = _snap(from.lerp(to, u)), 0.0, 1.0, time).set_trans(trans).set_ease(ease)
+	return t
 
 
 func _sprite(tex: Texture2D, pos: Vector2, s: float, parent: Node = null) -> Sprite2D:

@@ -4,6 +4,7 @@ extends RefCounted
 ## кольца-волны, летящие монеты, баннеры. Текстуры частиц рисуются из ASCII-карт и красятся через color/modulate.
 ## Масштаб как у всей графики: 1 пиксель арта = PX логических.
 
+const PX_GRID := 4.0   # пиксель арта «крупного плана» (мини-игра): спрайты там ×4
 const PX := 2.0
 
 const ART := {
@@ -164,6 +165,27 @@ static func pop_in(n: Node2D, time := 0.5, delay := 0.0) -> void:
 	t.tween_property(n, "scale", base, time).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## Подскок на месте строго по сетке: узел не масштабируется и не вращается, высота кратна step.
+static func hop(n: Node2D, height := 8.0, time := 0.3, step := 4.0) -> void:
+	var base_y := n.position.y
+	var t := n.create_tween()
+	t.tween_method(func(u: float) -> void: n.position.y = base_y - snappedf(sin(u * PI) * height, step), 0.0, 1.0, time)
+	t.tween_callback(func() -> void: n.position.y = base_y)
+
+
+## Появление «выезжает снизу» шагами по сетке (без масштаба) + проявление.
+static func rise_in(n: CanvasItem, dy := 16.0, time := 0.3, step := 4.0) -> void:
+	var base: Vector2 = n.position
+	n.modulate.a = 0.0
+	var t := n.create_tween()
+	t.tween_method(func(u: float) -> void:
+		n.position = base + Vector2(0, snappedf(dy * (1.0 - u), step))
+		n.modulate.a = 1.0 if u > 0.25 else 0.0, 0.0, 1.0, time)
+	t.tween_callback(func() -> void:
+		n.position = base
+		n.modulate.a = 1.0)
+
+
 ## Сплющивание-растяжение прыжка (по спрайту) + подскок.
 static func squash_hop(n: Node2D, height := 18.0) -> void:
 	var base_s := n.scale
@@ -177,12 +199,12 @@ static func squash_hop(n: Node2D, height := 18.0) -> void:
 
 
 ## Тряска по горизонтали (отрицательный ответ «нет» или удар).
-static func shake(n: Node2D, amp := 6.0, time := 0.35, shakes := 6) -> void:
+static func shake(n: Node2D, amp := 6.0, time := 0.35, shakes := 6, step := 2.0) -> void:
 	var base := n.position
 	var t := n.create_tween()
 	for i in shakes:
 		var k := 1.0 - float(i) / float(shakes)
-		t.tween_property(n, "position:x", base.x + (amp if i % 2 == 0 else -amp) * k, time / shakes)
+		t.tween_property(n, "position:x", base.x + snappedf((amp if i % 2 == 0 else -amp) * k, step), time / shakes)
 	t.tween_property(n, "position", base, 0.03)
 
 

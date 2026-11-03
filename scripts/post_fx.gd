@@ -9,6 +9,7 @@ var day_threshold := 0.93
 var night_threshold := 0.60
 var day_bloom := 0.28
 var night_bloom := 0.95
+var vignette_mul := 1.0   # множитель виньетки (в мини-игре слабее: рисунок крупный, дизеринг не должен забивать его)
 var _mat: ShaderMaterial
 
 
@@ -34,4 +35,4 @@ func _update() -> void:
 	_mat.set_shader_parameter("art_px", maxf(1.0, sc * 2.0))
 	_mat.set_shader_parameter("threshold", lerpf(day_threshold, night_threshold, night))
 	_mat.set_shader_parameter("bloom", lerpf(day_bloom, night_bloom, night))
-	_mat.set_shader_parameter("vignette", 0.45 + 0.35 * night)
+	_mat.set_shader_parameter("vignette", (0.45 + 0.35 * night) * vignette_mul)

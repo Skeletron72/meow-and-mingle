@@ -42,14 +42,15 @@ func enter(target_x: float) -> void:
 	var dist := absf(position.x - target_x)
 	var time := dist / 380.0 + 0.4
 	var t := create_tween()
-	t.tween_property(self, "position:x", target_x, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	var from_x := position.x
+	t.tween_method(func(u: float) -> void: position.x = snappedf(lerpf(from_x, target_x, u), PIXEL_SCALE), 0.0, 1.0, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	var bob := create_tween()   # шаги: подпрыгивает на ходу
 	bob.tween_method(_walk_bob, 0.0, 1.0, time)
 	t.tween_callback(_on_arrived)
 
 
 func _walk_bob(u: float) -> void:
-	_sprite.position.y = -absf(sin(u * PI * 9.0)) * 8.0 * (1.0 - u * 0.6)
+	_sprite.position.y = -snappedf(absf(sin(u * PI * 9.0)) * 8.0 * (1.0 - u * 0.6), PIXEL_SCALE)   # шаги по целым пикселям
 
 
 func leave(happy: bool) -> void:
@@ -60,9 +61,12 @@ func leave(happy: bool) -> void:
 		_sprite.modulate = _sprite.modulate.darkened(0.35)
 	var t := create_tween()
 	if happy:
-		t.tween_property(_sprite, "position:y", -12.0, 0.12)
-		t.tween_property(_sprite, "position:y", 0.0, 0.12)
-	t.tween_property(self, "position:x", -80.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		t.tween_callback(func() -> void: _sprite.position.y = -PIXEL_SCALE * 3.0)
+		t.tween_interval(0.12)
+		t.tween_callback(func() -> void: _sprite.position.y = 0.0)
+		t.tween_interval(0.12)
+	var from_x := position.x
+	t.tween_method(func(u: float) -> void: position.x = snappedf(lerpf(from_x, -80.0, u), PIXEL_SCALE), 0.0, 1.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	var bob := create_tween()
 	bob.tween_interval(0.24)
 	bob.tween_method(_walk_bob, 0.0, 1.0, 1.0)
@@ -73,20 +77,20 @@ func leave(happy: bool) -> void:
 func react_happy() -> void:
 	_stop_idle()
 	_sprite.position.y = 0.0
-	Fx.squash_hop(_sprite, 26.0)
+	Fx.hop(_sprite, 24.0, 0.45, PIXEL_SCALE)
 	get_tree().create_timer(0.5).timeout.connect(_start_idle)
 
 
 ## «Не то!»: качает головой.
 func react_no() -> void:
 	_stop_idle()
-	Fx.shake(_sprite, 8.0, 0.5, 8)
+	Fx.shake(_sprite, 8.0, 0.5, 8, PIXEL_SCALE)
 	get_tree().create_timer(0.6).timeout.connect(_start_idle)
 
 
 func _on_arrived() -> void:
 	_sprite.position.y = 0.0
-	Fx.squash_hop(_sprite, 10.0)
+	Fx.hop(_sprite, 8.0, 0.3, PIXEL_SCALE)
 	_start_idle()
 	arrived.emit()
 
@@ -97,8 +101,10 @@ func _start_idle() -> void:
 	_stop_idle()
 	_sprite.position = Vector2.ZERO
 	_idle = create_tween().set_loops()
-	_idle.tween_property(_sprite, "position:y", -4.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_idle.tween_property(_sprite, "position:y", 0.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_idle.tween_interval(0.6)   # «дыхание» целым пикселем: вверх на 4 px и обратно
+	_idle.tween_callback(func() -> void: _sprite.position.y = -PIXEL_SCALE)
+	_idle.tween_interval(0.6)
+	_idle.tween_callback(func() -> void: _sprite.position.y = 0.0)
 	_blink.start(randf_range(1.2, 3.5))
 
 

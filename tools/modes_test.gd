@@ -34,6 +34,7 @@ func _ready() -> void:
 	_test_save_migration()
 	_test_assets()
 	await _test_pixel_lighting()
+	await _test_brew_grid()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -1068,4 +1069,29 @@ func _test_pixel_lighting() -> void:
 		TimeOfDay.hour = h
 		await get_tree().process_frame
 	city.queue_free()
+	await get_tree().process_frame
+
+
+## Мини-игра на сетке крупного плана (4 px): спрайты и поднос стоят на сетке, без дробного масштаба и поворота.
+func _test_brew_grid() -> void:
+	var brew: Node2D = load(Nav.BREW).instantiate()
+	add_child(brew)
+	await get_tree().process_frame
+	await get_tree().create_timer(2.0).timeout
+	var tray: ServingTray = brew.get("_tray")
+	_check(tray.scale == Vector2.ONE and is_zero_approx(tray.rotation), "поднос не растянут и не повёрнут")
+	_check(fmod(tray.position.x, 4.0) == 0.0 and fmod(tray.position.y, 4.0) == 0.0, "поднос стоит на сетке 4 px")
+	for plate in brew.get("_table").plates:
+		_check(fmod(plate.x, 4.0) == 0.0 and fmod(plate.y, 4.0) == 0.0, "центр тарелки на сетке: %s" % plate)
+	for s in brew.get("_sources"):
+		var icon: Sprite2D = s["icon"]
+		_check(icon.scale == Vector2(4, 4), "иконка источника в целом масштабе")
+		var tl: Vector2 = icon.position - Vector2(32, 32)
+		_check(fmod(absf(tl.x), 4.0) == 0.0 and fmod(absf(tl.y), 4.0) == 0.0, "иконка на сетке: %s" % tl)
+	var bubble: Node2D = brew.get("_bubble")
+	if bubble != null:
+		for c in bubble.get_children():
+			if c is Sprite2D:
+				_check((c as Sprite2D).scale == Vector2(2, 2), "иконка в плашке заказа — масштаб 2")
+	brew.queue_free()
 	await get_tree().process_frame

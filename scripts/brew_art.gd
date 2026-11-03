@@ -1,14 +1,18 @@
 class_name BrewArt
 extends Node2D
-## Пиксельная графика сцены готовки (рисуется кодом, все размеры кратны пикселю арта = 2 px):
+## Пиксельная графика сцены готовки. Сцена — «крупный план»: спрайты (чашки, кот) стоят в масштабе 4, поэтому
+## и всё, что рисуется кодом, лежит на той же сетке G = 4 px (пиксель арта крупного плана; клетка 16×16 = 64 px).
+## У предметов тёмная обводка в один такой пиксель, как у спрайтов:
 ## стена с полками и вывеской, прилавок (столешница + фасад), рабочий стол с тарелками, лампы и корзина.
 ## Один узел — одна часть сцены: так прилавок можно рисовать поверх кота, а стол — отдельно.
 
 enum Part { WALL, COUNTER, TABLE }
 
+const G := 4.0              # пиксель арта в этой сцене (px логических)
 const TOP_Y := 268.0       # задний край столешницы прилавка (кот стоит за ним)
 const FRONT_Y := 332.0     # верх фасада прилавка
 const TABLE_Y := 396.0     # верх рабочего стола
+const OUTLINE := Color("2f2030")   # обводка предметов (как у спрайтов)
 
 const WALL := Color("cdb892")
 const WALL_STRIPE := Color("d8c6a3")
@@ -29,8 +33,8 @@ const PLATE := Color("f4ecd8")
 const PLATE_RIM := Color("d4c6a6")
 
 var part := Part.WALL
-var plates: Array[Vector2] = []   # центры тарелок на столе
-var plate_radius := 38.0
+var plates: Array[Vector2] = []   # центры тарелок на столе (кратны G)
+var plate_radius := 36.0
 
 
 func _draw() -> void:
@@ -47,13 +51,45 @@ func _r(x: float, y: float, w: float, h: float, c: Color) -> void:
 	draw_rect(Rect2(x, y, w, h), c)
 
 
-## Пиксельный диск (строками по 2 px).
+## Пиксельный диск (строками по G).
 func _disc(c: Vector2, r: float, color: Color) -> void:
-	var dy := -r
-	while dy < r:
-		var half := floorf(sqrt(maxf(0.0, r * r - (dy + 1.0) * (dy + 1.0))) / 2.0) * 2.0
-		_r(c.x - half, c.y + dy, half * 2.0, 2.0, color)
-		dy += 2.0
+	_ellipse(c, r, r, color)
+
+
+## Пиксельный эллипс: строки по G, ширина строки кратна 2G.
+func _ellipse(c: Vector2, rx: float, ry: float, color: Color) -> void:
+	_ellipse_on(self, c, rx, ry, color)
+
+
+static func _ellipse_on(ci: CanvasItem, c: Vector2, rx: float, ry: float, color: Color) -> void:
+	var dy := -ry
+	while dy < ry:
+		var k := 1.0 - pow((dy + G / 2.0) / ry, 2.0)
+		var half := floorf(rx * sqrt(maxf(0.0, k)) / G) * G
+		if half > 0.0:
+			ci.draw_rect(Rect2(c.x - half, c.y + dy, half * 2.0, G), color)
+		dy += G
+
+
+## Предмет из строк [y, полуширина, цвет] с обводкой в один пиксель сетки и бликом слева / тенью справа.
+static func shape(ci: CanvasItem, rows: Array, outline := OUTLINE, shade := true) -> void:
+	for i in rows.size():
+		var row: Array = rows[i]
+		var y: float = row[0]
+		var hw: float = row[1]
+		ci.draw_rect(Rect2(-hw - G, y, (hw + G) * 2.0, G), outline)
+		if i == 0:
+			ci.draw_rect(Rect2(-hw, y - G, hw * 2.0, G), outline)
+		if i == rows.size() - 1:
+			ci.draw_rect(Rect2(-hw, y + G, hw * 2.0, G), outline)
+	for row in rows:
+		var y: float = row[0]
+		var hw: float = row[1]
+		var c: Color = row[2]
+		ci.draw_rect(Rect2(-hw, y, hw * 2.0, G), c)
+		if shade and hw >= G * 2.0:
+			ci.draw_rect(Rect2(-hw, y, G, G), c.lightened(0.18))
+			ci.draw_rect(Rect2(hw - G, y, G, G), c.darkened(0.18))
 
 
 func _draw_wall() -> void:
@@ -63,68 +99,82 @@ func _draw_wall() -> void:
 	_r(0, 236, 360, 16, BASEBOARD)
 	_r(0, 248, 360, 4, BASEBOARD.darkened(0.35))
 	# вывеска на цепочках
-	for cx in [104, 256]:
-		_r(cx, 44, 2, 14, Color("4a4256"))
+	for cx in [100, 252]:
+		_r(cx, 40, 4, 16, Color("4a4256"))
 	_r(76, 56, 208, 40, Color("3f2815"))
 	_r(80, 60, 200, 32, Color("6b4527"))
 	_r(80, 60, 200, 4, Color("8a5a34"))
 	_r(84, 64, 192, 24, Color("8a5a34").darkened(0.1))
-	# полки по бокам от кота
+	# полки по бокам от кота: на каждой по одной вещи
 	for sx in [8.0, 288.0]:
 		_r(sx, 200, 64, 8, Color("8a5a34"))
-		_r(sx, 200, 64, 2, Color("b98552"))
+		_r(sx, 200, 64, 4, Color("b98552"))
 		_r(sx, 208, 64, 4, Color("3f2815"))
-		_r(sx + 6, 208, 6, 14, Color("5f3b20"))
-		_r(sx + 52, 208, 6, 14, Color("5f3b20"))
-	# затенение по углам и под потолком: дизеринг, а не плавный градиент
-	draw_texture_rect(PixelArt.dither_gradient(180, 10, false, false), Rect2(0, 0, 360, 20), false, Color(0, 0, 0, 0.30))
-	draw_texture_rect(PixelArt.dither_gradient(10, 134, true, false), Rect2(0, 0, 20, 268), false, Color(0, 0, 0, 0.22))
-	draw_texture_rect(PixelArt.dither_gradient(10, 134, true, true), Rect2(340, 0, 20, 268), false, Color(0, 0, 0, 0.22))
+		_r(sx + 8, 212, 8, 12, Color("5f3b20"))
+		_r(sx + 48, 212, 8, 12, Color("5f3b20"))
+	# на полках — банка и чашка, нарисованные на той же сетке и с той же обводкой
+	var lid := Color("c9a06a")
+	draw_set_transform(Vector2(24, 0))
+	shape(self, [[172, 8, lid], [176, 12, Color("b23a48")], [180, 12, Color("b23a48")], [184, 12, Color("b23a48")], [188, 12, Color("b23a48")], [192, 12, Color("b23a48")]])
+	draw_set_transform(Vector2(56, 0))
+	shape(self, [[184, 8, Color("f4ecd8")], [188, 8, Color("f4ecd8")], [192, 8, Color("e4d6b4")]])
+	draw_set_transform(Vector2(304, 0))
+	shape(self, [[180, 12, Color("e8c15a")], [184, 12, Color("e8c15a")], [188, 12, Color("e8c15a")], [192, 12, Color("d9a93f")]])
+	draw_set_transform(Vector2(336, 0))
+	shape(self, [[176, 8, lid], [180, 8, Color("f4ecd8")], [184, 8, Color("f4ecd8")], [188, 8, Color("f4ecd8")], [192, 8, Color("e4d6b4")]])
+	draw_set_transform(Vector2.ZERO)
+	# затенение по углам и под потолком: дизеринг в пикселях сетки (по 4 px)
+	draw_texture_rect(PixelArt.dither_gradient(90, 5, false, false), Rect2(0, 0, 360, 20), false, Color(0, 0, 0, 0.30))
+	draw_texture_rect(PixelArt.dither_gradient(5, 67, true, false), Rect2(0, 0, 20, 268), false, Color(0, 0, 0, 0.22))
+	draw_texture_rect(PixelArt.dither_gradient(5, 67, true, true), Rect2(340, 0, 20, 268), false, Color(0, 0, 0, 0.22))
 
 
 func _draw_counter() -> void:
-	# столешница сверху: задний край, доски, передняя кромка
+	# столешница сверху: четыре ряда досок по 16, стыки вразбежку
 	_r(0, TOP_Y, 360, FRONT_Y - TOP_Y, COUNTER_TOP)
-	for y in [286.0, 304.0]:
-		_r(0, y, 360, 2, COUNTER_TOP_D)
-	var offs := [34.0, 150.0, 262.0]
-	for i in 3:   # стыки досок вразбежку
-		var row_y := TOP_Y + i * 18.0
-		_r(offs[i] + (i % 2) * 40.0, row_y, 2, 18, COUNTER_TOP_D)
-		_r(offs[(i + 1) % 3] + 190.0 - (i % 2) * 60.0, row_y, 2, 18, COUNTER_TOP_D)
+	for i in 4:
+		var row_y := TOP_Y + i * 16.0
+		_r(0, row_y + 12.0, 360, 4, COUNTER_TOP_D)
+		for j in 2:
+			var x := floorf(fmod(36.0 + i * 92.0 + j * 180.0, 356.0) / G) * G
+			_r(x, row_y, 4, 12, COUNTER_TOP_D)
 	_r(0, TOP_Y, 360, 4, COUNTER_TOP_D.darkened(0.2))
-	_r(0, FRONT_Y - 8, 360, 6, COUNTER_TOP_L)
-	_r(0, FRONT_Y - 2, 360, 2, COUNTER_TOP_D)
+	_r(0, FRONT_Y - 12, 360, 8, COUNTER_TOP_L)
+	_r(0, FRONT_Y - 4, 360, 4, COUNTER_TOP_D)
 	# фасад: филёнки
 	_r(0, FRONT_Y, 360, 56, FRONT)
 	_r(0, FRONT_Y, 360, 4, FRONT_L)
 	for i in 4:
-		var x := 10.0 + i * 88.0
-		_r(x, 344, 76, 34, FRONT_D)
-		_r(x + 4, 348, 68, 26, FRONT)
-		_r(x + 4, 348, 68, 2, FRONT_L)
-		_r(x + 4, 372, 68, 2, FRONT_D.lightened(0.05))
+		var x := 12.0 + i * 88.0
+		_r(x, 344, 72, 32, FRONT_D)
+		_r(x + 4, 348, 64, 24, FRONT)
+		_r(x + 4, 348, 64, 4, FRONT_L)
+		_r(x + 4, 368, 64, 4, FRONT_D.lightened(0.05))
 	_r(0, 380, 360, 8, PLINTH)
-	draw_texture_rect(PixelArt.dither_gradient(180, 10, false, false), Rect2(0, 388, 360, 20), false, Color(0, 0, 0, 0.45))   # тень прилавка на стол
+	draw_texture_rect(PixelArt.dither_gradient(90, 5, false, false), Rect2(0, 388, 360, 20), false, Color(0, 0, 0, 0.45))   # тень прилавка на стол
 
 
 func _draw_table() -> void:
+	# стол — плитка 16×16 пикселей арта (64 px): ряды досок со стыками вразбежку
 	_r(0, TABLE_Y, 360, 244, TABLE)
-	for i in 7:
-		var y := TABLE_Y + i * 36.0
-		_r(0, y, 360, 36, TABLE if i % 2 == 0 else TABLE_B)
-		_r(0, y, 360, 2, TABLE_SEAM)
+	for i in 4:
+		var y := TABLE_Y + i * 64.0
+		_r(0, y, 360, 64, TABLE if i % 2 == 0 else TABLE_B)
+		_r(0, y, 360, 4, TABLE_SEAM)
+		for j in 4:
+			_r(36.0 + (i % 2) * 64.0 + j * 128.0, y, 4, 64, TABLE_SEAM)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
-	for _i in 46:   # волокна дерева
-		_r(snappedf(rng.randf_range(0, 330), 2.0), snappedf(rng.randf_range(TABLE_Y + 8, 636), 2.0), snappedf(rng.randf_range(12, 34), 2.0), 2, TABLE_GRAIN)
-	_r(0, TABLE_Y, 360, 6, TABLE_L)
-	_r(0, TABLE_Y + 6, 360, 2, TABLE_SEAM)
-	for c in plates:   # тарелки: тень, борт, дно
-		_disc(c + Vector2(0, 6), plate_radius, Color(0, 0, 0, 0.22))
+	for _i in 36:   # волокна дерева
+		_r(snappedf(rng.randf_range(0, 330), G), snappedf(rng.randf_range(TABLE_Y + 12, 636), G), snappedf(rng.randf_range(8, 28), G), 4, TABLE_GRAIN)
+	_r(0, TABLE_Y, 360, 8, TABLE_L)
+	_r(0, TABLE_Y + 8, 360, 4, TABLE_SEAM)
+	for c in plates:   # тарелки: тень, обводка, борт, дно
+		_disc(c + Vector2(0, 8), plate_radius + G, Color(0, 0, 0, 0.22))
+		_disc(c, plate_radius + G, OUTLINE)
 		_disc(c, plate_radius, PLATE_RIM)
 		_disc(c, plate_radius - 4.0, PLATE)
-		_disc(c + Vector2(0, 2), plate_radius - 14.0, PLATE.darkened(0.04))
+		_disc(c + Vector2(0, 4), plate_radius - 12.0, PLATE.darkened(0.04))
 
 
 ## Подвесная лампа: покачивается на шнуре; свет — additive-ореол.
@@ -132,21 +182,21 @@ class PendantLamp extends Node2D:
 	var halo: Sprite2D
 
 	func _ready() -> void:
-		halo = Fx.pixel_light(Vector2(0, 74), Vector2(200, 160), Color(1.0, 0.82, 0.45, 0.5))
+		halo = Fx.pixel_light(Vector2(0, 76), Vector2(200, 160), Color(1.0, 0.82, 0.45, 0.5))
 		add_child(halo)
 		var base_x := position.x
-		var sway := create_tween().set_loops()   # качается шагами по 2 px — чистые пиксели, без поворота
-		sway.tween_method(func(u: float) -> void: position.x = base_x + roundf(sin(u * TAU) * 2.0 / 2.0) * 2.0, 0.0, 1.0, 3.2)
+		var sway := create_tween().set_loops()   # качается шагами по 4 px — пиксели остаются целыми, без поворота
+		sway.tween_method(func(u: float) -> void: position.x = base_x + snappedf(sin(u * TAU) * 4.0, 4.0), 0.0, 1.0, 3.2)
 		var f := create_tween().set_loops()   # лёгкое мерцание
 		f.tween_property(halo, "modulate:a", 0.38, 0.9).set_trans(Tween.TRANS_SINE)
 		f.tween_property(halo, "modulate:a", 0.55, 1.1).set_trans(Tween.TRANS_SINE)
 
 	func _draw() -> void:
-		draw_rect(Rect2(-1, 0, 2, 46), Color("4a4256"))
-		for i in 6:   # колпак ступеньками
-			var w := 16.0 + i * 6.0
-			draw_rect(Rect2(-w / 2.0, 44 + i * 4, w, 4), Color("c9573a").lightened(i * 0.03))
-		draw_rect(Rect2(-4, 68, 8, 6), Color("ffe9a0"))
+		draw_rect(Rect2(-2, 0, 4, 40), BrewArt.OUTLINE)   # шнур
+		var cap := Color("6b5f78")
+		var red := Color("d65a3c")
+		BrewArt.shape(self, [[40, 8, cap], [44, 12, red], [48, 16, red], [52, 20, red], [56, 24, red], [60, 28, red.darkened(0.08)]])
+		BrewArt.shape(self, [[68, 8, Color("ffe9a0")]], BrewArt.OUTLINE, false)   # лампочка
 
 
 ## Корзина для брака: подпрыгивает крышкой, когда в неё бросают.
@@ -158,14 +208,17 @@ class Bin extends Node2D:
 
 	func hop() -> void:
 		var t := create_tween()
-		t.tween_property(self, "lid_dy", -10.0, 0.08)
-		t.tween_property(self, "lid_dy", 0.0, 0.18).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		t.tween_method(func(u: float) -> void: lid_dy = -snappedf(sin(u * PI) * 12.0, 4.0), 0.0, 1.0, 0.28)
+		t.tween_callback(func() -> void: lid_dy = 0.0)
 
 	func _draw() -> void:
-		for i in 9:   # корпус ступеньками, сужается книзу
-			var w := 32.0 - i * 1.0
-			draw_rect(Rect2(-w / 2.0, -4 + i * 4, w, 4), Color("7d8594").darkened(i * 0.02))
-		for x in [-8.0, 0.0, 8.0]:
-			draw_rect(Rect2(x, 2, 2, 26), Color("5c6270"))
-		draw_rect(Rect2(-18, -10 + lid_dy, 36, 6), Color("a1a9b8"))
-		draw_rect(Rect2(-6, -14 + lid_dy, 12, 4), Color("a1a9b8"))
+		var body := Color("7d8594")
+		var rows: Array = []
+		for i in 7:   # корпус сужается книзу
+			rows.append([4 + i * 4, 16 if i < 4 else 12, body])
+		BrewArt.shape(self, rows)
+		for x in [-8.0, 4.0]:
+			draw_rect(Rect2(x, 8, 4, 20), Color("5c6270"))
+		var lid := Color("a1a9b8")
+		BrewArt.shape(self, [[-8 + lid_dy, 20, lid]])
+		BrewArt.shape(self, [[-16 + lid_dy, 8, lid]])
