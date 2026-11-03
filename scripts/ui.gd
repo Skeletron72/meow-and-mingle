@@ -10,7 +10,7 @@ const PX := 2
 const INK := Color("4a2e1a")
 const CREAM := Color("fff1d6")
 
-const ICONS: Texture2D = preload("res://IconsEssential.png")
+const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
 const UI_BTN: Texture2D = preload("res://assets/ui/SquareButton1_wood.png")
 const UI_WOOD: Texture2D = preload("res://assets/ui/WoodenContainer5.png")
 const UI_CREAM: Texture2D = preload("res://assets/ui/SimpleColorContainer1_cream.png")

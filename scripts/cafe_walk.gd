@@ -45,7 +45,7 @@ func _spawn_cats() -> void:
 ## Чашка кофе над стойкой: подсказка, что здесь можно работать.
 func _build_marker() -> void:
 	_marker = Sprite2D.new()
-	_marker.texture = Ui.atlas(preload("res://AssetPack_V01_FREE.png"), Rect2(32, 16, 16, 16))
+	_marker.texture = Ui.atlas(preload("res://assets/cafe/drinks-and-pastries.png"), Rect2(32, 16, 16, 16))
 	_marker.position = Vector2(68, 124)
 	_marker.scale = Vector2(2, 2)
 	_marker.z_index = 5

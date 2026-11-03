@@ -10,8 +10,8 @@ const PASTRY_CHANCE := 0.5
 const TRASH_POS := Vector2(318, 322)
 const INK := Ui.INK
 
-const COFFEE_SHEET: Texture2D = preload("res://AssetPack_V01_FREE.png")  # сетка 16x16, 5 колонок
-const ICONS: Texture2D = preload("res://IconsEssential.png")
+const COFFEE_SHEET: Texture2D = preload("res://assets/cafe/drinks-and-pastries.png")  # сетка 16x16, 5 колонок
+const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
 const FURN: Texture2D = preload("res://assets/cafe/neko-cafe-furnitures.png")
 
 var _cup := CupState.new()
