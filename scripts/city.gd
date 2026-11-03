@@ -3,24 +3,25 @@ extends Node2D
 ## (готовка идёт поверх города, без смены сцены), выйти на улицу и вернуться.
 ##
 ## Всё бесшовно: у кота один узел и один мир. Дверей нет — из проёма входа сразу тротуар, путь с улицы в зал
-## и обратно строится обычным поиском пути (WorldNav). Кафе — «рентген»: чем глубже кот в здании, тем прозрачнее фасад
-## и виднее интерьер; вышел — интерьер не рисуется. Так же заходят и выходят гуляющие коты.
+## и обратно строится обычным поиском пути (WorldNav). Кафе — «рентген»: как только кот заходит в здание, вокруг него
+## расходится пиксельный круг (диафрагма) и вырезает фасад, открывая интерьер; вышел — круг сжимается, видно здание.
+## Мебель и гости внутри обрезаются тем же кругом (шейдеры assets/shaders). Так же заходят и выходят гуляющие коты.
 ##
-## Улица (здания, предметы, зоны ходьбы, полосы машин, место интерьера) лежит в scenes/street.tscn — её правят в редакторе.
-## Слои мира: Ground, Buildings, Room (интерьер: пол, стена, коврики), Actors (всё, что сортируется по y: мебель,
-## коты, машины, предметы), Glow (свечение: окна, фонари, фары — не затемняется ночью). Небо — отдельный слой под миром.
+## Улица (земля тайлами, здания, предметы, зоны ходьбы, полосы машин, место интерьера) лежит в scenes/street.tscn —
+## её правят в редакторе. Слои мира: Ground, Room (интерьер: пол, стена, коврики — лежит под фасадом, виден через дыру),
+## Buildings, Actors (всё, что сортируется по y: мебель, коты, машины, предметы), Glow (свечение: окна, фонари, фары —
+## не затемняется ночью). Небо — отдельный слой под миром.
 
 const STREET_SCENE := "res://scenes/street.tscn"
 const PX := 2
 const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
-const DEPTH_ZONE := 44.0   # на сколько пикселей вглубь здания фасад прозрачнеет полностью
-
-const SIDEWALK := Color("b9b2aa")
-const SIDEWALK_LINE := Color("a39c95")
-const CURB := Color("d6cfc7")
-const ASPHALT := Color("464a55")
-const ASPHALT_LINE := Color("e8e2c8")
+const DEPTH_ZONE := 44.0   # на сколько пикселей вглубь здания считается «внутри»
+const IRIS_OPEN_SPEED := 620.0    # px/с: круг расходится
+const IRIS_CLOSE_SPEED := 900.0   # px/с: круг сжимается
+const HOLE_SHADER := preload("res://assets/shaders/xray_hole.gdshader")
+const CLIP_SHADER := preload("res://assets/shaders/xray_clip.gdshader")
+const CAMERA_FEET_OFFSET := 90.0   # лапки кота на улице — ниже центра экрана на столько
 
 var _level: StreetLevel
 var _world_size := Vector2(1440, 640)
@@ -37,7 +38,11 @@ var _nav: WorldNav
 var _cafe: StreetBuilding
 var _building_nodes: Array[StreetBuilding] = []
 var _interior_rect := Rect2()           # габарит интерьера в мире
-var _xray := 0.0                        # 0 — фасад закрыт, 1 — прозрачный, виден интерьер
+var _iris_r := 0.0                      # радиус пиксельного круга рентгена, px (0 — фасад целый)
+var _iris_max := 1.0                    # радиус, при котором круг накрывает весь интерьер
+var _xray := 0.0                        # _iris_r / _iris_max: 0 — закрыт, 1 — интерьер раскрыт целиком
+var _hole_mat: ShaderMaterial           # вырез в фасаде кафе
+var _clip_mat: ShaderMaterial           # обрезка мебели и гостей внутри здания
 var _player: CatWalker
 var _npcs: Array[Dictionary] = []       # {"cat": CatWalker, "timer": float}
 var _traffic: Traffic
@@ -60,9 +65,14 @@ func _ready() -> void:
 	_add_mat = CanvasItemMaterial.new()
 	_add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_halo_tex = _make_halo()
+	_hole_mat = ShaderMaterial.new()
+	_hole_mat.shader = HOLE_SHADER
+	_clip_mat = ShaderMaterial.new()
+	_clip_mat.shader = CLIP_SHADER
 	_build_sky()
 	_build_world()
 	_build_cats()
+	_apply_clip_materials()
 	_build_camera()
 	_build_ui()
 	_build_menu()
@@ -101,12 +111,11 @@ func _build_world() -> void:
 	_world = Node2D.new()
 	add_child(_world)
 	_ground = Node2D.new()
-	_ground.draw.connect(_draw_ground)
 	_world.add_child(_ground)
+	_room = CafeRoom.new()
+	_world.add_child(_room)      # интерьер под фасадом: виден только через дыру рентгена
 	_buildings = Node2D.new()
 	_world.add_child(_buildings)
-	_room = CafeRoom.new()
-	_world.add_child(_room)
 	_actors = Node2D.new()
 	_actors.y_sort_enabled = true
 	_world.add_child(_actors)
@@ -115,6 +124,9 @@ func _build_world() -> void:
 	add_child(_level)
 	_level.visible = false   # зоны не рисуются (F3 включает показ)
 	_level.z_index = 100
+	var ground := _level.get_node_or_null("Ground")   # земля — тайлы из сцены улицы
+	if ground != null:
+		ground.reparent(_ground)
 
 	for node in _level.get_node("Buildings").get_children():
 		var b := node as StreetBuilding
@@ -125,6 +137,7 @@ func _build_world() -> void:
 		_add_window_glows(b)
 		if b.is_cafe:
 			_cafe = b
+			_cafe.material = _hole_mat
 
 	var interior := _level.zones(StreetZone.Kind.CAFE_INTERIOR)
 	var at := (interior[0] as StreetZone).global_position if not interior.is_empty() else Vector2(256, 64)
@@ -173,37 +186,10 @@ func _build_world() -> void:
 	cup.texture = Ui.atlas(preload("res://assets/cafe/drinks-and-pastries.png"), Rect2(32, 16, 16, 16))
 	cup.position = Vector2(48, 28)
 	cup.scale = Vector2(PX, PX)
-	cup.z_index = 5
 	_room.add_child(cup)
 	var t := create_tween().set_loops()
 	t.tween_property(cup, "position:y", 20.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-
-## Тротуар, бордюр, дорога с разметкой, зебра — всё по зонам уровня. Плитка тротуара совпадает с сеткой 32 px.
-func _draw_ground() -> void:
-	for z in _level.zones(StreetZone.Kind.SIDEWALK):
-		var r := z.world_rect()
-		_ground.draw_rect(r, SIDEWALK)
-		for x in range(ceili(r.position.x / T) * T, int(r.end.x), T):
-			_ground.draw_rect(Rect2(x, r.position.y, 2, r.size.y), SIDEWALK_LINE)
-		for y in range(ceili(r.position.y / T) * T, int(r.end.y) - 8, T):
-			_ground.draw_rect(Rect2(r.position.x, y, r.size.x, 2), SIDEWALK_LINE)
-		_ground.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 6), SIDEWALK_LINE.darkened(0.25))   # тень под фасадами
-		_ground.draw_rect(Rect2(r.position.x, r.end.y - 8, r.size.x, 8), CURB)
-		_ground.draw_rect(Rect2(r.position.x, r.end.y - 2, r.size.x, 2), CURB.darkened(0.35))
-	for z in _level.zones(StreetZone.Kind.ROAD):
-		var r := z.world_rect()
-		_ground.draw_rect(r, ASPHALT)
-		_ground.draw_rect(Rect2(r.position.x, r.end.y, r.size.x, 8), CURB)
-	for z in _level.zones(StreetZone.Kind.LANE_WEST):   # разделительная между встречными полосами — под нижним краем верхней
-		var r := z.world_rect()
-		for x in range(ceili(r.position.x / 64.0) * 64, int(r.end.x), 64):
-			_ground.draw_rect(Rect2(x, r.end.y + 4, 32, 4), ASPHALT_LINE)
-	for z in _level.zones(StreetZone.Kind.CROSSWALK):
-		var r := z.world_rect()
-		for i in int(r.size.x / 20.0):
-			_ground.draw_rect(Rect2(r.position.x + i * 20, r.position.y + 4, 12, r.size.y - 8), Color(ASPHALT_LINE, 0.8))
 
 
 ## Свет в окнах фасада ночью: часть окон горит, у кафе — все витрины.
@@ -267,7 +253,7 @@ func _build_camera() -> void:
 	_camera.limit_bottom = int(_world_size.y)
 	_camera.position_smoothing_enabled = true
 	_camera.position_smoothing_speed = 6.0
-	_camera.position = Vector2(_player.position.x, _world_size.y / 2.0)
+	_camera.position = _camera_target()
 	add_child(_camera)
 	_camera.make_current()
 
@@ -293,6 +279,7 @@ func _build_ui() -> void:
 	var gear := Ui.button("", Rect2(300, 8, 52, 40), "gear", _ui)
 	gear.pressed.connect(_open_menu)
 	_btn_shift = Ui.button("Смена", Rect2(88, 568, 184, 56), "play", _ui)
+	_btn_shift.visible = false   # появляется, только когда кот у стойки
 	_btn_shift.pressed.connect(_start_shift)
 
 
@@ -353,31 +340,62 @@ func _depth(feet: Vector2) -> float:
 	return clampf((_interior_rect.end.y - feet.y + 6.0) / DEPTH_ZONE, 0.0, 1.0)
 
 
-## Рентген плавно следует за глубиной игрока: вошёл — фасад прозрачнеет, вышел — закрывается.
+## Рентген — пиксельная диафрагма: пока игрок внутри здания, круг вокруг него расходится и вырезает фасад;
+## вышел — круг сжимается к нему. Радиус считается от лапок игрока.
 func _update_xray(delta: float) -> void:
-	_xray = lerpf(_xray, _depth(_player.position), 1.0 - exp(-12.0 * delta))
+	var center := _player.position
+	_iris_max = _farthest_corner(center) + 8.0   # с запасом, чтобы круг гарантированно накрыл весь интерьер
+	var target := _iris_max if _depth(center) > 0.05 else 0.0
+	_iris_r = move_toward(_iris_r, target, (IRIS_OPEN_SPEED if target > _iris_r else IRIS_CLOSE_SPEED) * delta)
+	_iris_r = minf(_iris_r, _iris_max)
+	_xray = clampf(_iris_r / _iris_max, 0.0, 1.0)
+	var hole := Vector4(_interior_rect.position.x, _interior_rect.position.y, _interior_rect.size.x, _interior_rect.size.y)
+	var inner := Vector4(hole.x, hole.y, hole.z, hole.w - T)   # без переднего ряда (витрины): гости на тротуаре не режутся
+	_hole_mat.set_shader_parameter("center", center)
+	_hole_mat.set_shader_parameter("radius", _iris_r)
+	_hole_mat.set_shader_parameter("region", hole)
+	_clip_mat.set_shader_parameter("center", center)
+	_clip_mat.set_shader_parameter("radius", _iris_r)
+	_clip_mat.set_shader_parameter("region", inner)
 
 
-## Свет суток по узлам: улица — ambient, интерьер — тёплый свет кафе; кот, зашедший в здание, плавно меняет свет;
-## чужие коты и мебель внутри не рисуются, пока интерьер скрыт (рентген).
+func _farthest_corner(from: Vector2) -> float:
+	var far := 0.0
+	for c in [_interior_rect.position, Vector2(_interior_rect.end.x, _interior_rect.position.y), Vector2(_interior_rect.position.x, _interior_rect.end.y), _interior_rect.end]:
+		far = maxf(far, from.distance_to(c))
+	return far
+
+
+## Виден ли предмет в точке: снаружи здания — всегда, внутри — если его накрывает круг рентгена.
+func is_revealed(p: Vector2) -> bool:
+	return _depth(p) < 0.05 or p.distance_to(_player.position) < _iris_r
+
+
+## Мебель и гости внутри здания рисуются поверх фасада, поэтому им нужен материал обрезки по кругу.
+func _apply_clip_materials() -> void:
+	for ch in _actors.get_children():
+		if ch is CatWalker and ch != _player:
+			(ch as CatWalker).use_clip_material(_clip_mat)
+		elif ch.has_meta("interior"):
+			(ch as Node2D).material = _clip_mat
+			for sub in ch.get_children():
+				(sub as CanvasItem).use_parent_material = true
+
+
+## Свет суток по узлам: улица — ambient, интерьер — тёплый свет кафе; кот, зашедший в здание, плавно меняет свет.
 func _apply_daylight() -> void:
 	var amb := TimeOfDay.ambient()
 	var ind := TimeOfDay.indoor()
 	var night := TimeOfDay.night()
 	_ground.modulate = amb
 	_buildings.modulate = amb
-	_room.visible = _xray > 0.01
-	_room.modulate = Color(ind, _xray)
-	_cafe.modulate.a = 1.0 - _xray
+	_room.visible = _iris_r > 0.5
+	_room.modulate = ind
 	for ch in _actors.get_children():
 		if ch is CatWalker:
-			var d := _depth(ch.position)
-			var a := 1.0 if ch == _player else lerpf(1.0, _xray, d)
-			ch.modulate = Color(amb.lerp(ind, d), a)
-			ch.visible = a > 0.01
+			ch.modulate = amb.lerp(ind, _depth(ch.position))
 		elif ch.has_meta("interior"):
-			ch.modulate = Color(ind, _xray)
-			ch.visible = _xray > 0.01
+			ch.modulate = ind
 		else:
 			ch.modulate = amb
 	for g in _glows:
@@ -388,8 +406,13 @@ func _apply_daylight() -> void:
 			car.halo.position = car.position + car.headlight_offset()
 
 
+## Камера едет за котом по обеим осям (за дома — на задний двор); на улице лапки стоят ниже центра экрана.
+func _camera_target() -> Vector2:
+	return Vector2(clampf(_player.position.x, 180.0, _world_size.x - 180.0), clampf(_player.position.y - CAMERA_FEET_OFFSET, 320.0, _world_size.y - 320.0))
+
+
 func _update_camera() -> void:
-	_camera.position = Vector2(clampf(_player.position.x, 180.0, _world_size.x - 180.0), _world_size.y / 2.0)
+	_camera.position = _camera_target()
 	_sky.camera_x = _camera.get_screen_center_position().x
 
 
@@ -462,14 +485,14 @@ func _on_press(p: Vector2) -> void:
 	_pending = ""
 	for n in _npcs:
 		var cat: CatWalker = n["cat"]
-		if cat.visible and cat.modulate.a > 0.4 and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
+		if is_revealed(cat.position) and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
 			_talk(cat, p)
 			return
 	for b in _building_nodes:
 		if not b.is_cafe and b.world_rect().has_point(p):
 			_toast("Здесь закрыто", p)
 			return
-	if _xray > 0.35 and _interior_rect.has_point(p) and _room.counter_hit(_room.to_local(p)):
+	if _interior_rect.has_point(p) and is_revealed(p) and _room.counter_hit(_room.to_local(p)):
 		_pending = "shift"
 		if _in_counter_zone():
 			_start_shift()

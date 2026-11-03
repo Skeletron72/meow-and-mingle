@@ -4,22 +4,22 @@ extends ReferenceRect
 ## Зона улицы. Двигайте и тяните рамку в редакторе (у неё есть ручки размера), тип выбирается в инспекторе.
 ## В игре зоны не видны; клавиша F3 показывает их поверх города.
 ##
-##  WALK          — где можно ходить (тротуар); клетки по 32 px, в которые попадает центр клетки
+##  WALK          — где можно ходить (тротуар, проходы между домами, задний двор); учитываются клетки 32 px,
+##                  чей центр попал в рамку
 ##  BLOCK         — запрет ходьбы поверх WALK (лужа, ограда)
 ##  LANE_EAST/WEST— полоса движения машин вправо / влево. НИЗ рамки — линия колёс; ширина рамки — длина дороги
 ##  CAFE_INTERIOR — где стоит интерьер кафе (320×320). Верх-левый угол: x кратен 32, (y + 96) кратен 32
-##  SIDEWALK/ROAD — только рисуются: плитка тротуара, асфальт
-##  CROSSWALK     — зебра на дороге
+## Земля (тротуар, дорога, зебра, трава) рисуется не зонами, а тайлами: узел Ground (TileMapLayer) в сцене улицы.
 
-enum Kind { WALK, BLOCK, LANE_EAST, LANE_WEST, CAFE_INTERIOR, SIDEWALK, ROAD, CROSSWALK }
+enum Kind { WALK, BLOCK, LANE_EAST, LANE_WEST, CAFE_INTERIOR }
 
 const COLORS := {
 	Kind.WALK: Color("4cc36e"), Kind.BLOCK: Color("e04b4b"), Kind.LANE_EAST: Color("4aa3ff"), Kind.LANE_WEST: Color("ffb347"),
-	Kind.CAFE_INTERIOR: Color("c86bff"), Kind.SIDEWALK: Color("b9b2aa"), Kind.ROAD: Color("8a8fa0"), Kind.CROSSWALK: Color("f5f5f5"),
+	Kind.CAFE_INTERIOR: Color("c86bff"),
 }
 const LABELS := {
 	Kind.WALK: "ходьба", Kind.BLOCK: "запрет", Kind.LANE_EAST: "машины →", Kind.LANE_WEST: "← машины",
-	Kind.CAFE_INTERIOR: "интерьер кафе", Kind.SIDEWALK: "тротуар", Kind.ROAD: "дорога", Kind.CROSSWALK: "зебра",
+	Kind.CAFE_INTERIOR: "интерьер кафе",
 }
 
 static var show_in_game := false   # F3 в игре

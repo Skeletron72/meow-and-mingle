@@ -15,7 +15,10 @@ var wander := false         # гуляющий кот сам выбирает, �
 var def: Dictionary = {}
 var nav: Object   # CafeRoom (в кафе) или StreetNav (на улице): find_path, is_blocked, random_free_point
 
+var facing := "front"       # "front" (вниз) | "side" (вбок, лист нарисован вправо) | "back" (вверх)
+
 var _sprite: Sprite2D
+var _sheets := {}           # вид -> лист 64×32
 var _path := PackedVector2Array()
 var _path_i := 0
 var _anim_t := 0.0
@@ -26,8 +29,12 @@ var _hop: Tween
 func setup(navigation: Object, cat_def: Dictionary) -> void:
 	nav = navigation
 	def = cat_def
+	# у каждого кота три листа: cat-<имя>-front / -side / -back (в def["sprite"] указан front)
+	var base := String(def["sprite"]).trim_suffix("-front.png")
+	for view in ["front", "side", "back"]:
+		_sheets[view] = load(SHEET_DIR + "%s-%s.png" % [base, view]) as Texture2D
 	_sprite = Sprite2D.new()
-	_sprite.texture = load(SHEET_DIR + String(def["sprite"])) as Texture2D
+	_sprite.texture = _sheets["front"]
 	_sprite.region_enabled = true
 	_sprite.centered = false
 	_sprite.scale = Vector2(CafeRoom.S, CafeRoom.S)
@@ -77,6 +84,12 @@ func nudge(dir: Vector2, delta: float) -> bool:
 	return moved
 
 
+## Подключает материал обрезки рентгена (мебель и гости внутри здания видны только в круге).
+func use_clip_material(mat: Material) -> void:
+	material = mat
+	_sprite.use_parent_material = true
+
+
 func hop() -> void:
 	if _hop:
 		_hop.kill()
@@ -114,12 +127,22 @@ func step(delta: float) -> void:
 					break
 
 
+## Вид по направлению: вбок — боковой лист (отражается, когда идём влево), вверх — спиной, вниз — лицом.
+func _face(dir: Vector2) -> void:
+	if absf(dir.x) >= absf(dir.y):
+		facing = "side"
+		_sprite.flip_h = dir.x < 0.0
+	else:
+		facing = "back" if dir.y < 0.0 else "front"
+		_sprite.flip_h = false
+	_sprite.texture = _sheets[facing]
+
+
 func _animate(dir: Vector2, delta: float) -> void:
+	_face(dir)
 	_anim_t += delta * WALK_FPS
 	_set_frame(int(_anim_t) % 4)
 	_sprite.position.y = -FRAME * CafeRoom.S + 2.0 - absf(sin(_anim_t * PI / 2.0)) * float(Ui.PX)
-	if absf(dir.x) > 0.1:
-		_sprite.flip_h = dir.x < 0.0
 
 
 func _set_frame(i: int) -> void:

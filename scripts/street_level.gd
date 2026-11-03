@@ -1,13 +1,14 @@
 @tool
 class_name StreetLevel
 extends Node2D
-## Корень уровня улицы (scenes/street.tscn). Здесь расставляются здания, предметы и зоны — прямо в редакторе:
-##   Zones     — узлы StreetZone (ходьба, полосы машин, интерьер кафе, земля)
+## Корень уровня улицы (scenes/street.tscn). Здесь расставляются здания, предметы, зоны и рисуется земля — прямо в редакторе:
+##   Ground    — TileMapLayer с тайлсетом земли (assets/street/tiles): тротуар, дорога, зебра, трава
+##   Zones     — узлы StreetZone (ходьба, полосы машин, интерьер кафе)
 ##   Buildings — узлы StreetBuilding
 ##   Props     — узлы StreetProp
 ## В редакторе рисуется сетка 32 px и границы мира.
 
-@export var world_size := Vector2(1440, 640):
+@export var world_size := Vector2(2624, 960):
 	set(value):
 		world_size = value
 		queue_redraw()

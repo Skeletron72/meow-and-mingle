@@ -19,7 +19,9 @@ func _ready() -> void:
 	await _test_default_layout()
 	await _test_place_rules()
 	await _test_level_scene()
+	await _test_ground_tiles()
 	await _test_world_nav()
+	await _test_cat_directions()
 	await _test_city()
 	await _test_npc_visits()
 	await _test_traffic()
@@ -179,24 +181,31 @@ func _move_to(pos: Vector2) -> void:
 	get_viewport().push_input(e, true)
 
 
-## Редактируемый уровень: зоны, здания, предметы на месте и согласованы с сеткой.
+## Редактируемый уровень: зоны, здания, предметы, земля на месте и согласованы с сеткой.
 func _test_level_scene() -> void:
 	var level := (load("res://scenes/street.tscn") as PackedScene).instantiate() as StreetLevel
 	add_child(level)
-	for kind in [StreetZone.Kind.WALK, StreetZone.Kind.LANE_EAST, StreetZone.Kind.LANE_WEST, StreetZone.Kind.CAFE_INTERIOR, StreetZone.Kind.SIDEWALK, StreetZone.Kind.ROAD]:
+	for kind in [StreetZone.Kind.WALK, StreetZone.Kind.LANE_EAST, StreetZone.Kind.LANE_WEST, StreetZone.Kind.CAFE_INTERIOR]:
 		_check(level.zones(kind).size() >= 1, "в уровне нет зоны вида %d" % kind)
+	_check(level.zones(StreetZone.Kind.WALK).size() >= 10, "есть тротуар, задний двор и проходы между домами")
 	var interior := level.zones(StreetZone.Kind.CAFE_INTERIOR)[0]
 	_check(is_zero_approx(fposmod(interior.position.x, 32.0)) and is_zero_approx(fposmod(interior.position.y + CafeRoom.ORIGIN.y, 32.0)), "пол кафе лежит в сетке мира 32 px")
 	_check(interior.size.is_equal_approx(CafeRoom.ROOM_SIZE), "зона интерьера 320×320")
 	_check(interior._get_configuration_warnings().is_empty(), "у зоны интерьера нет предупреждений редактора")
 	var cafes := 0
+	var rects: Array[Rect2] = []
 	for b in level.get_node("Buildings").get_children():
+		rects.append((b as StreetBuilding).world_rect())
 		if (b as StreetBuilding).is_cafe:
 			cafes += 1
 			var rect := (b as StreetBuilding).world_rect()
 			_check(rect.grow(12).encloses(Rect2(interior.position, interior.size)), "интерьер вписан в габарит фасада кафе")
 			_check(is_equal_approx(rect.end.y, interior.position.y + 320.0), "низ интерьера на линии низа фасада")
 	_check(cafes == 1, "в уровне ровно одно кафе")
+	rects.sort_custom(func(a: Rect2, b: Rect2) -> bool: return a.position.x < b.position.x)
+	for i in range(1, rects.size()):   # между домами проходы не уже трёх клеток: кот 32 px должен пройти
+		_check(rects[i].position.x - rects[i - 1].end.x >= 96.0, "проход между домами %d и %d уже 96 px" % [i - 1, i])
+	_check(level.world_size.x >= 2400.0 and level.world_size.y >= 900.0, "улица расширена: есть задний двор и длинная улица")
 	# полосы: верхняя (на запад) выше нижней, и машины любой модели в них не пересекаются по высоте
 	var west := level.zones(StreetZone.Kind.LANE_WEST)[0]
 	var east := level.zones(StreetZone.Kind.LANE_EAST)[0]
@@ -207,42 +216,143 @@ func _test_level_scene() -> void:
 	await get_tree().process_frame
 
 
-## Единая сетка: с улицы в зал и обратно — один путь через проём, без дверей и телепортов.
+## Земля — тайлы: слой Ground с тайлсетом; зебра повёрнута вдоль движения и без другой разметки под ней.
+func _test_ground_tiles() -> void:
+	var level := (load("res://scenes/street.tscn") as PackedScene).instantiate() as StreetLevel
+	add_child(level)
+	var ground := level.get_node("Ground") as TileMapLayer
+	_check(ground != null and ground.tile_set != null and ground.get_used_cells().size() > 1500, "земля нарисована тайлами (слой Ground)")
+	_check(ground.scale == Vector2(2, 2) and ground.tile_set.tile_size == Vector2i(16, 16), "клетка земли 16 px арта = 32 px мира")
+	var zebra := Vector2i(4, 1)
+	var dash := Vector2i(3, 1)
+	for x in [34, 35, 36]:
+		for y in range(25, 30):
+			_check(ground.get_cell_atlas_coords(Vector2i(x, y)) == zebra, "в клетке (%d,%d) перехода не зебра" % [x, y])
+	var dashes_in_crosswalk := 0
+	for y in range(25, 30):
+		for x in [34, 35, 36]:
+			if ground.get_cell_atlas_coords(Vector2i(x, y)) == dash:
+				dashes_in_crosswalk += 1
+	_check(dashes_in_crosswalk == 0, "под зеброй нет разделительной разметки")
+	_check(ground.get_cell_atlas_coords(Vector2i(30, 27)) == dash or ground.get_cell_atlas_coords(Vector2i(31, 27)) == dash, "вне перехода разделительная есть")
+	# рисунок зебры: полосы идут вдоль движения (по x), а чередуются по y
+	var img := (load("res://assets/street/tiles/street_tiles.png") as Texture2D).get_image()
+	var along_x := true
+	for y in range(16):
+		var first := img.get_pixel(64, 16 + y)
+		for x in range(1, 16):
+			if img.get_pixel(64 + x, 16 + y) != first:
+				along_x = false
+	var changes_y := 0
+	for y in range(1, 16):
+		if img.get_pixel(64, 16 + y) != img.get_pixel(64, 16 + y - 1):
+			changes_y += 1
+	_check(along_x and changes_y >= 3, "полосы зебры идут вдоль дороги и чередуются поперёк (по x одинаково: %s, смен по y: %d)" % [along_x, changes_y])
+	# земля есть на всех зонах ходьбы
+	var missing := 0
+	for z in level.zones(StreetZone.Kind.WALK):
+		var r := (z as StreetZone).world_rect()
+		for y in range(int(r.position.y / 32.0), int(r.end.y / 32.0)):
+			for x in range(int(r.position.x / 32.0), int(r.end.x / 32.0)):
+				if ground.get_cell_source_id(Vector2i(x, y)) < 0:
+					missing += 1
+	_check(missing == 0, "под зонами ходьбы нет земли в %d клетках" % missing)
+	level.queue_free()
+	await get_tree().process_frame
+
+
+## Единая сетка: с улицы в зал и обратно — один путь через проём, без дверей и телепортов; за дома есть проходы.
 func _test_world_nav() -> void:
 	var city := _new_city(true)
 	await get_tree().process_frame
 	var nav: WorldNav = city._nav
-	var inside := Vector2i(12, 8)
-	var outside := Vector2i(12, 12)
+	var rc := nav.interior_cells().position
+	var ex := rc.x + CafeRoom.ENTRANCE_CELLS.position.x       # столбец проёма
+	var front := rc.y + CafeRoom.FRONT_ROW                      # ряд витрины
+	var inside := Vector2i(ex, rc.y + 3)
+	var outside := Vector2i(ex, front + 1)
 	_check(nav.is_interior(inside) and not nav.is_interior(outside), "клетки зала и улицы различаются")
 	var path := nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(inside))
 	_check(not path.is_empty(), "путь с улицы в зал есть")
 	var crossed_entrance := false
 	for p in path:
 		var c := WorldNav.cell_of_feet(p)
-		if c.y == 11:
-			_check(c.x == 12 or c.x == 13, "путь пересекает витрину не в проёме (клетка %s)" % c)
+		if c.y == front:
+			_check(c.x == ex or c.x == ex + 1, "путь пересекает витрину не в проёме (клетка %s)" % c)
 			crossed_entrance = true
 	_check(crossed_entrance, "путь проходит через проём входа")
-	var back := nav.find_path(WorldNav.feet_at(inside), WorldNav.feet_at(Vector2i(30, 13)))
-	_check(not back.is_empty() and back[back.size() - 1].distance_to(WorldNav.feet_at(Vector2i(30, 13))) < 1.0, "путь из зала на дальний тротуар есть")
-	_check(not nav.is_walkable(Vector2i(10, 11)) and not nav.is_walkable(Vector2i(15, 11)), "витрина кафе не проходима, кроме проёма")
-	_check(nav.is_walkable(Vector2i(12, 11)) and nav.is_walkable(Vector2i(13, 11)), "проём входа проходим")
-	_check(not nav.is_walkable(Vector2i(10, 14)), "дорога не проходима")
-	# мебель и предметы улицы закрывают клетки
-	var table := Vector2i(8, 5) + Vector2i(7, 2)
-	_check(not nav.is_walkable(table), "стол в зале закрывает клетку")
-	_check(not nav.is_walkable(Vector2i(5, 12)), "торговый автомат закрывает клетку на тротуаре")
-	# весь проходимый мир связный: нет «запертых» кусков тротуара (например, предметы по диагонали)
+	var far_cell := Vector2i(60, 23)
+	var back := nav.find_path(WorldNav.feet_at(inside), WorldNav.feet_at(far_cell))
+	_check(not back.is_empty() and back[back.size() - 1].distance_to(WorldNav.feet_at(far_cell)) < 1.0, "путь из зала на дальний тротуар есть")
+	_check(not nav.is_walkable(Vector2i(rc.x, front)) and not nav.is_walkable(Vector2i(rc.x + 9, front)), "витрина кафе не проходима, кроме проёма")
+	_check(nav.is_walkable(Vector2i(ex, front)) and nav.is_walkable(Vector2i(ex + 1, front)), "проём входа проходим")
+	_check(not nav.is_walkable(Vector2i(10, 26)), "дорога не проходима")
+	_check(not nav.is_walkable(rc + Vector2i(7, 2)), "стол в зале закрывает клетку")
+	_check(not nav.is_walkable(Vector2i(7, 22)), "торговый автомат закрывает клетку на тротуаре")
+	# за дома: задний двор и проходы между зданиями
+	var yard := Vector2i(12, 6)
+	_check(nav.is_walkable(yard), "задний двор проходим")
+	var to_yard := nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(yard))
+	_check(not to_yard.is_empty() and to_yard[to_yard.size() - 1].distance_to(WorldNav.feet_at(yard)) < 1.0, "с тротуара можно пройти на задний двор")
+	var through_alley := false
+	for p in to_yard:
+		var c := WorldNav.cell_of_feet(p)
+		if c.y >= 10 and c.y <= 20:
+			through_alley = true
+			_check(not nav.is_interior(c), "путь на задний двор не идёт через кафе")
+	_check(through_alley, "на задний двор ведёт проход между домами")
+	# весь проходимый мир связный: нет «запертых» кусков (предметы по диагонали, узкие проходы)
 	var unreachable := 0
-	for y in range(0, 20):
-		for x in range(0, 45):
+	for y in range(0, 30):
+		for x in range(0, 82):
 			var cell := Vector2i(x, y)
-			if nav.is_walkable(cell) and nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(cell)).is_empty() and cell != outside:
+			if nav.is_walkable(cell) and cell != outside and nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(cell)).is_empty():
 				unreachable += 1
 	_check(unreachable == 0, "все проходимые клетки достижимы (недостижимых: %d)" % unreachable)
-	var far := nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(Vector2i(10, 14)))   # цель на дороге
+	var far := nav.find_path(WorldNav.feet_at(outside), WorldNav.feet_at(Vector2i(10, 26)))   # цель на дороге
 	_check(not far.is_empty() and nav.is_walkable(WorldNav.cell_of_feet(far[far.size() - 1])), "цель на дороге заменяется ближайшей проходимой клеткой")
+	city.queue_free()
+	await get_tree().process_frame
+
+
+## Коты ходят вбок и спиной: свои листы, боковой отражается при движении влево.
+func _test_cat_directions() -> void:
+	for def in Data.cats:
+		var base := String(def["sprite"]).trim_suffix("-front.png")
+		for view in ["front", "side", "back"]:
+			_check(ResourceLoader.exists("res://assets/cats/%s-%s.png" % [base, view]), "нет листа кота %s-%s" % [base, view])
+	var city := _new_city(false)
+	await get_tree().process_frame
+	city.set_process(false)
+	for n in city._npcs:
+		n["timer"] = 1000.0
+		(n["cat"] as CatWalker).position = WorldNav.feet_at(Vector2i(70, 23))
+	var cat: CatWalker = city._player
+	cat.position = WorldNav.feet_at(Vector2i(20, 23))
+	cat.walk_to(WorldNav.feet_at(Vector2i(24, 23)))
+	for _i in 8:
+		cat.step(0.05)
+	_check(cat.facing == "side" and not cat._sprite.flip_h and cat._sprite.texture == cat._sheets["side"], "вправо: боковой лист без отражения")
+	cat.walk_to(WorldNav.feet_at(Vector2i(20, 23)))
+	for _i in 8:
+		cat.step(0.05)
+	_check(cat.facing == "side" and cat._sprite.flip_h, "влево: боковой лист отражён")
+	cat.position = WorldNav.feet_at(Vector2i(20, 23))
+	cat.walk_to(WorldNav.feet_at(Vector2i(20, 22)))
+	for _i in 4:
+		cat.step(0.05)
+	_check(cat.facing == "back" and not cat._sprite.flip_h and cat._sprite.texture == cat._sheets["back"], "вверх: спиной")
+	cat.walk_to(WorldNav.feet_at(Vector2i(20, 23)))
+	for _i in 4:
+		cat.step(0.05)
+	_check(cat.facing == "front" and cat._sprite.texture == cat._sheets["front"], "вниз: лицом")
+	# анимация: кадры меняются во время ходьбы
+	cat.walk_to(WorldNav.feet_at(Vector2i(30, 23)))
+	var frames := {}
+	for _i in 40:
+		cat.step(0.05)
+		frames[int(cat._sprite.region_rect.position.x)] = true
+	_check(frames.size() >= 3, "во время ходьбы сменяется несколько кадров (%d)" % frames.size())
 	city.queue_free()
 	await get_tree().process_frame
 
@@ -251,23 +361,29 @@ func _test_city() -> void:
 	var city := _new_city(true)
 	await get_tree().process_frame
 	var player: CatWalker = city._player
-	var room: CafeRoom = city._room
 	var nav: WorldNav = city._nav
+	var rc := nav.interior_cells().position
+	var ex := rc.x + CafeRoom.ENTRANCE_CELLS.position.x
+	var front := rc.y + CafeRoom.FRONT_ROW
+	var out_cell := Vector2i(ex, front + 1)
+	var in_cell := Vector2i(ex, rc.y + 3)
 	_check(nav.is_interior(WorldNav.cell_of_feet(player.position)), "игра начинается внутри кафе")
 	_check(city.get("_btn_enter") == null and city.get("_btn_exit") == null, "кнопок «Войти/Выйти» нет — дверей нет")
 	city._update_xray(10.0)
 	city._apply_daylight()
-	_check(city._xray > 0.99 and city._room.visible and city._cafe.modulate.a < 0.01, "внутри фасад прозрачен, виден интерьер")
-	# выходим сплошным путём: один и тот же узел, без пересадок; рентген закрывается плавно
+	_check(city._xray > 0.99 and city._room.visible, "внутри круг рентгена раскрыт, виден интерьер")
+	_check(is_equal_approx(float(city._hole_mat.get_shader_parameter("radius")), city._iris_r), "радиус круга передан в шейдер фасада")
+	_check(city._hole_mat.shader != null and city._clip_mat.shader != null, "у фасада и у мебели есть шейдеры рентгена")
+	# выходим сплошным путём: один и тот же узел, без пересадок; круг сжимается плавно
 	var parent_before := player.get_parent()
-	_check(player.walk_to(WorldNav.feet_at(Vector2i(12, 12))), "путь из кафе на улицу найден")
+	_check(player.walk_to(WorldNav.feet_at(out_cell)), "путь из кафе на улицу найден")
 	var xs: Array[float] = []
 	for _i in 600:
 		player.step(0.05)
 		city._update_xray(0.05)
 		xs.append(city._xray)
 	_check(player.get_parent() == parent_before and player.get_parent() == city._actors, "кот остался тем же узлом в том же слое (бесшовно)")
-	_check(player.position == WorldNav.feet_at(Vector2i(12, 12)), "кот вышел на тротуар у проёма")
+	_check(player.position == WorldNav.feet_at(out_cell), "кот вышел на тротуар у проёма")
 	var smooth := true
 	var mid := false
 	for i in range(1, xs.size()):
@@ -275,50 +391,56 @@ func _test_city() -> void:
 			smooth = false
 		if xs[i] > 0.05 and xs[i] < 0.95:
 			mid = true
-	_check(smooth and mid, "рентген закрывается плавно: проходит промежуточные значения (smooth=%s mid=%s)" % [smooth, mid])
-	_check(city._xray < 0.01, "снаружи рентген выключен")
+	_check(smooth and mid, "круг рентгена сжимается плавно, через промежуточные радиусы (smooth=%s mid=%s)" % [smooth, mid])
+	_check(city._xray < 0.01 and city._iris_r < 0.5, "снаружи круг сжался в точку")
 	city._apply_daylight()
-	_check(not city._room.visible and is_equal_approx(city._cafe.modulate.a, 1.0), "снаружи интерьер не рисуется, видно здание")
-	city._update_xray(0.0)
+	_check(not city._room.visible, "снаружи интерьер не рисуется, видно здание")
 	# гость в зале при закрытом фасаде не виден; снаружи виден
 	var guest: CatWalker = city._npcs[0]["cat"]
-	guest.position = WorldNav.feet_at(Vector2i(12, 8))
+	guest.position = WorldNav.feet_at(in_cell)
 	var walker: CatWalker = city._npcs[1]["cat"]
-	walker.position = WorldNav.feet_at(Vector2i(20, 12))
-	city._apply_daylight()
-	_check(not guest.visible and walker.visible, "гость внутри скрыт, пока мы снаружи; прохожий виден")
+	walker.position = WorldNav.feet_at(Vector2i(ex + 6, front + 1))
+	_check(not city.is_revealed(guest.position) and city.is_revealed(walker.position), "гость внутри скрыт, пока мы снаружи; прохожий виден")
 	# обратно в кафе
-	player.walk_to(WorldNav.feet_at(Vector2i(12, 8)))
+	player.walk_to(WorldNav.feet_at(in_cell))
 	var up: Array[float] = []
 	for _i in 600:
 		player.step(0.05)
 		city._update_xray(0.05)
 		up.append(city._xray)
-	_check(player.position == WorldNav.feet_at(Vector2i(12, 8)) and city._xray > 0.99, "вошли в кафе: интерьер виден")
-	var rising := true
-	for i in range(1, up.size()):
-		if up[i] < up[i - 1] - 0.001:
-			rising = false
-	_check(rising, "рентген открывается плавно")
+	_check(player.position == WorldNav.feet_at(in_cell) and city._xray > 0.99, "вошли в кафе: круг раскрылся, интерьер виден")
+	var opened := false
+	for v in up:
+		if v > 0.05 and v < 0.95:
+			opened = true
+	_check(opened, "круг рентгена расходится не мгновенно, а плавно")
+	_check(city.is_revealed(guest.position), "внутри гость виден")
 	city._apply_daylight()
-	_check(guest.visible, "внутри гость виден")
+	_check(city._room.visible, "внутри интерьер рисуется")
 	# стойка -> кнопка смены
 	player.walk_to(nav.counter_feet(1))
 	_walk(player)
 	city._process(0.016)
 	_check(city._btn_shift.visible, "у стойки видна кнопка «Смена»")
-	player.walk_to(WorldNav.feet_at(Vector2i(14, 8)))
+	player.walk_to(WorldNav.feet_at(rc + Vector2i(8, 3)))
 	_walk(player)
 	city._process(0.016)
 	_check(not city._btn_shift.visible, "вдали от стойки кнопки нет")
 	_check(GameState.city_inside, "положение (в кафе) запомнено для возврата из других экранов")
-	# мебель: в интерьере и сортируется вместе с котами
+	# мебель: в общем слое сортировки и с материалом обрезки
 	var furniture := 0
 	for ch in city._actors.get_children():
 		if ch.has_meta("interior"):
 			furniture += 1
-			_check(ch.get_parent() == city._actors, "мебель кафе в общем слое сортировки")
+			_check((ch as Node2D).material == city._clip_mat, "у мебели кафе есть материал обрезки по кругу")
 	_check(furniture >= 3, "мебель из раскладки есть в общем слое (%d)" % furniture)
+	_check((guest.material == city._clip_mat) and player.material == null, "гости обрезаются кругом, игрок всегда виден")
+	# камера следует по двум осям
+	player.position = WorldNav.feet_at(Vector2i(12, 6))
+	_check(city._camera_target().y < 400.0, "на заднем дворе камера уезжает вверх")
+	player.position = WorldNav.feet_at(out_cell)
+	_check(city._camera_target().y > 600.0, "на улице камера внизу")
+	player.position = WorldNav.feet_at(in_cell)
 	# освещение: ночью улица темнее, окна светятся, внутри светлее
 	TimeOfDay.hour = 12.0
 	city._apply_daylight()
@@ -367,34 +489,34 @@ func _test_npc_visits() -> void:
 	var city := _new_city(false)   # игрок снаружи
 	await get_tree().process_frame
 	var nav: WorldNav = city._nav
+	var front := nav.interior_cells().position.y + CafeRoom.FRONT_ROW
 	city.set_process(false)
 	var transitions := 0
 	var was_inside: Array[bool] = []
 	for n in city._npcs:
 		was_inside.append(nav.is_interior(WorldNav.cell_of_feet((n["cat"] as CatWalker).position)))
 	var bad_cell := false
-	for _t in 9000:   # ~15 минут игры
+	for _t in 12000:   # ~20 минут игры
 		city._npc_tick(0.1)
 		for i in city._npcs.size():
 			var cat: CatWalker = city._npcs[i]["cat"]
 			cat.step(0.1)
 			var c := WorldNav.cell_of_feet(cat.position)
-			if not nav.is_walkable(WorldNav.cell_of_feet(cat.position + Vector2(0, 0))) and not nav.is_walkable(c):
+			if not nav.is_walkable(c):
 				bad_cell = true
 			var inside := nav.is_interior(c)
 			if inside != was_inside[i]:
 				transitions += 1
 				was_inside[i] = inside
-				_check(absi(c.y - 11) <= 1, "кот пересёк границу зала не в проёме (клетка %s)" % c)
+				_check(absi(c.y - front) <= 1, "кот пересёк границу зала не в проёме (клетка %s)" % c)
 	_check(not bad_cell, "коты ходят только по проходимым клеткам")
 	_check(transitions >= 4, "коты заходят в кафе и выходят из него (переходов: %d)" % transitions)
-	# а видимость следует за рентгеном: игрок снаружи -> гости внутри не рисуются
+	# а видимость следует за кругом: игрок снаружи -> гости глубоко внутри не видны
 	city._update_xray(10.0)
-	city._apply_daylight()
 	for n in city._npcs:
 		var cat: CatWalker = n["cat"]
 		if nav.is_interior(WorldNav.cell_of_feet(cat.position)) and city._depth(cat.position) > 0.9:
-			_check(not cat.visible, "гость глубоко в зале не рисуется, пока фасад закрыт")
+			_check(not city.is_revealed(cat.position), "гость глубоко в зале не виден, пока фасад закрыт")
 	city.queue_free()
 	await get_tree().process_frame
 
@@ -463,11 +585,12 @@ func _test_city_input() -> void:
 	city._update_xray(10.0)
 	var room: CafeRoom = city._room
 	var player: CatWalker = city._player
+	var rc: Vector2i = city._nav.interior_cells().position
 	for n in city._npcs:   # гуляющие коты стоят где попало — убираем с места тапов
-		(n["cat"] as CatWalker).position = WorldNav.feet_at(Vector2i(40, 12))
+		(n["cat"] as CatWalker).position = WorldNav.feet_at(Vector2i(75, 23))
 		n["timer"] = 1000.0
 	# тап по полу внутри
-	var floor_cell := Vector2i(14, 9)
+	var floor_cell := rc + Vector2i(6, 4)
 	var wp := (Vector2(floor_cell) + Vector2(0.5, 0.5)) * 32.0
 	_click(_screen_of(city, wp), true)
 	_click(_screen_of(city, wp), false)
@@ -484,7 +607,7 @@ func _test_city_input() -> void:
 	city._end_shift(0, 0)
 	await get_tree().process_frame
 	# тап по тротуару снаружи: кот выходит сам, через проём
-	var out_cell := Vector2i(8, 12)
+	var out_cell := Vector2i(8, 23)
 	var out_wp := (Vector2(out_cell) + Vector2(0.5, 0.5)) * 32.0
 	_click(_screen_of(city, out_wp), true)
 	_click(_screen_of(city, out_wp), false)
@@ -492,9 +615,9 @@ func _test_city_input() -> void:
 	_walk(player, 1500)
 	_check(player.position == WorldNav.feet_at(out_cell), "кот вышел на тротуар сам, без кнопок и дверей")
 	city._update_xray(10.0)
-	_check(city._xray < 0.01, "вышел — рентген выключился")
+	_check(city._xray < 0.01, "вышел — круг рентгена сжался")
 	# тап по фасаду кафе: кот идёт внутрь
-	var facade := Vector2(420.0, 200.0)
+	var facade := Vector2(540.0, 520.0)
 	_click(_screen_of(city, facade), true)
 	_click(_screen_of(city, facade), false)
 	_check(player.is_moving(), "тап по фасаду кафе ведёт кота внутрь")
@@ -503,7 +626,7 @@ func _test_city_input() -> void:
 	_check(city._nav.is_interior(WorldNav.cell_of_feet(player.position)) and city._xray > 0.99, "кот зашёл через проём, интерьер открылся")
 	# тап по соседнему зданию
 	player.stop()
-	var closed := Vector2(120.0, 250.0)
+	var closed := Vector2(120.0, 520.0)
 	_click(_screen_of(city, closed), true)
 	_click(_screen_of(city, closed), false)
 	_check(not player.is_moving(), "тап по чужому зданию — «Здесь закрыто», кот стоит")
