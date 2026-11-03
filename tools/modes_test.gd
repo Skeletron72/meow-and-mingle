@@ -14,6 +14,8 @@ func _check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	TimeOfDay.set_process(false)   # время стоит, пока тест сам его не двигает
+	Weather.set_process(false)     # погода тоже стоит: ясно, пока тест её не включит
+	Weather.force(Weather.Kind.CLEAR)
 	_test_texts_fit()
 	_test_time_of_day()
 	await _test_default_layout()
@@ -35,6 +37,7 @@ func _ready() -> void:
 	_test_assets()
 	await _test_pixel_lighting()
 	await _test_brew_grid()
+	await _test_weather()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -403,7 +406,7 @@ func _test_city() -> void:
 	_check(smooth and mid, "круг рентгена сжимается плавно, через промежуточные радиусы (smooth=%s mid=%s)" % [smooth, mid])
 	_check(city._xray < 0.01 and city._iris_r < 0.5, "снаружи круг сжался в точку")
 	city._apply_daylight()
-	_check(not city._room.visible, "снаружи интерьер не рисуется, видно здание")
+	_check(city._room.visible and city._iris_r < 0.5, "зал лежит под фасадом и виден только сквозь окна и дверь: фасад целый")
 	# гость в зале при закрытом фасаде не виден; снаружи виден
 	var guest: CatWalker = city._npcs[0]["cat"]
 	guest.position = WorldNav.feet_at(in_cell)
@@ -1104,3 +1107,83 @@ func _test_brew_grid() -> void:
 	brew.queue_free()
 	await get_tree().process_frame
 	_check(Fx.unit == 2.0, "после выхода из мини-игры пиксель эффектов снова 2")
+
+
+func _global(name: String) -> float:
+	var v: Variant = RenderingServer.global_shader_parameter_get(name)
+	return float(v) if v != null else -1.0   # в headless сервер рендера пустой
+
+
+## Погода, снег на земле, двери и прозрачные окна.
+func _test_weather() -> void:
+	Weather.force(Weather.Kind.RAIN)
+	_check(_global("weather_rain") < 0.0 or (_global("weather_rain") > 0.99 and _global("weather_snowfall") < 0.01), "дождь передаётся шейдерам")
+	Weather.force(Weather.Kind.SNOW)
+	Weather.step(30.0)
+	_check(Weather.snow_cover > 0.5, "снег копится, пока идёт снегопад: %s" % Weather.snow_cover)
+	_check(_global("weather_snow") < 0.0 or _global("weather_snow") > 0.5, "покров передаётся шейдерам")
+	var cover := Weather.snow_cover
+	Weather.force(Weather.Kind.HEAT, cover)
+	Weather.step(10.0)
+	_check(Weather.snow_cover < cover, "в жару снег тает")
+	Weather.force(Weather.Kind.RAIN, 0.0, 0.0)
+	Weather.step(40.0)
+	_check(Weather.wet > 0.5, "под дождём земля намокает")
+	_check(Weather.tint().b > Weather.tint().r, "дождь холодит свет")
+	_check(Weather.overcast() > 0.5, "дождь — пасмурно")
+	Weather.force(Weather.Kind.CLEAR)
+	_check(is_zero_approx(Weather.overcast()), "ясно — не пасмурно")
+	Weather.set_mode(Weather.AUTO)
+	for i in 6:
+		Weather.cycle_mode()
+	_check(Weather.mode == Weather.AUTO, "цикл настроек погоды замкнут: %d" % Weather.mode)
+	Weather.set_mode(Weather.Kind.SNOW)
+	GameState.save_game()
+	Weather.set_mode(Weather.AUTO)
+	GameState.load_game()
+	_check(Weather.mode == Weather.Kind.SNOW, "режим погоды хранится в сохранении")
+	Weather.force(Weather.Kind.CLEAR)
+
+	# город: материалы снега, экранные эффекты, двери и окна
+	Weather.force(Weather.Kind.SNOW, 0.9)
+	var city := _new_city(false)
+	await get_tree().process_frame
+	var ground: CanvasItem = city.get("_ground").get_child(0)
+	_check(ground.material is ShaderMaterial, "земля одета снежным шейдером")
+	_check(city.get("_weather_fx") is WeatherFx, "в городе есть слой погоды")
+	var glass: Array = city.get("_glass")
+	_check(glass.size() >= 8, "окна фасадов покрыты стеклом: %d" % glass.size())
+	var clear_panes := 0
+	for gl: WindowGlass in glass:
+		if gl.transparent:
+			clear_panes += 1
+	_check(clear_panes == 2, "у витрины кафе два прозрачных окна: %d" % clear_panes)
+	var door: AutoDoor = city.get("_door")
+	_check(door != null, "у кафе есть дверь")
+	var nav: WorldNav = city.get("_nav")
+	var rc := nav.interior_cells().position
+	var player: CatWalker = city.get("_player")
+	player.position = WorldNav.feet_at(rc + Vector2i(5, 9))   # далеко на тротуаре
+	city.call("_update_door")
+	await get_tree().create_timer(0.6).timeout
+	_check(door.open_amount < 0.05, "дверь закрыта, пока кот далеко")
+	player.position = WorldNav.feet_at(rc + Vector2i(5, 7))   # у входа
+	city.call("_update_door")
+	await get_tree().create_timer(0.6).timeout
+	_check(door.open_amount > 0.95, "дверь открывается, когда кот рядом: %s" % door.open_amount)
+	_check(fmod(door._left.position.x, 2.0) == 0.0 and fmod(door._right.position.x, 2.0) == 0.0, "створки едут по сетке арта")
+	nav.set_entrance_open(false)   # запертый проём (ставни интро): дверь не открывается
+	city.call("_update_door")
+	await get_tree().create_timer(0.6).timeout
+	_check(door.open_amount < 0.05, "запертая дверь закрыта")
+	nav.set_entrance_open(true)
+	_check(city.get("_hole_mat").get_shader_parameter("door") != Vector4.ZERO, "в фасаде вырезан проём двери")
+	# настройка погоды в меню
+	var btn: Button = city.get("_weather_btn")
+	_check(btn != null, "в настройках есть кнопка погоды")
+	city.call("_cycle_weather")
+	_check(btn.text.contains("Погода"), "кнопка показывает погоду: " + btn.text)
+	Weather.force(Weather.Kind.CLEAR)
+	Weather.set_mode(Weather.AUTO)
+	city.queue_free()
+	await get_tree().process_frame

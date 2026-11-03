@@ -19,7 +19,35 @@ config/icon="res://icon.svg"
 
 Data="*res://autoload/data.gd"
 TimeOfDay="*res://autoload/time_of_day.gd"
+Weather="*res://autoload/weather.gd"
 GameState="*res://autoload/game_state.gd"
+
+[shader_globals]
+
+weather_snow={
+"type": "float",
+"value": 0.0
+}
+weather_wet={
+"type": "float",
+"value": 0.0
+}
+weather_rain={
+"type": "float",
+"value": 0.0
+}
+weather_snowfall={
+"type": "float",
+"value": 0.0
+}
+weather_fog={
+"type": "float",
+"value": 0.0
+}
+weather_heat={
+"type": "float",
+"value": 0.0
+}
 
 [gui]
 

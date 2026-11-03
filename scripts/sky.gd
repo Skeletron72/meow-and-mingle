@@ -8,6 +8,7 @@ const W := 360.0
 const H := 640.0
 const PX := 2.0
 
+var overcast := 0.0   # 0..1: пасмурно — солнце и звёзды гаснут, облака серые и плотные
 var camera_x := 0.0   # где сейчас камера в мире (задаёт город); от неё зависит сдвиг силуэта
 
 var _stars: Array[Vector3] = []     # x, y, фаза мерцания
@@ -20,7 +21,7 @@ func _ready() -> void:
 	rng.seed = 7
 	for _i in 70:
 		_stars.append(Vector3(snappedf(rng.randf_range(0, W), PX), snappedf(rng.randf_range(0, 300), PX), rng.randf_range(0, TAU)))
-	for _i in 6:
+	for _i in 12:
 		_clouds.append(Vector3(rng.randf_range(0, W + 120), snappedf(rng.randf_range(24, 140), PX), rng.randf_range(4, 10)))
 	var x := 0.0
 	while x < 2400.0:
@@ -47,15 +48,19 @@ func _draw() -> void:
 	if night > 0.3:
 		var t := Time.get_ticks_msec() / 1000.0
 		for s in _stars:
-			var a := night * (0.55 + 0.45 * sin(t * 2.0 + s.z))
+			var a := night * (1.0 - overcast) * (0.55 + 0.45 * sin(t * 2.0 + s.z))
 			draw_rect(Rect2(s.x, s.y, PX, PX), Color(1.0, 1.0, 0.9, a))
 	_draw_body(TimeOfDay.sun_progress(), 8, Color(1.0, 0.92, 0.55), true)
 	_draw_body(TimeOfDay.moon_progress(), 6, Color(0.95, 0.95, 0.85), false)
 	# облака
 	var cloud_col := Color.WHITE.lerp(bottom.lightened(0.15), clampf(night, 0.0, 1.0) * 0.85)
-	cloud_col.a = 0.85
-	for c in _clouds:
-		_draw_cloud(Vector2(snappedf(c.x, PX), c.y), cloud_col)
+	cloud_col = cloud_col.lerp(Color(0.62, 0.66, 0.72).lerp(bottom.darkened(0.2), night), overcast * 0.8)
+	cloud_col.a = 0.85 + 0.1 * overcast
+	for i in _clouds.size():
+		if i >= 6 and overcast < 0.25 + (i - 6) * 0.1:   # в пасмурную погоду облаков больше
+			continue
+		var c := _clouds[i]
+		_draw_cloud(Vector2(snappedf(c.x, PX), c.y + (24.0 if i >= 6 else 0.0)), cloud_col)
 	# далёкий силуэт: два слоя, чем дальше — тем медленнее едет и светлее
 	for layer in 2:
 		var factor := 0.12 if layer == 0 else 0.22
@@ -72,6 +77,7 @@ func _draw() -> void:
 func _draw_body(p: float, radius: int, color: Color, glow: bool) -> void:
 	if p < 0.0:
 		return
+	color.a = 1.0 - overcast * 0.85
 	var cx := snappedf(-16.0 + p * (W + 32.0), PX)
 	var cy := snappedf(92.0 - sin(p * PI) * 66.0, PX)
 	if glow:

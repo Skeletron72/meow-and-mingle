@@ -36,6 +36,7 @@ const ICON_RECTS := {
 	"flower": Rect2(308, 176, 9, 16),
 	"forks": Rect2(273, 210, 14, 13),
 	"hand": Rect2(82, 144, 12, 15),
+	"cloud": Rect2(272, 82, 16, 11),
 }
 
 

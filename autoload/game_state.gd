@@ -40,6 +40,8 @@ func new_game() -> void:
 	upgrades = []
 	keepsakes = []
 	TimeOfDay.hour = 9.0
+	Weather.force(Weather.Kind.CLEAR)
+	Weather.set_mode(Weather.AUTO)
 
 
 ## Сброс прогресса из настроек аккаунта: удаляет сохранение и начинает игру заново.
@@ -135,6 +137,7 @@ func save_game() -> void:
 		"tutorial_served": tutorial_served,
 		"upgrades": upgrades,
 		"keepsakes": keepsakes,
+		"weather_mode": Weather.mode,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -165,6 +168,7 @@ func load_game() -> void:
 	tutorial_served = int(data.get("tutorial_served", 0))
 	upgrades = _string_array(data.get("upgrades", []))
 	keepsakes = _string_array(data.get("keepsakes", []))
+	Weather.set_mode(clampi(int(data.get("weather_mode", Weather.AUTO)), Weather.AUTO, Weather.Kind.SNOW))
 
 
 func _migrate(data: Dictionary) -> Dictionary:

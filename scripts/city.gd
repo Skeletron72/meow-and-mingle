@@ -23,6 +23,9 @@ const HOLE_SHADER := preload("res://assets/shaders/xray_hole.gdshader")
 const CLIP_SHADER := preload("res://assets/shaders/xray_clip.gdshader")
 const SHADOW_SHADER := preload("res://assets/shaders/dither_shadow.gdshader")
 const SKY_SHADER := preload("res://assets/shaders/sky_gradient.gdshader")
+const GROUND_WEATHER_SHADER := preload("res://assets/shaders/weather_ground.gdshader")
+const PROP_WEATHER_SHADER := preload("res://assets/shaders/weather_prop.gdshader")
+const ROOF_FRAC := {"building1": 0.27, "building2": 0.40, "building3": 0.30, "building4": 0.42, "building7": 0.25}   # какая часть спрайта — крыша
 const CAMERA_FEET_OFFSET := 90.0   # лапки кота на улице — ниже центра экрана на столько
 
 var _level: StreetLevel
@@ -53,6 +56,11 @@ var _glows: Array[Dictionary] = []      # {"node", "base", "cafe"}: свечен
 var _shadow_mats: Array[ShaderMaterial] = []   # косые тени зданий на тротуаре (длина и наклон — от солнца)
 var _cafe_overlays: Array[CanvasItem] = []     # затенение фасада кафе (гаснет, когда фасад вырезан)
 var _add_mat: CanvasItemMaterial
+var _ground_mat: ShaderMaterial           # снег и лужи на земле
+var _prop_mats: Dictionary = {}            # режим → материал снега для зданий (1), деревьев (2) и предметов (0)
+var _weather_fx: WeatherFx
+var _door: AutoDoor                        # раздвижная дверь кафе
+var _glass: Array[WindowGlass] = []        # стёкла окон фасадов
 var _pending := ""                      # действие по прибытии: "shift"
 var _pressing := false
 var _last_cell := Vector2i(-1, -1)
@@ -64,6 +72,7 @@ var _btn_shift: Button
 var _menu: CanvasLayer
 var _menu_pages: Dictionary = {}
 var _shop_page: Control
+var _weather_btn: Button
 var _account_stats: Label
 var _shift_layer: CanvasLayer
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
@@ -79,12 +88,21 @@ func _ready() -> void:
 	_hole_mat.shader = HOLE_SHADER
 	_clip_mat = ShaderMaterial.new()
 	_clip_mat.shader = CLIP_SHADER
+	_ground_mat = ShaderMaterial.new()
+	_ground_mat.shader = GROUND_WEATHER_SHADER
+	for mode in [0, 1, 2]:
+		var pm := ShaderMaterial.new()
+		pm.shader = PROP_WEATHER_SHADER
+		pm.set_shader_parameter("mode", mode)
+		_prop_mats[mode] = pm
 	_build_sky()
 	_build_world()
 	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
 	_build_camera()
+	_weather_fx = WeatherFx.new()
+	add_child(_weather_fx)
 	_build_ui()
 	_build_menu()
 	_start_intro_if_needed()
@@ -132,6 +150,7 @@ func _build_world() -> void:
 	var ground := _level.get_node_or_null("Ground")   # земля — тайлы из сцены улицы
 	if ground != null:
 		ground.reparent(_ground)
+		(ground as CanvasItem).material = _ground_mat
 
 	for node in _level.get_node("Buildings").get_children():
 		var b := node as StreetBuilding
@@ -143,7 +162,14 @@ func _build_world() -> void:
 		if b.is_cafe:
 			_cafe = b
 			_cafe.material = _hole_mat
+		else:   # снег на крышу: у каждого дома своя доля высоты
+			var rm := ShaderMaterial.new()
+			rm.shader = PROP_WEATHER_SHADER
+			rm.set_shader_parameter("mode", 1)
+			rm.set_shader_parameter("roof_frac", float(ROOF_FRAC.get(b.building_id(), 0.3)))
+			b.material = rm
 
+	_build_storefront()
 	var interior := _level.zones(StreetZone.Kind.CAFE_INTERIOR)
 	var at := (interior[0] as StreetZone).global_position if not interior.is_empty() else Vector2(256, 64)
 	# пол кафе обязан лечь в сетку мира: иначе клетки зала и тротуара не совпадут
@@ -158,6 +184,8 @@ func _build_world() -> void:
 		if prop == null:
 			continue
 		prop.reparent(_actors)
+		var pid := prop.texture.resource_path.get_file()
+		prop.material = _prop_mats[2] if (pid.begins_with("tree") or pid.begins_with("bush") or pid.begins_with("plant")) else _prop_mats[0]
 		var wa := prop.texture.get_width()   # контактная тень под предметом
 		var blob := PixelArt.sprite(PixelArt.blob(maxi(5, wa / 2 + 2), maxi(3, wa / 6 + 1)), Vector2.ZERO)
 		blob.scale = Vector2.ONE            # родитель уже в масштабе 2
@@ -203,6 +231,45 @@ func _build_world() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+## Витрина кафе: боковые окна прозрачны (сквозь них виден зал), в проёме — раздвижная стеклянная дверь.
+## Прямоугольники берутся из data/street.json (окна здания): нижние три — левое окно, дверь, правое окно.
+func _build_storefront() -> void:
+	if _cafe == null:
+		return
+	var wins: Array = Data.street["buildings"][_cafe.building_id()]["windows"]
+	var origin := _cafe.world_rect().position
+	var rects: Array[Vector4] = []
+	for i in [2, 3, 4]:
+		var w: Array = wins[i]
+		rects.append(Vector4(origin.x + float(w[0]) * PX, origin.y + float(w[1]) * PX, float(w[2]) * PX, float(w[3]) * PX))
+	for m in [_hole_mat, _clip_mat]:
+		(m as ShaderMaterial).set_shader_parameter("glass0", rects[0])
+		(m as ShaderMaterial).set_shader_parameter("glass1", rects[2])
+		(m as ShaderMaterial).set_shader_parameter("door", rects[1])
+	var d: Array = wins[3]
+	_door = AutoDoor.new()
+	_buildings.add_child(_door)
+	_door.setup(_cafe.texture, Rect2i(int(d[0]), int(d[1]), int(d[2]), int(d[3])), Vector2(rects[1].x, rects[1].y))
+
+
+## Двери открываются, когда рядом кот (и закрыты, пока проём заперт ставнями).
+func _update_door() -> void:
+	if _door == null:
+		return
+	var open := false
+	if _nav.is_entrance_open():
+		var c := _door.rect.get_center()
+		var cats: Array[Node2D] = [_player]
+		for n in _npcs:
+			cats.append(n["cat"])
+		for cat in cats:
+			var dy := cat.position.y - _door.rect.end.y
+			if absf(cat.position.x - c.x) < 64.0 and dy > -110.0 and dy < 96.0:
+				open = true
+				break
+	_door.set_open(open)
+
+
 ## Свет в окнах фасада ночью: часть окон горит, у кафе — все витрины.
 func _add_window_glows(b: StreetBuilding) -> void:
 	var id := b.building_id()
@@ -212,6 +279,16 @@ func _add_window_glows(b: StreetBuilding) -> void:
 	var origin := b.world_rect().position
 	for i in wins.size():
 		var w: Array = wins[i]
+		if not (b.is_cafe and i == 3):   # дверь кафе — отдельная раздвижная, без стекла-оверлея
+			var gl := WindowGlass.new()
+			gl.size = Vector2i(int(w[2]), int(w[3]))
+			gl.position = Vector2(float(w[0]), float(w[1]) - b.texture.get_height())
+			gl.seed_id = hash("%s%d" % [id, i])
+			gl.transparent = b.is_cafe and i >= 2
+			b.add_child(gl)
+			_glass.append(gl)
+			if b.is_cafe:
+				_cafe_overlays.append(gl)
 		if not (b.is_cafe or hash("%s%d" % [id, i]) % 10 < 7):
 			continue
 		var r := ColorRect.new()
@@ -364,10 +441,12 @@ func _build_menu() -> void:
 	if pc:
 		Ui.button("Выход", Rect2(54, top + 288, 252, 52), "exit", main).pressed.connect(get_tree().quit)
 	# настройки
-	var settings := _page("settings", 210.0, "Настройки")
-	var st := 320.0 - 105.0
-	Ui.button("Аккаунт", Rect2(54, st + 56, 252, 52), "home", settings).pressed.connect(_menu_page.bind("account"))
-	Ui.button("Назад", Rect2(54, st + 114, 252, 52), "undo", settings).pressed.connect(_menu_page.bind("main"))
+	var settings := _page("settings", 268.0, "Настройки")
+	var st := 320.0 - 134.0
+	_weather_btn = Ui.button("", Rect2(54, st + 56, 252, 52), "cloud", settings)
+	_weather_btn.pressed.connect(_cycle_weather)
+	Ui.button("Аккаунт", Rect2(54, st + 114, 252, 52), "home", settings).pressed.connect(_menu_page.bind("account"))
+	Ui.button("Назад", Rect2(54, st + 172, 252, 52), "undo", settings).pressed.connect(_menu_page.bind("main"))
 	# аккаунт: статистика и спрятанный сброс
 	var account := _page("account", 290.0, "Аккаунт")
 	var at := 320.0 - 145.0
@@ -397,7 +476,15 @@ func _page(page_name: String, height: float, title: String) -> Control:
 	return page
 
 
+func _cycle_weather() -> void:
+	Weather.cycle_mode()
+	_weather_btn.text = tr("Погода: %s") % tr(Weather.mode_text())
+	GameState.save_game()
+
+
 func _menu_page(page_name: String) -> void:
+	if _weather_btn != null:
+		_weather_btn.text = tr("Погода: %s") % tr(Weather.mode_text())
 	for k in _menu_pages:
 		(_menu_pages[k] as Control).visible = k == page_name
 	if page_name == "account":
@@ -532,6 +619,7 @@ func _process(delta: float) -> void:
 	_traffic.update(delta)
 	_npc_tick(delta)
 	_update_xray(delta)
+	_update_door()
 	_apply_daylight()
 	_update_camera()
 	_clock_btn.text = TimeOfDay.clock_text()
@@ -570,9 +658,22 @@ func _update_xray(delta: float) -> void:
 	_hole_mat.set_shader_parameter("center", center)
 	_hole_mat.set_shader_parameter("radius", _iris_r)
 	_hole_mat.set_shader_parameter("region", hole)
+	if _door != null:
+		_door.set_iris(center, _iris_r, hole)
 	_clip_mat.set_shader_parameter("center", center)
 	_clip_mat.set_shader_parameter("radius", _iris_r)
 	_clip_mat.set_shader_parameter("region", inner)
+	_update_weather_mask()
+
+
+## Внутри раскрытого интерьера дождь и снег не идут: передаём шейдеру прямоугольник зала в экранных координатах.
+func _update_weather_mask() -> void:
+	if _weather_fx == null or _camera == null:
+		return
+	var xf := _world.get_global_transform_with_canvas()
+	var a := xf * _interior_rect.position
+	var b := xf * _interior_rect.end
+	_weather_fx.set_mask(Rect2(a, b - a), _xray)
 
 
 func _farthest_corner(from: Vector2) -> float:
@@ -600,14 +701,15 @@ func _apply_clip_materials() -> void:
 
 ## Свет суток по узлам: улица — ambient, интерьер — тёплый свет кафе; кот, зашедший в здание, плавно меняет свет.
 func _apply_daylight() -> void:
-	var amb := TimeOfDay.ambient()
+	var amb := TimeOfDay.ambient() * Weather.tint()   # погода гасит или подкрашивает свет улицы
 	var ind := TimeOfDay.indoor()
 	if _intro != null:
 		ind *= _intro.light()   # пока зал не расчищен, в нём темно
 	var night := TimeOfDay.night()
+	var lit := clampf(night + Weather.overcast() * 0.3, 0.0, 1.0)   # в пасмурную погоду окна и фонари зажигаются раньше
 	_ground.modulate = amb
 	_buildings.modulate = amb
-	_room.visible = _iris_r > 0.5
+	_room.visible = true   # зал виден сквозь прозрачные окна и дверь
 	_room.modulate = ind
 	for ch in _actors.get_children():
 		if ch is CatWalker:
@@ -618,12 +720,16 @@ func _apply_daylight() -> void:
 			ch.modulate = amb
 	for g in _glows:
 		var f := (1.0 - _xray) if g["cafe"] else 1.0
-		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * night * f
+		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * lit * f
 	for car in _traffic.cars():
 		if car.halo != null:
 			var p := car.position + car.headlight_offset() + Vector2(car.dir * 72.0, 6.0)
 			car.halo.position = Vector2(roundf(p.x / 2.0) * 2.0, roundf(p.y / 2.0) * 2.0)
 	_update_light_volume(night)
+	var sky := Weather.sky(TimeOfDay.sky_bottom()).lightened(0.15)
+	var day := (1.0 - night) * (1.0 - Weather.overcast() * 0.5)
+	for gl in _glass:
+		gl.apply(sky, day, Weather.rain, Weather.fog, Weather.snow_cover)
 
 
 ## Камера едет за котом по обеим осям (за дома — на задний двор); на улице лапки стоят ниже центра экрана.
@@ -652,8 +758,9 @@ func _update_light_volume(night: float) -> void:
 
 
 func _update_camera() -> void:
-	_sky_bg.material.set_shader_parameter("top_color", TimeOfDay.sky_top())
-	_sky_bg.material.set_shader_parameter("bottom_color", TimeOfDay.sky_bottom())
+	_sky_bg.material.set_shader_parameter("top_color", Weather.sky(TimeOfDay.sky_top()))
+	_sky_bg.material.set_shader_parameter("bottom_color", Weather.sky(TimeOfDay.sky_bottom()))
+	_sky.overcast = Weather.overcast()
 	_camera.position = _camera_target()
 	_sky.camera_x = _camera.get_screen_center_position().x
 
