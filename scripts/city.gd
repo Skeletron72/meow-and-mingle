@@ -13,6 +13,9 @@ extends Node2D
 ## не затемняется ночью). Небо — отдельный слой под миром.
 
 const STREET_SCENE := "res://scenes/street.tscn"
+const SPACE_CAFE := 0
+const SPACE_BACK := 1
+const SPACE_UP := 2
 const PX := 2
 const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
@@ -61,6 +64,11 @@ var _prop_mats: Dictionary = {}            # режим → материал с�
 var _weather_fx: WeatherFx
 var _door: AutoDoor                        # раздвижная дверь кафе
 var _glass: Array[WindowGlass] = []        # стёкла окон фасадов
+var _space := SPACE_CAFE                   # где сейчас кот: зал кафе, коморка или жилая зона (все стоят в одном месте здания)
+var _spaces: Dictionary = {}               # SPACE_BACK/SPACE_UP → InteriorSpace
+var _pending_portal: Dictionary = {}       # дверь или лестница, к которой кот идёт
+var _fade: ColorRect                       # затемнение при переходе между помещениями
+var _fading := false
 var _pending := ""                      # действие по прибытии: "shift"
 var _pressing := false
 var _last_cell := Vector2i(-1, -1)
@@ -100,10 +108,12 @@ func _ready() -> void:
 	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
+	_set_space(SPACE_CAFE, Vector2i(-1, -1))
 	_build_camera()
 	_weather_fx = WeatherFx.new()
 	add_child(_weather_fx)
 	_build_ui()
+	_build_fade()
 	_build_menu()
 	_start_intro_if_needed()
 	_update_xray(10.0)
@@ -177,6 +187,7 @@ func _build_world() -> void:
 	_interior_rect = Rect2(_room.position, CafeRoom.ROOM_SIZE)
 	_room.external_actors = _actors
 	_room.set_layout(GameState.layout)
+	_build_spaces()
 
 	var block_cells: Array[Vector2i] = []
 	for node in _level.get_node("Props").get_children():
@@ -231,6 +242,19 @@ func _build_world() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+## Коморка и жилая зона: стоят под фасадом там же, где зал; показываются вместо него (см. _set_space).
+func _build_spaces() -> void:
+	for k in [InteriorSpace.Kind.BACK, InteriorSpace.Kind.UP]:
+		var sp := InteriorSpace.new()
+		sp.position = _room.position
+		_world.add_child(sp)
+		_world.move_child(sp, _room.get_index() + 1)   # под зданиями, как и зал
+		sp.setup(k, _actors)
+		_spaces[SPACE_BACK if k == InteriorSpace.Kind.BACK else SPACE_UP] = sp
+	(_spaces[SPACE_BACK] as InteriorSpace).set_stairs_locked(not GameState.has_upgrade("upstairs"))
+	_room.refresh_back_door()
+
+
 ## Витрина кафе: боковые окна прозрачны (сквозь них виден зал), в проёме — раздвижная стеклянная дверь.
 ## Прямоугольники берутся из data/street.json (окна здания): нижние три — левое окно, дверь, правое окно.
 func _build_storefront() -> void:
@@ -257,7 +281,7 @@ func _update_door() -> void:
 	if _door == null:
 		return
 	var open := false
-	if _nav.is_entrance_open():
+	if _nav.is_entrance_open() and _space == SPACE_CAFE:
 		var c := _door.rect.get_center()
 		var cats: Array[Node2D] = [_player]
 		for n in _npcs:
@@ -460,7 +484,7 @@ func _build_menu() -> void:
 	Ui.button("Отмена", Rect2(54, ct + 124, 252, 52), "undo", confirm).pressed.connect(_menu_page.bind("account"))
 	Ui.button("Сбросить", Rect2(54, ct + 184, 252, 48), "trash", confirm, true, null, true).pressed.connect(_confirm_reset)
 	# магазин улучшений (карточки строятся при открытии)
-	_shop_page = _page("shop", 470.0, "Улучшения")
+	_shop_page = _page("shop", 548.0, "Улучшения")
 	_menu_page("main")
 
 
@@ -508,30 +532,30 @@ func _open_shop() -> void:
 func _refresh_shop() -> void:
 	for ch in _shop_page.get_children().slice(2):   # рамка и заголовок остаются
 		ch.queue_free()
-	var top := 320.0 - 235.0
+	var top := 320.0 - 274.0
 	var y := top + 54.0
 	for u in Data.upgrades:
 		var id := String(u["id"])
 		var owned := GameState.has_upgrade(id)
 		var req := String(u["requires"])
 		var locked := req != "" and not GameState.has_upgrade(req)
-		Ui.panel(Rect2(40, y, 280, 80), Ui.UI_CREAM, _shop_page)
-		Ui.label(String(u["name"]), Rect2(48, y + 6, 160, 32), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		Ui.panel(Rect2(40, y, 280, 66), Ui.UI_CREAM, _shop_page)
+		Ui.label(String(u["name"]), Rect2(48, y + 4, 160, 30), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
 		var sub := String(u["unlocks"])
 		if locked:
 			for r in Data.upgrades:
 				if String(r["id"]) == req:
 					sub = "Нужен: " + String(r["name"]).to_lower()
-		Ui.label(sub, Rect2(48, y + 38, 160, 32), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		Ui.label(sub, Rect2(48, y + 32, 160, 30), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
 		if owned:
-			Ui.label("Куплено", Rect2(208, y + 16, 104, 44), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
+			Ui.label("Куплено", Rect2(208, y + 10, 104, 44), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
 		else:
-			var b := Ui.button(str(int(u["price"])), Rect2(212, y + 16, 100, 48), "coin", _shop_page)
+			var b := Ui.button(str(int(u["price"])), Rect2(212, y + 8, 100, 48), "coin", _shop_page)
 			b.disabled = locked or GameState.coins < int(u["price"])
 			b.modulate = Color(0.65, 0.65, 0.65) if b.disabled else Color.WHITE
 			b.pressed.connect(_buy_upgrade.bind(id))
-		y += 88.0
-	Ui.button("Назад", Rect2(54, top + 54.0 + 88.0 * Data.upgrades.size() + 4.0, 252, 48), "undo", _shop_page).pressed.connect(_shop_back)
+		y += 70.0
+	Ui.button("Назад", Rect2(54, top + 54.0 + 70.0 * Data.upgrades.size() + 2.0, 252, 48), "undo", _shop_page).pressed.connect(_shop_back)
 
 
 func _shop_back() -> void:
@@ -548,6 +572,7 @@ func _buy_upgrade(id: String) -> void:
 		if String(u["id"]) == id:
 			Fx.burst(_menu, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
 			Ui.toast(_menu, String(u["flavor"]), Vector2(180, 560))
+	_on_upgrade_bought(id)
 	_refresh_shop()
 	_coins_label.text = str(GameState.coins)
 
@@ -709,11 +734,15 @@ func _apply_daylight() -> void:
 	var lit := clampf(night + Weather.overcast() * 0.3, 0.0, 1.0)   # в пасмурную погоду окна и фонари зажигаются раньше
 	_ground.modulate = amb
 	_buildings.modulate = amb
-	_room.visible = true   # зал виден сквозь прозрачные окна и дверь
+	_room.visible = _space == SPACE_CAFE   # зал виден сквозь прозрачные окна и дверь (если кот не в коморке или наверху)
+	for k in _spaces:
+		(_spaces[k] as CanvasItem).modulate = ind
 	_room.modulate = ind
 	for ch in _actors.get_children():
 		if ch is CatWalker:
 			ch.modulate = amb.lerp(ind, _depth(ch.position))
+			if ch != _player:   # гости зала не видны, пока кот в коморке или наверху
+				ch.visible = _space == SPACE_CAFE or _depth(ch.position) < 0.05
 		elif ch.has_meta("interior"):
 			ch.modulate = ind
 		else:
@@ -753,6 +782,8 @@ func _update_light_volume(night: float) -> void:
 		m.set_shader_parameter("lean", lean)
 		m.set_shader_parameter("strength", strength)
 	_room.set_lighting(1.0 - night, night)
+	for k in _spaces:
+		(_spaces[k] as InteriorSpace).set_lighting(1.0 - night, night)
 	for o in _cafe_overlays:
 		o.visible = _xray < 0.4
 
@@ -766,7 +797,7 @@ func _update_camera() -> void:
 
 
 func _in_counter_zone() -> bool:
-	return _interior_rect.has_point(_player.position) and _room.in_counter_zone(_room.to_local(_player.position))
+	return _space == SPACE_CAFE and _interior_rect.has_point(_player.position) and _room.in_counter_zone(_room.to_local(_player.position))
 
 
 func _on_player_arrived() -> void:
@@ -774,11 +805,135 @@ func _on_player_arrived() -> void:
 		_intro.on_arrived()
 	if _pending == "shift" and _in_counter_zone():
 		_start_shift()
+	elif _pending == "portal" and not _pending_portal.is_empty():
+		var room_cell := _nav.interior_cells().position
+		if (WorldNav.cell_of_feet(_player.position) - room_cell) in (_pending_portal["stand"] as Array):
+			_use_portal(_pending_portal)
+			return
 	_pending = ""
 
 
 func _on_coins_changed(value: int) -> void:
 	_coins_label.text = str(value)
+
+
+# ---------------------------------------------------------------- коморка, лестница, второй этаж
+
+func _build_fade() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 8
+	add_child(layer)
+	_fade = ColorRect.new()
+	_fade.size = Vector2(360, 640)
+	_fade.color = Color(0.05, 0.03, 0.08, 0.0)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_fade)
+
+
+func _set_fade(a: float) -> void:
+	_fade.color.a = ceilf(clampf(a, 0.0, 1.0) * 5.0) / 5.0   # затемнение ступенями, как всё остальное
+
+
+## Затемнение → действие в темноте → проявление. Пока идёт, ввод не принимается.
+func _with_fade(action: Callable) -> void:
+	if _fading:
+		return
+	_fading = true
+	_player.stop()
+	var t := create_tween()
+	t.tween_method(_set_fade, 0.0, 1.0, 0.24)
+	t.tween_callback(action)
+	t.tween_interval(0.06)
+	t.tween_method(_set_fade, 1.0, 0.0, 0.24)
+	t.tween_callback(func() -> void: _fading = false)
+
+
+## Переход в другое помещение: затемнение, смена, проявление.
+func _go_space(space: int, arrive: Vector2i) -> void:
+	_with_fade(_set_space.bind(space, arrive))
+
+
+## Мгновенно переключает помещение: что рисуем, где ходит кот, кто виден. arrive — клетка зала (локальная), (-1,-1) — остаться на месте.
+func _set_space(space: int, arrive: Vector2i) -> void:
+	_space = space
+	_pending = ""
+	_pending_portal = {}
+	_room.set_present(space == SPACE_CAFE)
+	for k in _spaces:
+		(_spaces[k] as InteriorSpace).set_active(k == space)
+	var mask := _room.walk_mask() if space == SPACE_CAFE else (_spaces[space] as InteriorSpace).walk_mask()
+	_nav.set_interior_mask(mask, space == SPACE_CAFE)
+	if arrive.x >= 0:
+		var room_cell := _nav.interior_cells().position
+		var cell := _nav.nearest_free_cell(room_cell + arrive)
+		_player.stop()
+		_player.position = WorldNav.feet_at(cell)
+		_camera.position = _camera_target()
+		_camera.reset_smoothing()
+
+
+## Куда ведёт дверь или лестница и что для этого нужно.
+func _portal_gate(d: Dictionary) -> String:
+	match String(d["id"]):
+		"door_back":
+			return "" if GameState.has_upgrade("back_room") else "Дверь заколочена. Нужна «Коморка» (улучшения)"
+		"stairs_up":
+			return "" if GameState.has_upgrade("upstairs") else "Лестница заколочена. Нужен «Второй этаж» (улучшения)"
+	return ""
+
+
+## Тап по двери, лестнице или кровати: кот идёт к клетке рядом и там переходит (или ложится спать).
+func _tap_portal(d: Dictionary, world_p: Vector2) -> void:
+	var gate := _portal_gate(d)
+	if gate != "":
+		_toast(gate, world_p)
+		return
+	var stand: Array = d["stand"]
+	var room_cell := _nav.interior_cells().position
+	var here := WorldNav.cell_of_feet(_player.position) - room_cell
+	_pending = "portal"
+	_pending_portal = d
+	if here in stand:
+		_use_portal(d)
+		return
+	var best: Vector2i = stand[0]
+	for c: Vector2i in stand:
+		if WorldNav.feet_at(room_cell + c).distance_to(_player.position) < WorldNav.feet_at(room_cell + best).distance_to(_player.position):
+			best = c
+	_player.walk_to(WorldNav.feet_at(room_cell + best))
+
+
+func _use_portal(d: Dictionary) -> void:
+	_pending = ""
+	_pending_portal = {}
+	match String(d["to"]):
+		"back":
+			_go_space(SPACE_BACK, Vector2i(4, 5) if _space == SPACE_CAFE else Vector2i(9, 2))
+		"cafe":
+			_go_space(SPACE_CAFE, CafeRoom.BACK_DOOR_CELL + Vector2i(0, 1))
+		"up":
+			_go_space(SPACE_UP, Vector2i(9, 2))
+		_:
+			_sleep()
+
+
+## Кровать: ночью — спать до утра, днём — просто прилечь.
+func _sleep() -> void:
+	var night := TimeOfDay.night() > 0.3
+	_with_fade(func() -> void:
+		if night:
+			TimeOfDay.hour = 7.0
+		GameState.save_game())
+	Fx.burst(_actors, _player.position + Vector2(10, -40), "zzz", Color("c9e8ff"), 4, 40.0, -10.0, 1.2, 1.0, 20.0)
+	_toast("Мяу выспался. Доброе утро!" if night else "Ещё не время спать. Мяу просто полежал", _player.position + Vector2(0, -60))
+
+
+## Купили улучшение: дверь и лестница оживают.
+func _on_upgrade_bought(id: String) -> void:
+	if id == "back_room":
+		_room.refresh_back_door()
+	elif id == "upstairs":
+		(_spaces[SPACE_BACK] as InteriorSpace).set_stairs_locked(false)
 
 
 # ---------------------------------------------------------------- машины
@@ -806,6 +961,8 @@ func _on_car_removed(car: Car) -> void:
 ## Раз в несколько секунд кот выбирает новую цель: погулять там же, где он, или перейти в другое место
 ## (с улицы в зал или из зала на улицу) — путь проходит через проём входа.
 func _npc_tick(delta: float) -> void:
+	if _space != SPACE_CAFE:
+		return   # гости ждут в зале, пока кот в других помещениях
 	for n in _npcs:
 		var cat: CatWalker = n["cat"]
 		if cat.is_moving():
@@ -825,7 +982,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_F3:
 		_toggle_zones()
 		return
-	if _shift_layer != null or get_tree().paused:
+	if _shift_layer != null or get_tree().paused or _fading:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -846,14 +1003,22 @@ func _on_press(p: Vector2) -> void:
 		return
 	for n in _npcs:
 		var cat: CatWalker = n["cat"]
-		if is_revealed(cat.position) and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
+		if cat.visible and is_revealed(cat.position) and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
 			_talk(cat, p)
 			return
 	for b in _building_nodes:
 		if not b.is_cafe and b.world_rect().has_point(p):
 			_toast("Здесь закрыто", p)
 			return
-	if _interior_rect.has_point(p) and is_revealed(p) and _room.counter_hit(_room.to_local(p)):
+	if _interior_rect.has_point(p) and is_revealed(p) and _space != SPACE_CAFE:
+		var d := (_spaces[_space] as InteriorSpace).portal_at(p - _room.position)
+		if not d.is_empty():
+			_tap_portal(d, p)
+			return
+	if _space == SPACE_CAFE and _interior_rect.has_point(p) and is_revealed(p) and _room.back_door_hit(_room.to_local(p)):
+		_tap_portal({"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, p)
+		return
+	if _space == SPACE_CAFE and _interior_rect.has_point(p) and is_revealed(p) and _room.counter_hit(_room.to_local(p)):
 		_pending = "shift"
 		if _in_counter_zone():
 			_start_shift()

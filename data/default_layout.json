@@ -3,7 +3,7 @@
 	{"id": "board", "c": 3, "r": 1, "flip": false},
 	{"id": "table_big", "c": 7, "r": 2, "flip": false},
 	{"id": "stool", "c": 6, "r": 3, "flip": false},
-	{"id": "plant", "c": 9, "r": 0, "flip": false},
+	{"id": "plant", "c": 8, "r": 0, "flip": false},
 	{"id": "rug", "c": 1, "r": 4, "flip": false},
 	{"id": "bowl", "c": 0, "r": 3, "flip": false}
 ]

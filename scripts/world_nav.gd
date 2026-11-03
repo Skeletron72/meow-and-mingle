@@ -50,6 +50,21 @@ func build(world_size: Vector2, walk: Array[Rect2], block_rects: Array[Rect2], b
 
 
 ## Закрыть/открыть проём входа (ставни в интро): закрытый — стена, пройти нельзя.
+## Подмена проходимости зала (пол кафе, коморка или жилая зона делят одни и те же клетки мира).
+## mask — COLS×ROWS байт, 1 = можно ходить. cafe — это зал кафе: проём входа учитывает ставни.
+func set_interior_mask(mask: PackedByteArray, cafe: bool) -> void:
+	for r in CafeRoom.ROWS:
+		for c in CafeRoom.COLS:
+			_set_cell(_room_cell + Vector2i(c, r), mask[r * CafeRoom.COLS + c] == 0)
+	if cafe and not _entrance_open:
+		for c in _entrance:
+			_set_cell(c, true)
+
+
+func nearest_free_cell(c: Vector2i) -> Vector2i:
+	return _nearest_free(c)
+
+
 func is_entrance_open() -> bool:
 	return _entrance_open
 

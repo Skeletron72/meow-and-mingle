@@ -38,6 +38,7 @@ func _ready() -> void:
 	await _test_pixel_lighting()
 	await _test_brew_grid()
 	await _test_weather()
+	await _test_spaces()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -1185,5 +1186,100 @@ func _test_weather() -> void:
 	_check(btn.text.contains("Погода"), "кнопка показывает погоду: " + btn.text)
 	Weather.force(Weather.Kind.CLEAR)
 	Weather.set_mode(Weather.AUTO)
+	city.queue_free()
+	await get_tree().process_frame
+
+
+## Коморка и второй этаж: улучшения, дверь и лестница, смена помещений, проходимость, сон.
+func _test_spaces() -> void:
+	var back_def := {}
+	var up_def := {}
+	for u in Data.upgrades:
+		if String(u["id"]) == "back_room":
+			back_def = u
+		elif String(u["id"]) == "upstairs":
+			up_def = u
+	_check(not back_def.is_empty() and String(back_def["requires"]) == "display_case", "улучшение «Коморка» требует витрину")
+	_check(not up_def.is_empty() and String(up_def["requires"]) == "back_room", "«Второй этаж» требует коморку")
+	GameState.upgrades = ["milk_pitcher", "display_case"]
+	GameState.coins = 1000
+	_check(GameState.can_buy_upgrade("back_room") and not GameState.can_buy_upgrade("upstairs"), "этаж не купить без коморки")
+	GameState.upgrades = []
+	GameState.coins = 0
+
+	# дверь в коморку не даёт ставить мебель, а мебель, оказавшаяся у двери в старом сохранении, возвращает деньги
+	var room := CafeRoom.new()
+	add_child(room)
+	room.set_layout([])
+	_check(room.check_place("stool", 9, 0) != "", "у двери в коморку мебель не ставят")
+	_check(room.check_place("stool", 8, 0) == "", "рядом с дверью можно")
+	_check(room.check_place("board", 9, 1) != "", "на дверь в стене повесить нельзя")
+	room.queue_free()
+	GameState.coins = 0
+	var kept := GameState._sanitize_layout([{"id": "stool", "c": 9, "r": 0, "flip": false}])
+	_check(kept.is_empty() and GameState.coins == int(Data.furniture["stool"]["price"]), "пуфик у новой двери убран, деньги возвращены")
+
+	var city := _new_city(true)
+	await get_tree().process_frame
+	var nav: WorldNav = city.get("_nav")
+	var rc := nav.interior_cells().position
+	var player: CatWalker = city.get("_player")
+	_check(city.get("_space") == 0, "сначала кот в зале")
+	# заколочено, пока не куплено
+	GameState.upgrades = []
+	city.call("_tap_portal", {"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, Vector2(600, 600))
+	_check(city.get("_space") == 0 and city.get("_pending") == "", "заколоченная дверь не пускает")
+	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) != "", "лестница заколочена, пока нет «Второго этажа»")
+
+	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case", "back_room"]
+	city.get("_room").call("refresh_back_door")
+	# дверь: кот идёт к клетке у двери и там переходит
+	player.position = WorldNav.feet_at(rc + CafeRoom.BACK_DOOR_CELL)
+	city.call("_tap_portal", {"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, Vector2(600, 600))
+	await get_tree().create_timer(0.9).timeout
+	_check(city.get("_space") == 1 and not city.get("_fading"), "через дверь кот попал в коморку")
+	city.call("_apply_daylight")
+	_check(not city.get("_room").visible and city.get("_spaces")[1].visible, "зал спрятан, коморка видна")
+	var cell := WorldNav.cell_of_feet(player.position) - rc
+	_check(nav.is_walkable(rc + cell), "кот стоит на проходимой клетке коморки: %s" % cell)
+	_check(not nav.is_walkable(rc + Vector2i(0, 0)) and not nav.is_walkable(rc + Vector2i(8, 0)), "полки и лестница не проходимы")
+	_check(nav.is_walkable(rc + Vector2i(4, 6)) and nav.is_walkable(rc + InteriorSpace.STAIRS_STAND[0]), "дверь в кафе и клетки у лестницы проходимы")
+	_check(not nav.find_path(player.position, WorldNav.feet_at(rc + InteriorSpace.STAIRS_STAND[0])).is_empty(), "от двери до лестницы есть путь")
+	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) != "", "лестница в коморке заколочена")
+	for n in city.get("_npcs"):   # гости зала при коморке не видны
+		var cat: CatWalker = n["cat"]
+		if city.call("_depth", cat.position) > 0.05:
+			_check(not cat.visible, "гость зала спрятан, пока кот в коморке")
+
+	# второй этаж
+	GameState.upgrades.append("upstairs")
+	city.call("_on_upgrade_bought", "upstairs")
+	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) == "", "после покупки лестница свободна")
+	player.position = WorldNav.feet_at(rc + InteriorSpace.STAIRS_STAND[0])
+	city.call("_tap_portal", {"id": "stairs_up", "stand": InteriorSpace.STAIRS_STAND, "to": "up"}, Vector2(600, 600))
+	await get_tree().create_timer(0.9).timeout
+	_check(city.get("_space") == 2, "по лестнице кот поднялся в жилую зону")
+	_check(not nav.is_walkable(rc + Vector2i(3, 0)) and not nav.is_walkable(rc + Vector2i(4, 1)), "кровать занимает клетки")
+	_check(not nav.find_path(player.position, WorldNav.feet_at(rc + InteriorSpace.BED_STAND[0])).is_empty(), "до кровати можно дойти")
+	# сон: ночью — до утра
+	TimeOfDay.hour = 22.0
+	city.call("_sleep")
+	await get_tree().create_timer(0.9).timeout
+	_check(is_equal_approx(TimeOfDay.hour, 7.0), "после сна утро: %s" % TimeOfDay.hour)
+	# вниз, в коморку, и обратно в кафе
+	city.call("_use_portal", {"id": "stairs_down", "stand": InteriorSpace.STAIRS_STAND, "to": "back"})
+	await get_tree().create_timer(0.9).timeout
+	_check(city.get("_space") == 1, "лестница вниз ведёт в коморку")
+	city.call("_use_portal", {"id": "door_cafe", "stand": InteriorSpace.BACK_DOOR_CELLS, "to": "cafe"})
+	await get_tree().create_timer(0.9).timeout
+	_check(city.get("_space") == 0, "дверь коморки ведёт в кафе")
+	_check(nav.is_walkable(rc + Vector2i(5, 4)) and nav.is_walkable(rc + CafeRoom.BACK_DOOR_CELL), "в зале снова проходимы его клетки")
+	# магазин показывает все шесть улучшений
+	GameState.upgrades = []
+	city.call("_open_shop")
+	var texts: Array[String] = []
+	_button_texts(city.get("_shop_page"), texts)
+	_check("150" in texts and "300" in texts, "в магазине видны коморка и второй этаж (%s)" % [texts])
+	city.call("_close_menu")
 	city.queue_free()
 	await get_tree().process_frame

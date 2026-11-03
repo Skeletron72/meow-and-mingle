@@ -24,6 +24,10 @@ const COUNTER_SRC := Rect2(17, 112, 46, 16)
 const COUNTER_CELLS := Rect2i(0, 0, 3, 1)          # здесь стоит кот у стойки; мебель ставить нельзя
 const COUNTER_SPRITE := Rect2(0, 48, 96, 48)       # прилавок + кофемашина, для тапа
 const WALL_RESERVED := Rect2i(0, 1, 3, 2)          # стена над стойкой занята
+## Дверь в коморку: в задней стене у правого угла. К ней ведёт клетка пола BACK_DOOR_CELL (её держим свободной).
+const BACK_DOOR_WALL := Rect2i(9, 1, 1, 2)
+const BACK_DOOR_CELL := Vector2i(9, 0)
+const BACK_DOOR_RECT := Rect2(288, 32, 32, 64)     # где дверь нарисована (для тапа), в координатах комнаты
 const SPAWN_CELLS := Rect2i(4, 5, 2, 2)            # вход; тоже держим свободным
 const SPAWN_CELL := Vector2i(4, 6)
 ## Передний ряд — витрина здания: непроходимый и без мебели, кроме проёма входа. Двери нет: из проёма сразу тротуар.
@@ -51,6 +55,7 @@ var _lamp_glows: Array[Sprite2D] = []   # тёплые пятна света о�
 var _windows: Array[WindowGlow] = []     # стёкла окон: цвет по времени суток
 var _day := 1.0
 var _night := 0.0
+var _back_door: BackDoor
 
 
 func _init() -> void:
@@ -63,6 +68,7 @@ func _init() -> void:
 	add_child(_flat_layer)
 	add_child(actors)
 	_build_counter()
+	_build_back_door()
 	_build_lights()
 
 
@@ -250,6 +256,23 @@ func set_lighting(day: float, night: float) -> void:
 		w.apply(day, night)
 
 
+## Дверь в коморку на задней стене: до покупки «Коморки» заколочена досками.
+func _build_back_door() -> void:
+	_back_door = BackDoor.new()
+	_back_door.position = BACK_DOOR_RECT.position
+	_wall_layer.add_child(_back_door)
+	refresh_back_door()
+
+
+func refresh_back_door() -> void:
+	_back_door.open_to_staff = GameState.has_upgrade("back_room")
+	_back_door.queue_redraw()
+
+
+func back_door_hit(p: Vector2) -> bool:
+	return BACK_DOOR_RECT.grow(4.0).has_point(p)
+
+
 func _has_item(id: String) -> bool:
 	for it in layout:
 		if String(it["id"]) == id:
@@ -316,7 +339,7 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if is_wall(id):
 		if area.position.x < 0 or area.end.x > COLS or area.position.y < WALL_FIRST_ROW or area.end.y > WALL_ROWS:
 			return tr("Это вешается на стену")
-		if area.intersects(WALL_RESERVED):
+		if area.intersects(WALL_RESERVED) or area.intersects(BACK_DOOR_WALL):
 			return tr("Тут занято")
 		for i in layout.size():
 			var other := String(layout[i]["id"])
@@ -326,7 +349,7 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if area.position.x < 0 or area.end.x > COLS or area.position.y < 0 or area.end.y > FRONT_ROW:
 		return tr("Сюда нельзя")
 	var solid := is_solid(id)
-	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS)):
+	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS) or area.has_point(BACK_DOOR_CELL)):
 		return tr("Не загораживайте проход")
 	for i in layout.size():
 		var other := String(layout[i]["id"])
@@ -378,6 +401,24 @@ func counter_hit(p: Vector2) -> bool:
 
 # ---------------------------------------------------------------- сетка путей
 
+## Проходимость зала для города: пол без витрины (кроме проёма входа) минус громоздкая мебель.
+func walk_mask() -> PackedByteArray:
+	var g := _make_grid(_solid_cells(-1))
+	var m := PackedByteArray()
+	m.resize(COLS * ROWS)
+	for r in ROWS:
+		for c in COLS:
+			m[r * COLS + c] = 0 if g.is_point_solid(Vector2i(c, r)) else 1
+	return m
+
+
+## Показать/спрятать зал целиком вместе с мебелью, живущей в общем слое мира (когда кот в коморке или наверху).
+func set_present(on: bool) -> void:
+	visible = on
+	for n in _nodes:
+		n.visible = on
+
+
 func rebuild_nav() -> void:
 	_astar = _make_grid(_solid_cells(-1))
 
@@ -418,6 +459,8 @@ func _reachable(g: AStarGrid2D) -> bool:
 	var a := _free_cell(g, SPAWN_CELL)
 	var b := _free_cell(g, Vector2i(1, 0))
 	if a.x < 0 or b.x < 0:
+		return false
+	if g.is_point_solid(BACK_DOOR_CELL) or g.get_id_path(a, BACK_DOOR_CELL).is_empty():   # и до двери в коморку
 		return false
 	return not g.get_id_path(a, b).is_empty()
 
@@ -520,3 +563,39 @@ class WindowGlow extends Node2D:
 		if _night > 0.5:
 			for st: Vector2 in STARS:
 				draw_rect(Rect2(st * s, Vector2(s, s)), Color(1, 1, 0.85, (_night - 0.5) * 2.0))
+
+
+## Дверь в служебную комнату: деревянная с окошком; пока не куплена «Коморка» — заколочена крест-накрест.
+class BackDoor extends Node2D:
+	const WOOD := Color("9a6a3c")
+	const WOOD_D := Color("6f4727")
+	const WOOD_L := Color("b98552")
+	const OL := Color("2b2230")
+	var open_to_staff := false
+
+	func _draw() -> void:
+		draw_rect(Rect2(-2, -2, 36, 68), OL)
+		draw_rect(Rect2(0, 0, 32, 64), WOOD_D)
+		draw_rect(Rect2(2, 2, 28, 62), WOOD)
+		draw_rect(Rect2(2, 2, 28, 2), WOOD_L)
+		draw_rect(Rect2(6, 8, 20, 20), WOOD_D)    # верхняя филёнка с окошком
+		draw_rect(Rect2(8, 10, 16, 16), Color("5c7c8c"))
+		draw_rect(Rect2(8, 10, 16, 2), Color("8fb0c0"))
+		draw_rect(Rect2(6, 34, 20, 26), WOOD_D)   # нижняя филёнка
+		draw_rect(Rect2(8, 36, 16, 22), WOOD)
+		draw_rect(Rect2(24, 32, 4, 4), Color("e8c15a"))   # ручка
+		if open_to_staff:
+			draw_rect(Rect2(8, -10, 16, 8), OL)       # табличка «Служебная»
+			draw_rect(Rect2(10, -8, 12, 4), Color("f4ecd8"))
+			return
+		for i in 28:   # две доски крест-накрест шагами по 2 px
+			var y := 6.0 + i * 2.0
+			var x1 := 2.0 + i
+			var x2 := 28.0 - i
+			draw_rect(Rect2(snappedf(x1, 2.0) - 2, y, 6, 4), OL)
+			draw_rect(Rect2(snappedf(x2, 2.0) - 2, y, 6, 4), OL)
+		for i in 28:
+			var y := 6.0 + i * 2.0
+			draw_rect(Rect2(snappedf(2.0 + i, 2.0), y, 4, 2), Color("c49a5e"))
+			draw_rect(Rect2(snappedf(28.0 - i, 2.0), y, 4, 2), Color("b0864a"))
+		draw_rect(Rect2(14, 30, 4, 4), Color("5f5f6a"))   # гвоздь по центру
