@@ -1081,7 +1081,11 @@ func _test_brew_grid() -> void:
 	var cup := Ui.atlas(load("res://assets/cafe/drinks-and-pastries.png"), Rect2(32, 16, 16, 16))   # эспрессо: ручка справа
 	_check(BrewArt.content_offset(cup, true).x < BrewArt.content_offset(cup, false).x, "посуду центрируем по чаше, а не по чаше с ручкой")
 	var p := Fx.burst(brew, Vector2(100, 100), "sparkle", Color.WHITE, 3, 50.0)
-	_check(p.scale_amount_min >= 4.0, "частицы не мельче пикселя игры")
+	await get_tree().create_timer(0.2).timeout
+	var sprites := p.get_children().filter(func(n: Node) -> bool: return n is Sprite2D and n.visible)
+	_check(not sprites.is_empty(), "частицы летят")
+	for sp: Sprite2D in sprites:
+		_check(sp.scale.x >= 4.0 and fmod(absf(sp.position.x), 4.0) == 0.0 and fmod(absf(sp.position.y), 4.0) == 0.0, "частица на сетке 4 px, не мельче пикселя игры")
 	var tray: ServingTray = brew.get("_tray")
 	_check(tray.scale == Vector2.ONE and is_zero_approx(tray.rotation), "поднос не растянут и не повёрнут")
 	_check(fmod(tray.position.x, 4.0) == 0.0 and fmod(tray.position.y, 4.0) == 0.0, "поднос стоит на сетке 4 px")

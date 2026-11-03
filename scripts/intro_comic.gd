@@ -224,8 +224,7 @@ func _panel_home(art: Node2D) -> void:
 	kb.tween_property(key, "rotation", -0.12, 0.8).set_trans(Tween.TRANS_SINE)
 	_halo(art, Vector2(190, 110), Vector2(260, 200), Color(1.0, 0.75, 0.4, 0.45))
 	var sp := Fx.burst(art, Vector2(210, 84), "sparkle", Color("fff3b0"), 4, 40.0, 0.0, 1.2, 0.8)
-	sp.one_shot = false
-	sp.explosiveness = 0.0
+	sp.loop = true
 	Fx.motes(art, Rect2(60, 60, 200, 100), 12)
 
 

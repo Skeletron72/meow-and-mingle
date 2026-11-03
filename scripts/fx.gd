@@ -59,42 +59,97 @@ static func additive() -> CanvasItemMaterial:
 
 # ---------------------------------------------------------------- частицы
 
-## Разовый всплеск частиц (сердечки, звёзды, капли...). direction — куда летит основная масса, spread — разброс в градусах.
-static func burst(parent: Node, pos: Vector2, tex_name: String, color: Color, count: int, speed: float, gravity := 220.0, life := 0.9, size := 1.0, spread := 180.0, dir := Vector2.UP) -> CPUParticles2D:
-	var p := CPUParticles2D.new()
-	p.texture = tex(tex_name)
-	p.position = pos
-	p.one_shot = true
-	p.amount = count
-	p.lifetime = life
-	p.explosiveness = 0.95
-	p.direction = dir
-	p.spread = spread
-	p.initial_velocity_min = speed * 0.45
-	p.initial_velocity_max = speed
-	p.gravity = Vector2(0, gravity)
-	var k := maxf(1.0, roundf(size))   # целое число пикселей сетки: частица не мельче пикселя игры
-	p.scale_amount_min = unit * k
-	p.scale_amount_max = unit * k
-	var g := Gradient.new()
-	g.colors = PackedColorArray([color, Color(color, 0.0)])
-	g.offsets = PackedFloat32Array([0.55, 1.0])
-	p.color_ramp = g
-	p.z_index = 40
-	parent.add_child(p)
-	p.emitting = true
-	p.finished.connect(p.queue_free)
-	return p
+## Разовый всплеск частиц (сердечки, звёзды, капли...). dir — куда летит основная масса, spread — разброс в градусах.
+## Частицы — настоящие спрайты на сетке эффектов: позиция каждый кадр привязывается к unit, поэтому форма (звезда, сердце) не «плывёт».
+static func burst(parent: Node, pos: Vector2, tex_name: String, color: Color, count: int, speed: float, gravity := 220.0, life := 0.9, size := 1.0, spread := 180.0, dir := Vector2.UP, palette: Array[Color] = []) -> Spray:
+	var sp := Spray.new()
+	sp.palette = palette
+	sp.tex = tex(tex_name)
+	sp.color = color
+	sp.count = count
+	sp.speed = speed
+	sp.gravity = gravity
+	sp.life = life
+	sp.k = maxf(1.0, roundf(size))   # целое число пикселей сетки: частица не мельче пикселя игры
+	sp.spread = spread
+	sp.dir = dir
+	sp.position = pos
+	sp.z_index = 40
+	parent.add_child(sp)
+	return sp
 
 
 ## Конфетти: случайные яркие цвета.
-static func confetti(parent: Node, pos: Vector2, count := 28) -> CPUParticles2D:
-	var p := burst(parent, pos, "confetti", Color.WHITE, count, 340.0, 420.0, 1.5, 1.0, 70.0, Vector2.UP)
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color("ff6b8b"), Color("ffd640"), Color("6bd5ff"), Color("8dff7a"), Color("c48bff")])
-	g.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
-	p.color_initial_ramp = g
-	return p
+static func confetti(parent: Node, pos: Vector2, count := 28) -> Spray:
+	var colors: Array[Color] = [Color("ff6b8b"), Color("ffd640"), Color("6bd5ff"), Color("8dff7a"), Color("c48bff")]
+	return burst(parent, pos, "confetti", Color.WHITE, count, 340.0, 420.0, 1.5, 1.0, 70.0, Vector2.UP, colors)
+
+
+## Фонтан частиц на сетке эффектов: каждая частица — Sprite2D, позиция снапится к Fx.unit, прозрачность ступенями.
+class Spray extends Node2D:
+	var tex: Texture2D
+	var color := Color.WHITE
+	var palette: Array[Color] = []
+	var count := 8
+	var speed := 100.0
+	var gravity := 200.0
+	var life := 0.9
+	var k := 1.0
+	var spread := 180.0
+	var dir := Vector2.UP
+	var loop := false           # true — частицы возрождаются бесконечно (мерцание)
+	var _items: Array[Dictionary] = []
+
+	func _ready() -> void:
+		for i in count:
+			var sp := Sprite2D.new()
+			sp.texture = tex
+			sp.centered = false
+			sp.scale = Vector2(Fx.unit * k, Fx.unit * k)
+			sp.modulate = palette.pick_random() if not palette.is_empty() else color
+			add_child(sp)
+			_items.append({"sp": sp, "base": sp.modulate.a, "age": -randf() * (life * 0.6 if loop else 0.03)})
+			_launch(_items[i])
+
+	func _launch(it: Dictionary) -> void:
+		var ang := deg_to_rad(randf_range(-spread, spread))
+		it["pos"] = Vector2.ZERO
+		it["vel"] = dir.normalized().rotated(ang) * speed * randf_range(0.45, 1.0)
+		it["age"] = it["age"] if it["age"] < 0.0 else 0.0
+
+	func _process(dt: float) -> void:
+		var alive := 0
+		var u := Fx.unit * k
+		var half := Vector2(floorf(tex.get_width() / 2.0), floorf(tex.get_height() / 2.0)) * u
+		for it in _items:
+			var sp: Sprite2D = it["sp"]
+			it["age"] += dt
+			var age: float = it["age"]
+			if age < 0.0:
+				sp.visible = false
+				alive += 1
+				continue
+			if age >= life:
+				if loop:
+					it["age"] = -randf() * life * 0.3
+					_launch(it)
+					alive += 1
+				else:
+					sp.visible = false
+				continue
+			alive += 1
+			var vel: Vector2 = it["vel"]
+			vel.y += gravity * dt
+			it["vel"] = vel
+			it["pos"] += vel * dt
+			var p: Vector2 = it["pos"]
+			sp.visible = true
+			sp.position = Vector2(snappedf(p.x, u), snappedf(p.y, u)) - half
+			var f := age / life
+			var a := 1.0 if f < 0.55 else (1.0 - (f - 0.55) / 0.45)
+			sp.modulate.a = float(it["base"]) * ceilf(a * 4.0) / 4.0   # 4 ступени прозрачности
+		if alive == 0:
+			queue_free()
 
 
 ## Непрерывный пар (включается/выключается через emitting).

@@ -133,7 +133,7 @@ func _build_table() -> void:
 	var pastries: Array[Dictionary] = []
 	for id in Data.pastries:
 		pastries.append({"kind": "pastry", "id": id, "title": String(Data.pastries[id]["name"]), "tex": _pastry_tex(id)})
-	_lay_row(bases, 452.0)
+	_lay_row(bases, 448.0)
 	_lay_row(pastries, 564.0)
 	_table.plates = []
 	for s in _sources:
@@ -144,7 +144,7 @@ func _build_table() -> void:
 		s["rest"] = rest
 		var icon := _sprite(s["tex"], rest, 4.0)
 		s["icon"] = icon
-		var cap := _label(s["title"], Rect2((s["center"] as Vector2).x - 54, (s["center"] as Vector2).y + 40, 108, 28), Color("fff1d6"), null, true)
+		var cap := _label(s["title"], Rect2((s["center"] as Vector2).x - 54, (s["center"] as Vector2).y + 44, 108, 28), Color("fff1d6"), null, true)
 		cap.add_theme_color_override("font_outline_color", Color("3f2815"))
 		cap.add_theme_constant_override("outline_size", Ui.PX * 2)
 		var rest_y := icon.position.y
@@ -182,7 +182,7 @@ func _lay_row(items: Array[Dictionary], y: float) -> void:
 		var s: Dictionary = shown[i]
 		var c := Vector2(float(xs[i]), y)
 		s["center"] = c
-		s["rect"] = Rect2(c - Vector2(46, 46), Vector2(92, 108))
+		s["rect"] = Rect2(c - Vector2(50, 50), Vector2(100, 118))
 		_sources.append(s)
 
 
@@ -607,7 +607,7 @@ func _update_coach() -> void:
 	if step.has("source"):
 		for s in _sources:
 			if String(s["id"]) == String(step["source"]):
-				target = (s["center"] as Vector2) + Vector2(0, 40)
+				target = (s["center"] as Vector2) + Vector2(0, 44)
 	elif step.has("target"):
 		target = step["target"]
 	_coach_hand.visible = target != Vector2.ZERO

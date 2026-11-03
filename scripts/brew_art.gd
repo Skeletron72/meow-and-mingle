@@ -34,7 +34,7 @@ const PLATE_RIM := Color("d4c6a6")
 
 var part := Part.WALL
 var plates: Array[Vector2] = []   # центры тарелок на столе (кратны G)
-var plate_radius := 36.0
+var plate_radius := 40.0
 
 
 func _draw() -> void:
