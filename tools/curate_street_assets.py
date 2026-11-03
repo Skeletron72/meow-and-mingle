@@ -27,13 +27,13 @@ PROPS = {
     "vertical cardboardbox": "box", "Trashbag": "trashbag", "Sign1": "sign1", "Sign2": "sign2",
     "Side chair": "chair_side", "Square table": "table_square", "Circular table": "table_round",
 }
-# (папка пака, цвет или None, id)
+# (папка пака, цвет или None, id). Только машины не выше ~44 px арта: полоса движения — 80 px (автобус не влезает)
 VEHICLES = [
     ("SEDAN TOPDOWN", "Blue", "sedan_blue"), ("SEDAN TOPDOWN", "Red", "sedan_red"),
     ("SEDAN TOPDOWN", "Yellow", "sedan_yellow"), ("SEDAN TOPDOWN", "White", "sedan_white"),
     ("HATCHBACK TOPDOWN", "Green", "hatchback_green"), ("PICKUP TOPDOWN", "Brown", "pickup_brown"),
     ("MINIVAN TOPDOWN", "Magenta", "minivan_magenta"), ("VAN TOP DOWN", "White", "van_white"),
-    ("BUS TOPDOWN", "Yellow", "bus_yellow"), ("TAXI TOPDOWN", None, "taxi"), ("POLICE TOPDOWN", None, "police"),
+    ("TAXI TOPDOWN", None, "taxi"), ("POLICE TOPDOWN", None, "police"),
 ]
 
 

@@ -1,0 +1,278 @@
+[gd_scene load_steps=22 format=3]
+
+[ext_resource type="Script" path="res://scripts/street_level.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/street_zone.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/street_building.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/street_prop.gd" id="4"]
+[ext_resource type="Texture2D" path="res://assets/street/buildings/building3.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/street/buildings/building4.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/street/buildings/building1.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/street/buildings/building2.png" id="8"]
+[ext_resource type="Texture2D" path="res://assets/street/buildings/building7.png" id="9"]
+[ext_resource type="Texture2D" path="res://assets/street/props/tree3.png" id="10"]
+[ext_resource type="Texture2D" path="res://assets/street/props/vending_beige.png" id="11"]
+[ext_resource type="Texture2D" path="res://assets/street/props/lamp.png" id="12"]
+[ext_resource type="Texture2D" path="res://assets/street/props/hydrant.png" id="13"]
+[ext_resource type="Texture2D" path="res://assets/street/props/bush1.png" id="14"]
+[ext_resource type="Texture2D" path="res://assets/street/props/bush2.png" id="15"]
+[ext_resource type="Texture2D" path="res://assets/street/props/trashbin.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/street/props/vending_red.png" id="17"]
+[ext_resource type="Texture2D" path="res://assets/street/props/plant3.png" id="18"]
+[ext_resource type="Texture2D" path="res://assets/street/props/tree2.png" id="19"]
+[ext_resource type="Texture2D" path="res://assets/street/props/vending_green.png" id="20"]
+[ext_resource type="Texture2D" path="res://assets/street/props/tree1.png" id="21"]
+
+[node name="Street" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Zones" type="Node2D" parent="."]
+
+[node name="Sidewalk" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 384.0
+offset_right = 1440.0
+offset_bottom = 460.0
+script = ExtResource("2")
+kind = 5
+
+[node name="Road" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 460.0
+offset_right = 1440.0
+offset_bottom = 632.0
+script = ExtResource("2")
+kind = 6
+
+[node name="Crosswalk" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 700.0
+offset_top = 464.0
+offset_right = 820.0
+offset_bottom = 628.0
+script = ExtResource("2")
+kind = 7
+
+[node name="Walk" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 24.0
+offset_top = 384.0
+offset_right = 1416.0
+offset_bottom = 448.0
+script = ExtResource("2")
+kind = 0
+
+[node name="LaneWest" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 444.0
+offset_right = 1440.0
+offset_bottom = 524.0
+script = ExtResource("2")
+kind = 3
+
+[node name="LaneEast" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 0.0
+offset_top = 536.0
+offset_right = 1440.0
+offset_bottom = 616.0
+script = ExtResource("2")
+kind = 2
+
+[node name="CafeInterior" type="ReferenceRect" parent="Zones"]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 256.0
+offset_top = 64.0
+offset_right = 576.0
+offset_bottom = 384.0
+script = ExtResource("2")
+kind = 4
+
+[node name="Buildings" type="Node2D" parent="."]
+
+[node name="Building3" type="Sprite2D" parent="Buildings"]
+position = Vector2(20, 384)
+scale = Vector2(2, 2)
+texture = ExtResource("5")
+centered = false
+offset = Vector2(0, -163)
+script = ExtResource("3")
+
+[node name="Building4" type="Sprite2D" parent="Buildings"]
+position = Vector2(246, 384)
+scale = Vector2(2, 2)
+texture = ExtResource("6")
+centered = false
+offset = Vector2(0, -161)
+script = ExtResource("3")
+is_cafe = true
+
+[node name="Building1" type="Sprite2D" parent="Buildings"]
+position = Vector2(610, 384)
+scale = Vector2(2, 2)
+texture = ExtResource("7")
+centered = false
+offset = Vector2(0, -162)
+script = ExtResource("3")
+
+[node name="Building2" type="Sprite2D" parent="Buildings"]
+position = Vector2(830, 384)
+scale = Vector2(2, 2)
+texture = ExtResource("8")
+centered = false
+offset = Vector2(0, -176)
+script = ExtResource("3")
+
+[node name="Building7" type="Sprite2D" parent="Buildings"]
+position = Vector2(1176, 384)
+scale = Vector2(2, 2)
+texture = ExtResource("9")
+centered = false
+offset = Vector2(0, -192)
+script = ExtResource("3")
+
+[node name="Props" type="Node2D" parent="."]
+
+[node name="Tree31" type="Sprite2D" parent="Props"]
+position = Vector2(8, 428)
+scale = Vector2(2, 2)
+texture = ExtResource("10")
+centered = false
+offset = Vector2(-16, -45)
+script = ExtResource("4")
+blocks = true
+
+[node name="Vendingbeige1" type="Sprite2D" parent="Props"]
+position = Vector2(190, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("11")
+centered = false
+offset = Vector2(-16, -32)
+script = ExtResource("4")
+blocks = true
+
+[node name="Lamp1" type="Sprite2D" parent="Props"]
+position = Vector2(235, 448)
+scale = Vector2(2, 2)
+texture = ExtResource("12")
+centered = false
+offset = Vector2(-13, -45)
+script = ExtResource("4")
+emits_light = true
+
+[node name="Lamp2" type="Sprite2D" parent="Props"]
+position = Vector2(598, 448)
+scale = Vector2(2, 2)
+texture = ExtResource("12")
+centered = false
+offset = Vector2(-13, -45)
+script = ExtResource("4")
+emits_light = true
+
+[node name="Hydrant1" type="Sprite2D" parent="Props"]
+position = Vector2(640, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("13")
+centered = false
+offset = Vector2(-6, -21)
+script = ExtResource("4")
+blocks = true
+
+[node name="Bush11" type="Sprite2D" parent="Props"]
+position = Vector2(700, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("14")
+centered = false
+offset = Vector2(-14, -23)
+script = ExtResource("4")
+blocks = true
+
+[node name="Bush21" type="Sprite2D" parent="Props"]
+position = Vector2(764, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("15")
+centered = false
+offset = Vector2(-14, -23)
+script = ExtResource("4")
+blocks = true
+
+[node name="Trashbin1" type="Sprite2D" parent="Props"]
+position = Vector2(796, 412)
+scale = Vector2(2, 2)
+texture = ExtResource("16")
+centered = false
+offset = Vector2(-9, -29)
+script = ExtResource("4")
+blocks = true
+
+[node name="Lamp3" type="Sprite2D" parent="Props"]
+position = Vector2(818, 448)
+scale = Vector2(2, 2)
+texture = ExtResource("12")
+centered = false
+offset = Vector2(-13, -45)
+script = ExtResource("4")
+emits_light = true
+
+[node name="Vendingred1" type="Sprite2D" parent="Props"]
+position = Vector2(884, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("17")
+centered = false
+offset = Vector2(-13, -32)
+script = ExtResource("4")
+blocks = true
+
+[node name="Plant31" type="Sprite2D" parent="Props"]
+position = Vector2(1010, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("18")
+centered = false
+offset = Vector2(-7, -22)
+script = ExtResource("4")
+blocks = true
+
+[node name="Lamp4" type="Sprite2D" parent="Props"]
+position = Vector2(1164, 448)
+scale = Vector2(2, 2)
+texture = ExtResource("12")
+centered = false
+offset = Vector2(-13, -45)
+script = ExtResource("4")
+emits_light = true
+
+[node name="Tree21" type="Sprite2D" parent="Props"]
+position = Vector2(1214, 436)
+scale = Vector2(2, 2)
+texture = ExtResource("19")
+centered = false
+offset = Vector2(-11, -57)
+script = ExtResource("4")
+blocks = true
+
+[node name="Vendinggreen1" type="Sprite2D" parent="Props"]
+position = Vector2(1340, 404)
+scale = Vector2(2, 2)
+texture = ExtResource("20")
+centered = false
+offset = Vector2(-8, -32)
+script = ExtResource("4")
+blocks = true
+
+[node name="Tree11" type="Sprite2D" parent="Props"]
+position = Vector2(1412, 432)
+scale = Vector2(2, 2)
+texture = ExtResource("21")
+centered = false
+offset = Vector2(-8, -45)
+script = ExtResource("4")
+blocks = true

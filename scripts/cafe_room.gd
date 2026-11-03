@@ -26,7 +26,9 @@ const COUNTER_SPRITE := Rect2(0, 48, 96, 48)       # прилавок + кофе
 const WALL_RESERVED := Rect2i(0, 1, 3, 2)          # стена над стойкой занята
 const SPAWN_CELLS := Rect2i(4, 5, 2, 2)            # вход; тоже держим свободным
 const SPAWN_CELL := Vector2i(4, 6)
-const DOOR_CELLS := Rect2i(4, 6, 2, 1)             # коврик у двери: отсюда можно выйти на улицу
+## Передний ряд — витрина здания: непроходимый и без мебели, кроме проёма входа. Двери нет: из проёма сразу тротуар.
+const FRONT_ROW := 6
+const ENTRANCE_CELLS := Rect2i(4, 6, 2, 1)
 const WALL_FIRST_ROW := 0
 
 const WALL_COLOR := Color("cdb892")
@@ -38,7 +40,9 @@ const FLOOR_EDGE := Color("5b3d27")
 
 var layout: Array[Dictionary] = []   # общий с GameState.layout: правки видны сразу
 
-var actors: Node2D                   # сюда добавлять котов: сортируются по y вместе с мебелью
+var actors: Node2D                   # свой слой (режим украшения): мебель сортируется по y
+## Если задан (город), громоздкая мебель живёт в этом общем слое мира и сортируется по y вместе с котами и машинами.
+var external_actors: Node2D
 var _wall_layer: Node2D
 var _flat_layer: Node2D
 var _nodes: Array[Node2D] = []       # узел мебели для каждого элемента layout (тот же индекс)
@@ -163,7 +167,7 @@ func node_for(index: int) -> Node2D:
 ## Двигает узел предмета на клетку (c, r), не трогая layout (для перетаскивания).
 func preview_move(index: int, c: int, r: int) -> void:
 	var id := String(layout[index]["id"])
-	_nodes[index].position = foot_pos(id, c, r)
+	_nodes[index].position = foot_pos(id, c, r) + (position if _nodes[index].has_meta("interior") else Vector2.ZERO)
 
 
 func _spawn_item(item: Dictionary) -> Node2D:
@@ -184,6 +188,10 @@ func _spawn_item(item: Dictionary) -> Node2D:
 	sp.flip_h = bool(item.get("flip", false))
 	n.add_child(sp)
 	var layer: Node2D = _wall_layer if is_wall(id) else (_flat_layer if is_flat(id) else actors)
+	if external_actors != null and is_solid(id):
+		layer = external_actors
+		n.position += position   # слой мира стоит в нуле, комната — со смещением
+		n.set_meta("interior", true)
 	layer.add_child(n)
 	return n
 
@@ -218,8 +226,13 @@ func _draw() -> void:
 	for r in ROWS:
 		for c in COLS:
 			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + r * T, T, T), FLOOR_A if (r + c) % 2 == 0 else FLOOR_B)
-	# коврик у входа — ровно по клеткам двери
-	var mat := Rect2(ORIGIN.x + DOOR_CELLS.position.x * T, ORIGIN.y + DOOR_CELLS.position.y * T, DOOR_CELLS.size.x * T, T)
+	# передний ряд — подоконник витрины, кроме проёма входа
+	for c in COLS:
+		if not ENTRANCE_CELLS.has_point(Vector2i(c, FRONT_ROW)):
+			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, T), FLOOR_EDGE)
+			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, 4), FLOOR_EDGE.lightened(0.2))
+	# коврик в проёме входа — ровно по его клеткам
+	var mat := Rect2(ORIGIN.x + ENTRANCE_CELLS.position.x * T, ORIGIN.y + ENTRANCE_CELLS.position.y * T, ENTRANCE_CELLS.size.x * T, T)
 	draw_rect(mat.grow(-4), Color("5b3d27"))
 	draw_rect(mat.grow(-8), Color("7a5238"))
 	# рамка разреза здания
@@ -244,7 +257,7 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 			if i != ignore and is_wall(other) and area.intersects(cells(other, int(layout[i]["c"]), int(layout[i]["r"]))):
 				return tr("Тут занято")
 		return ""
-	if area.position.x < 0 or area.end.x > COLS or area.position.y < 0 or area.end.y > ROWS:
+	if area.position.x < 0 or area.end.x > COLS or area.position.y < 0 or area.end.y > FRONT_ROW:
 		return tr("Сюда нельзя")
 	var solid := is_solid(id)
 	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS)):
@@ -303,6 +316,11 @@ func rebuild_nav() -> void:
 	_astar = _make_grid(_solid_cells(-1))
 
 
+## Клетки зала (локальные), занятые громоздкой мебелью.
+func solid_cells() -> Array[Rect2i]:
+	return _solid_cells(-1)
+
+
 func _solid_cells(ignore: int) -> Array[Rect2i]:
 	var out: Array[Rect2i] = []
 	for i in layout.size():
@@ -323,6 +341,9 @@ func _make_grid(blocks: Array[Rect2i]) -> AStarGrid2D:
 		for y in range(b.position.y, b.end.y):
 			for x in range(b.position.x, b.end.x):
 				g.set_point_solid(Vector2i(x, y), true)
+	for c in COLS:   # витрина
+		if not ENTRANCE_CELLS.has_point(Vector2i(c, FRONT_ROW)):
+			g.set_point_solid(Vector2i(c, FRONT_ROW), true)
 	return g
 
 
@@ -390,8 +411,8 @@ func random_free_point() -> Vector2:
 	return feet_at(SPAWN_CELL)
 
 
-func in_door_zone(feet: Vector2) -> bool:
-	return DOOR_CELLS.has_point(cell_of_feet(feet))
+func in_entrance_zone(feet: Vector2) -> bool:
+	return ENTRANCE_CELLS.has_point(cell_of_feet(feet))
 
 
 func in_counter_zone(feet: Vector2) -> bool:

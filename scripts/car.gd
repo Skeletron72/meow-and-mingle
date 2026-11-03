@@ -5,8 +5,11 @@ extends Node2D
 
 const SHEET_DIR := "res://assets/street/vehicles/"
 const FPS := 12.0
+const ACCEL := 90.0
+const BRAKE := 220.0
 
-var speed := 90.0
+var speed := 90.0       # текущая скорость, px/с
+var desired := 90.0     # желаемая скорость, когда впереди никого нет
 var dir := 1            # 1 — на восток (вправо), -1 — на запад
 var frame := Vector2i(84, 40)   # размер кадра в пикселях арта
 var halo: Sprite2D      # свет фар (лежит в слое свечения города, двигаем снаружи)
@@ -39,9 +42,21 @@ func headlight_offset() -> Vector2:
 	return Vector2(dir * (width() / 2.0 - 4.0), -frame.y * CafeRoom.S * 0.35)
 
 
-func _process(delta: float) -> void:
+## Один шаг движения. gap — свободное расстояние до идущей впереди машины (INF — дорога пуста), lead_speed — её скорость.
+## Скорость выбирается так, чтобы успеть остановиться в зазоре (за min_gap до неё), и меняется плавно.
+func drive(delta: float, gap: float, lead_speed: float, min_gap: float) -> void:
+	var target := desired
+	if gap < INF:
+		var room := maxf(0.0, gap - min_gap)
+		target = minf(desired, sqrt(2.0 * BRAKE * room) + lead_speed * 0.5)
+		if room <= 0.0:
+			target = minf(target, lead_speed)
+	speed = move_toward(speed, target, (ACCEL if target > speed else BRAKE) * delta)
 	position.x += dir * speed * delta
-	_t += delta * FPS
+
+
+func _process(delta: float) -> void:
+	_t += delta * FPS * clampf(speed / 90.0, 0.3, 1.5)   # колёса крутятся быстрее на скорости
 	_set_frame(int(_t) % 12)
 
 

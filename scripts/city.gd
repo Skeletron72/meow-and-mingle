@@ -1,34 +1,20 @@
 extends Node2D
 ## Игра: улица с кафе. Игра начинается внутри кафе: можно ходить по залу, встать у стойки и отработать смену
 ## (готовка идёт поверх города, без смены сцены), выйти на улицу и вернуться.
-## Кафе — «рентген»: пока игрок внутри, фасад становится прозрачным и виден интерьер; вышел — интерьер
-## не рисуется, и мы видим обычное здание. Меню — внутри игры (кнопка-шестерёнка).
 ##
-## Слои мира (все в одной канве, камера едет за котом):
-##   Outdoor  — земля, здания, машины, прохожие; окрашивается светом суток (TimeOfDay.ambient)
-##   Indoor   — интерьер кафе; свой, более тёплый свет (ночью внутри горят лампы)
-##   Glow     — свечение (окна, фонари, фары): складывается поверх и не затемняется ночью
-## Небо рисуется отдельным слоем под миром.
+## Всё бесшовно: у кота один узел и один мир. Дверей нет — из проёма входа сразу тротуар, путь с улицы в зал
+## и обратно строится обычным поиском пути (WorldNav). Кафе — «рентген»: чем глубже кот в здании, тем прозрачнее фасад
+## и виднее интерьер; вышел — интерьер не рисуется. Так же заходят и выходят гуляющие коты.
+##
+## Улица (здания, предметы, зоны ходьбы, полосы машин, место интерьера) лежит в scenes/street.tscn — её правят в редакторе.
+## Слои мира: Ground, Buildings, Room (интерьер: пол, стена, коврики), Actors (всё, что сортируется по y: мебель,
+## коты, машины, предметы), Glow (свечение: окна, фонари, фары — не затемняется ночью). Небо — отдельный слой под миром.
 
-const BASE_Y := 388.0                 # низ зданий (линия, где фасады встают на тротуар)
-const WORLD_W := 1440.0
-const WALK_BAND := Rect2(24, 410, WORLD_W - 48, 34)   # где ходят лапки на тротуаре
-const ROAD_TOP := 460.0
-const ROAD_BOTTOM := 632.0
-const LANE_WEST_Y := 540.0            # низ колёс машин, едущих на запад (верхняя полоса)
-const LANE_EAST_Y := 616.0            # ...на восток (нижняя)
+const STREET_SCENE := "res://scenes/street.tscn"
 const PX := 2
-
-const CAFE := "building4"
-const LOTS := [["building3", 24.0], ["building4", 252.0], ["building1", 616.0], ["building2", 836.0], ["building7", 1182.0]]
-# id, x, y лапок. Фонари стоят в просветах между домами.
-const PROPS := [
-	["tree3", 8.0, 428.0], ["vending_beige", 196.0, 404.0], ["lamp", 240.0, 448.0], ["lamp", 604.0, 448.0],
-	["hydrant", 646.0, 444.0], ["bush1", 700.0, 404.0], ["bush2", 764.0, 404.0], ["trashbin", 796.0, 412.0],
-	["lamp", 824.0, 448.0], ["vending_red", 884.0, 404.0], ["plant3", 1010.0, 404.0], ["lamp", 1170.0, 448.0],
-	["tree2", 1214.0, 436.0], ["vending_green", 1340.0, 404.0], ["tree1", 1412.0, 432.0],
-]
+const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
+const DEPTH_ZONE := 44.0   # на сколько пикселей вглубь здания фасад прозрачнеет полностью
 
 const SIDEWALK := Color("b9b2aa")
 const SIDEWALK_LINE := Color("a39c95")
@@ -36,42 +22,36 @@ const CURB := Color("d6cfc7")
 const ASPHALT := Color("464a55")
 const ASPHALT_LINE := Color("e8e2c8")
 
-var _cafe_pos := Vector2.ZERO           # левый верх фасада кафе в мире
-var _door_x := 0.0
-var _inside := true
-var _xray := 1.0                        # 0 — фасад закрыт, 1 — прозрачный, виден интерьер
-var _xray_tween: Tween
-var _pending := ""                      # действие, которое выполнится, когда кот дойдёт: "shift" | "exit" | "enter"
-var _pressing := false
-var _last_cell := Vector2i(-1, -1)
-
-var _sky_layer: CanvasLayer
-var _sky: CitySky
+var _level: StreetLevel
+var _world_size := Vector2(1440, 640)
 var _world: Node2D
-var _outdoor: Node2D
+var _ground: Node2D
 var _buildings: Node2D
-var _actors: Node2D                     # прохожие, машины, реквизит, игрок снаружи — сортируются по y
-var _indoor: Node2D
 var _room: CafeRoom
+var _actors: Node2D
 var _glow: Node2D
 var _camera: Camera2D
+var _sky_layer: CanvasLayer
+var _sky: CitySky
+var _nav: WorldNav
+var _cafe: StreetBuilding
+var _building_nodes: Array[StreetBuilding] = []
+var _interior_rect := Rect2()           # габарит интерьера в мире
+var _xray := 0.0                        # 0 — фасад закрыт, 1 — прозрачный, виден интерьер
 var _player: CatWalker
-var _street_nav: StreetNav
-var _shells: Dictionary = {}            # id здания -> Sprite2D
-var _visitors: Array[CatWalker] = []    # гости внутри кафе
-var _walkers: Array[CatWalker] = []     # прохожие снаружи
-var _cars: Array[Car] = []
-var _lane_timer := [1.0, 3.0]
+var _npcs: Array[Dictionary] = []       # {"cat": CatWalker, "timer": float}
+var _traffic: Traffic
 var _glows: Array[Dictionary] = []      # {"node", "base", "cafe"}: свечение, зависящее от ночи
 var _halo_tex: GradientTexture2D
 var _add_mat: CanvasItemMaterial
+var _pending := ""                      # действие по прибытии: "shift"
+var _pressing := false
+var _last_cell := Vector2i(-1, -1)
 
 var _ui: CanvasLayer
 var _coins_label: Label
 var _clock_btn: Button
 var _btn_shift: Button
-var _btn_exit: Button
-var _btn_enter: Button
 var _menu: CanvasLayer
 var _shift_layer: CanvasLayer
 
@@ -82,15 +62,11 @@ func _ready() -> void:
 	_halo_tex = _make_halo()
 	_build_sky()
 	_build_world()
-	_build_cafe()
-	_build_street()
 	_build_cats()
 	_build_camera()
 	_build_ui()
 	_build_menu()
-	for _i in 3:
-		_spawn_car(1 if randf() < 0.5 else -1, randf_range(100.0, WORLD_W - 100.0))
-	_set_inside(GameState.city_inside, true)
+	_update_xray(10.0)
 	_apply_daylight()
 
 
@@ -118,63 +94,80 @@ func _build_sky() -> void:
 	_sky_layer.add_child(_sky)
 
 
+## Собирает мир из уровня scenes/street.tscn: здания и предметы переезжают в свои слои, зоны остаются в _level.
 func _build_world() -> void:
+	_level = (load(STREET_SCENE) as PackedScene).instantiate() as StreetLevel
+	_world_size = _level.world_size
 	_world = Node2D.new()
 	add_child(_world)
-	_outdoor = Node2D.new()
-	_outdoor.draw.connect(_draw_ground)
-	_world.add_child(_outdoor)
+	_ground = Node2D.new()
+	_ground.draw.connect(_draw_ground)
+	_world.add_child(_ground)
 	_buildings = Node2D.new()
-	_outdoor.add_child(_buildings)
+	_world.add_child(_buildings)
+	_room = CafeRoom.new()
+	_world.add_child(_room)
 	_actors = Node2D.new()
 	_actors.y_sort_enabled = true
-	_outdoor.add_child(_actors)
-	_indoor = Node2D.new()
-	_world.add_child(_indoor)
+	_world.add_child(_actors)
 	_glow = Node2D.new()
 	_world.add_child(_glow)
-	_street_nav = StreetNav.new(WALK_BAND)
+	add_child(_level)
+	_level.visible = false   # зоны не рисуются (F3 включает показ)
+	_level.z_index = 100
 
+	for node in _level.get_node("Buildings").get_children():
+		var b := node as StreetBuilding
+		if b == null:
+			continue
+		b.reparent(_buildings)
+		_building_nodes.append(b)
+		_add_window_glows(b)
+		if b.is_cafe:
+			_cafe = b
 
-## Тротуар, бордюр, дорога с разметкой, зебра. Плитка тротуара совпадает с сеткой 32 px.
-func _draw_ground() -> void:
-	var sw_h := ROAD_TOP - BASE_Y
-	_outdoor.draw_rect(Rect2(0, BASE_Y, WORLD_W, sw_h), SIDEWALK)
-	for x in range(0, int(WORLD_W), 32):
-		_outdoor.draw_rect(Rect2(x, BASE_Y, 2, sw_h), SIDEWALK_LINE)
-	for y in range(int(BASE_Y), int(ROAD_TOP) - 8, 32):
-		_outdoor.draw_rect(Rect2(0, y, WORLD_W, 2), SIDEWALK_LINE)
-	_outdoor.draw_rect(Rect2(0, BASE_Y, WORLD_W, 6), SIDEWALK_LINE.darkened(0.25))   # тень под фасадами
-	_outdoor.draw_rect(Rect2(0, ROAD_TOP - 8, WORLD_W, 8), CURB)
-	_outdoor.draw_rect(Rect2(0, ROAD_TOP - 2, WORLD_W, 2), CURB.darkened(0.35))
-	_outdoor.draw_rect(Rect2(0, ROAD_TOP, WORLD_W, ROAD_BOTTOM - ROAD_TOP), ASPHALT)
-	for x in range(0, int(WORLD_W), 64):
-		_outdoor.draw_rect(Rect2(x, (LANE_WEST_Y + LANE_EAST_Y) / 2.0 - 44.0, 32, 4), ASPHALT_LINE)
-	_outdoor.draw_rect(Rect2(0, ROAD_BOTTOM, WORLD_W, 8), CURB)
-	for i in 6:   # пешеходный переход
-		_outdoor.draw_rect(Rect2(700 + i * 20, ROAD_TOP + 4, 12, ROAD_BOTTOM - ROAD_TOP - 8), Color(ASPHALT_LINE, 0.8))
-
-
-func _build_cafe() -> void:
-	for lot in LOTS:
-		var id: String = lot[0]
-		var tex := load("res://assets/street/buildings/%s.png" % id) as Texture2D
-		var sp := Sprite2D.new()
-		sp.texture = tex
-		sp.centered = false
-		sp.scale = Vector2(PX, PX)
-		sp.position = Vector2(float(lot[1]), BASE_Y - tex.get_height() * PX)
-		_buildings.add_child(sp)
-		_shells[id] = sp
-		_add_window_glows(id, sp.position)
-		if id == CAFE:
-			_cafe_pos = sp.position
-			_door_x = sp.position.x + tex.get_width() * PX / 2.0
-	# интерьер: ровно в габарите фасада, пол по низу здания
-	_indoor.position = Vector2(_cafe_pos.x + 10.0, BASE_Y - CafeRoom.ROOM_SIZE.y)
-	_room = CafeRoom.new()
-	_indoor.add_child(_room)
+	var interior := _level.zones(StreetZone.Kind.CAFE_INTERIOR)
+	var at := (interior[0] as StreetZone).global_position if not interior.is_empty() else Vector2(256, 64)
+	# пол кафе обязан лечь в сетку мира: иначе клетки зала и тротуара не совпадут
+	_room.position = Vector2(snappedf(at.x, T), snappedf(at.y + CafeRoom.ORIGIN.y, T) - CafeRoom.ORIGIN.y)
+	_interior_rect = Rect2(_room.position, CafeRoom.ROOM_SIZE)
+	_room.external_actors = _actors
 	_room.set_layout(GameState.layout)
+
+	var block_cells: Array[Vector2i] = []
+	for node in _level.get_node("Props").get_children():
+		var prop := node as StreetProp
+		if prop == null:
+			continue
+		prop.reparent(_actors)
+		if prop.blocks:
+			block_cells.append(prop.blocked_cell())
+		if prop.emits_light:
+			var head: Vector2 = prop.global_position + Vector2(0, -prop.texture.get_height() * PX + 14.0)
+			_add_halo(head, 2.6, 0.75, Color(1.0, 0.8, 0.45))
+			_add_halo(prop.global_position + Vector2(0, -8.0), 3.2, 0.35, Color(1.0, 0.8, 0.45), 0.35)
+
+	var walk: Array[Rect2] = []
+	for z in _level.zones(StreetZone.Kind.WALK):
+		walk.append(z.world_rect())
+	var blocks: Array[Rect2] = []
+	for z in _level.zones(StreetZone.Kind.BLOCK):
+		blocks.append(z.world_rect())
+	_nav = WorldNav.new()
+	_nav.build(_world_size, walk, blocks, block_cells, _room)
+
+	var lanes: Array = []
+	for z in _level.zones(StreetZone.Kind.LANE_EAST):
+		lanes.append({"rect": z.world_rect(), "dir": 1})
+	for z in _level.zones(StreetZone.Kind.LANE_WEST):
+		lanes.append({"rect": z.world_rect(), "dir": -1})
+	_traffic = Traffic.new()
+	add_child(_traffic)
+	_traffic.setup(_actors, Data.street["vehicles"], lanes)
+	_traffic.car_spawned.connect(_on_car_spawned)
+	_traffic.car_removed.connect(_on_car_removed)
+	_traffic.seed_cars(3)
+
 	# чашка над стойкой: здесь начинается смена
 	var cup := Sprite2D.new()
 	cup.texture = Ui.atlas(preload("res://assets/cafe/drinks-and-pastries.png"), Rect2(32, 16, 16, 16))
@@ -187,13 +180,42 @@ func _build_cafe() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+## Тротуар, бордюр, дорога с разметкой, зебра — всё по зонам уровня. Плитка тротуара совпадает с сеткой 32 px.
+func _draw_ground() -> void:
+	for z in _level.zones(StreetZone.Kind.SIDEWALK):
+		var r := z.world_rect()
+		_ground.draw_rect(r, SIDEWALK)
+		for x in range(ceili(r.position.x / T) * T, int(r.end.x), T):
+			_ground.draw_rect(Rect2(x, r.position.y, 2, r.size.y), SIDEWALK_LINE)
+		for y in range(ceili(r.position.y / T) * T, int(r.end.y) - 8, T):
+			_ground.draw_rect(Rect2(r.position.x, y, r.size.x, 2), SIDEWALK_LINE)
+		_ground.draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 6), SIDEWALK_LINE.darkened(0.25))   # тень под фасадами
+		_ground.draw_rect(Rect2(r.position.x, r.end.y - 8, r.size.x, 8), CURB)
+		_ground.draw_rect(Rect2(r.position.x, r.end.y - 2, r.size.x, 2), CURB.darkened(0.35))
+	for z in _level.zones(StreetZone.Kind.ROAD):
+		var r := z.world_rect()
+		_ground.draw_rect(r, ASPHALT)
+		_ground.draw_rect(Rect2(r.position.x, r.end.y, r.size.x, 8), CURB)
+	for z in _level.zones(StreetZone.Kind.LANE_WEST):   # разделительная между встречными полосами — под нижним краем верхней
+		var r := z.world_rect()
+		for x in range(ceili(r.position.x / 64.0) * 64, int(r.end.x), 64):
+			_ground.draw_rect(Rect2(x, r.end.y + 4, 32, 4), ASPHALT_LINE)
+	for z in _level.zones(StreetZone.Kind.CROSSWALK):
+		var r := z.world_rect()
+		for i in int(r.size.x / 20.0):
+			_ground.draw_rect(Rect2(r.position.x + i * 20, r.position.y + 4, 12, r.size.y - 8), Color(ASPHALT_LINE, 0.8))
+
+
 ## Свет в окнах фасада ночью: часть окон горит, у кафе — все витрины.
-func _add_window_glows(id: String, origin: Vector2) -> void:
+func _add_window_glows(b: StreetBuilding) -> void:
+	var id := b.building_id()
+	if not Data.street["buildings"].has(id):
+		return
 	var wins: Array = Data.street["buildings"][id]["windows"]
+	var origin := b.world_rect().position
 	for i in wins.size():
 		var w: Array = wins[i]
-		var lit := id == CAFE or hash("%s%d" % [id, i]) % 10 < 7
-		if not lit:
+		if not (b.is_cafe or hash("%s%d" % [id, i]) % 10 < 7):
 			continue
 		var r := ColorRect.new()
 		r.position = origin + Vector2(float(w[0]), float(w[1])) * PX
@@ -202,25 +224,7 @@ func _add_window_glows(id: String, origin: Vector2) -> void:
 		r.material = _add_mat
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_glow.add_child(r)
-		_glows.append({"node": r, "base": 0.55, "cafe": id == CAFE})
-
-
-func _build_street() -> void:
-	for p in PROPS:
-		var id: String = p[0]
-		var tex := load("res://assets/street/props/%s.png" % id) as Texture2D
-		var n := Node2D.new()
-		n.position = Vector2(float(p[1]), float(p[2]))
-		var sp := Sprite2D.new()
-		sp.texture = tex
-		sp.centered = false
-		sp.scale = Vector2(PX, PX)
-		sp.position = Vector2(-tex.get_width(), -tex.get_height() * PX)
-		n.add_child(sp)
-		_actors.add_child(n)
-		if id == "lamp":
-			_add_halo(n.position + Vector2(0, -tex.get_height() * PX + 14.0), 2.6, 0.75, Color(1.0, 0.8, 0.45))
-			_add_halo(n.position + Vector2(0, -8.0), 3.2, 0.35, Color(1.0, 0.8, 0.45), 0.35)
+		_glows.append({"node": r, "base": 0.55, "cafe": b.is_cafe})
 
 
 ## Круглое свечение; flatten < 1 сплющивает его в эллипс (пятно на асфальте).
@@ -240,31 +244,30 @@ func _build_cats() -> void:
 	_player = CatWalker.new()
 	_player.arrived.connect(_on_player_arrived)
 	_actors.add_child(_player)
-	_player.setup(_street_nav, WAITER_DEF)
-	for def in Data.cats:
-		var v := CatWalker.new()   # гости кафе
-		v.wander = true
-		_room.actors.add_child(v)
-		v.setup(_room, def)
-		v.position = _room.random_free_point()
-		_visitors.append(v)
-		var w := CatWalker.new()   # прохожие
-		w.wander = true
-		_actors.add_child(w)
-		w.setup(_street_nav, def)
-		w.position = Vector2(randf_range(WALK_BAND.position.x, WALK_BAND.end.x), randf_range(WALK_BAND.position.y, WALK_BAND.end.y))
-		_walkers.append(w)
+	_player.setup(_nav, WAITER_DEF)
+	var room_cell := _nav.interior_cells().position
+	if GameState.city_inside:
+		_player.position = WorldNav.feet_at(room_cell + Vector2i(5, 4))
+	else:   # на тротуаре у проёма входа
+		_player.position = WorldNav.feet_at(room_cell + Vector2i(CafeRoom.ENTRANCE_CELLS.position.x, CafeRoom.ROWS))
+	# коты-посетители: половина в зале, половина на улице; дальше сами заходят и выходят
+	for i in 4:
+		var cat := CatWalker.new()
+		_actors.add_child(cat)
+		cat.setup(_nav, Data.cats[i % Data.cats.size()])
+		cat.position = WorldNav.feet_at(_nav.random_cell(i % 2 == 0))
+		_npcs.append({"cat": cat, "timer": randf_range(0.5, 4.0)})
 
 
 func _build_camera() -> void:
 	_camera = Camera2D.new()
 	_camera.limit_left = 0
-	_camera.limit_right = int(WORLD_W)
+	_camera.limit_right = int(_world_size.x)
 	_camera.limit_top = 0
-	_camera.limit_bottom = 640
+	_camera.limit_bottom = int(_world_size.y)
 	_camera.position_smoothing_enabled = true
 	_camera.position_smoothing_speed = 6.0
-	_camera.position = Vector2(_door_x, 320)
+	_camera.position = Vector2(_player.position.x, _world_size.y / 2.0)
 	add_child(_camera)
 	_camera.make_current()
 
@@ -291,10 +294,6 @@ func _build_ui() -> void:
 	gear.pressed.connect(_open_menu)
 	_btn_shift = Ui.button("Смена", Rect2(88, 568, 184, 56), "play", _ui)
 	_btn_shift.pressed.connect(_start_shift)
-	_btn_exit = Ui.button("Выйти", Rect2(88, 568, 184, 56), "exit", _ui)
-	_btn_exit.pressed.connect(_exit_cafe)
-	_btn_enter = Ui.button("Войти", Rect2(88, 568, 184, 56), "home", _ui)
-	_btn_enter.pressed.connect(_enter_cafe)
 
 
 ## Меню внутри игры: пауза, продолжить / украшение / время / выход.
@@ -324,47 +323,16 @@ func _build_menu() -> void:
 		quit.pressed.connect(get_tree().quit)
 
 
-# ---------------------------------------------------------------- вход / выход, рентген
-
-## inside — игрок в кафе. instant — без анимации (при старте сцены).
-func _set_inside(inside: bool, instant := false) -> void:
-	_inside = inside
-	GameState.city_inside = inside
-	_pending = ""
-	_player.stop()
-	if inside:
-		_player.reparent(_room.actors, false)
-		_player.nav = _room
-		_player.position = CafeRoom.feet_at(Vector2i(4, 4)) if instant else CafeRoom.feet_at(CafeRoom.SPAWN_CELL)
-	else:
-		_player.reparent(_actors, false)
-		_player.nav = _street_nav
-		_player.position = Vector2(_door_x, WALK_BAND.position.y + 6.0)
-	if _xray_tween:
-		_xray_tween.kill()
-	var target := 1.0 if inside else 0.0
-	if instant:
-		_xray = target
-	else:
-		_xray_tween = create_tween()
-		_xray_tween.tween_property(self, "_xray", target, 0.4)
-
-
-func _enter_cafe() -> void:
-	_set_inside(true)
-
-
-func _exit_cafe() -> void:
-	_set_inside(false)
-
-
 # ---------------------------------------------------------------- кадр
 
 func _process(delta: float) -> void:
+	_traffic.update(delta)
+	_npc_tick(delta)
+	_update_xray(delta)
 	_apply_daylight()
-	_update_traffic(delta)
 	_update_camera()
 	_clock_btn.text = TimeOfDay.clock_text()
+	GameState.city_inside = _depth(_player.position) > 0.5
 	if _shift_layer != null:
 		return
 	var dir := Vector2(
@@ -375,52 +343,63 @@ func _process(delta: float) -> void:
 	if dir != Vector2.ZERO:
 		_pending = ""
 		_player.nudge(dir, delta)
-	_update_actions()
+	_btn_shift.visible = _in_counter_zone()
 
 
-## Свет суток: улица окрашивается, интерьер светит по-своему, свечение растёт к ночи; рентген прячет интерьер.
+## Насколько глубоко в здание зашли лапки: 0 — снаружи (у фасада и дальше), 1 — полностью внутри.
+func _depth(feet: Vector2) -> float:
+	if feet.x < _interior_rect.position.x or feet.x > _interior_rect.end.x:
+		return 0.0
+	return clampf((_interior_rect.end.y - feet.y + 6.0) / DEPTH_ZONE, 0.0, 1.0)
+
+
+## Рентген плавно следует за глубиной игрока: вошёл — фасад прозрачнеет, вышел — закрывается.
+func _update_xray(delta: float) -> void:
+	_xray = lerpf(_xray, _depth(_player.position), 1.0 - exp(-12.0 * delta))
+
+
+## Свет суток по узлам: улица — ambient, интерьер — тёплый свет кафе; кот, зашедший в здание, плавно меняет свет;
+## чужие коты и мебель внутри не рисуются, пока интерьер скрыт (рентген).
 func _apply_daylight() -> void:
+	var amb := TimeOfDay.ambient()
+	var ind := TimeOfDay.indoor()
 	var night := TimeOfDay.night()
-	_outdoor.modulate = TimeOfDay.ambient()
-	_indoor.visible = _xray > 0.01
-	_indoor.modulate = Color(TimeOfDay.indoor(), _xray)
-	(_shells[CAFE] as Sprite2D).modulate.a = 1.0 - _xray
+	_ground.modulate = amb
+	_buildings.modulate = amb
+	_room.visible = _xray > 0.01
+	_room.modulate = Color(ind, _xray)
+	_cafe.modulate.a = 1.0 - _xray
+	for ch in _actors.get_children():
+		if ch is CatWalker:
+			var d := _depth(ch.position)
+			var a := 1.0 if ch == _player else lerpf(1.0, _xray, d)
+			ch.modulate = Color(amb.lerp(ind, d), a)
+			ch.visible = a > 0.01
+		elif ch.has_meta("interior"):
+			ch.modulate = Color(ind, _xray)
+			ch.visible = _xray > 0.01
+		else:
+			ch.modulate = amb
 	for g in _glows:
 		var f := (1.0 - _xray) if g["cafe"] else 1.0
 		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * night * f
+	for car in _traffic.cars():
+		if car.halo != null:
+			car.halo.position = car.position + car.headlight_offset()
 
 
 func _update_camera() -> void:
-	var tx := _room_center_x() if _inside else _player.position.x
-	_camera.position = Vector2(clampf(tx, 180.0, WORLD_W - 180.0), 320.0)
+	_camera.position = Vector2(clampf(_player.position.x, 180.0, _world_size.x - 180.0), _world_size.y / 2.0)
 	_sky.camera_x = _camera.get_screen_center_position().x
 
 
-func _room_center_x() -> float:
-	return _indoor.position.x + CafeRoom.ROOM_SIZE.x / 2.0
-
-
-## Где игрок относительно кнопок действий: у двери снаружи, у стойки или у коврика внутри.
-func _update_actions() -> void:
-	var near_door_out := not _inside and absf(_player.position.x - _door_x) < 40.0
-	var at_counter := _inside and _room.in_counter_zone(_player.position)
-	var at_door := _inside and _room.in_door_zone(_player.position)
-	_btn_enter.visible = near_door_out
-	_btn_shift.visible = at_counter
-	_btn_exit.visible = at_door and not at_counter
+func _in_counter_zone() -> bool:
+	return _interior_rect.has_point(_player.position) and _room.in_counter_zone(_room.to_local(_player.position))
 
 
 func _on_player_arrived() -> void:
-	match _pending:
-		"shift":
-			if _inside and _room.in_counter_zone(_player.position):
-				_start_shift()
-		"exit":
-			if _inside and _room.in_door_zone(_player.position):
-				_exit_cafe()
-		"enter":
-			if not _inside and absf(_player.position.x - _door_x) < 40.0:
-				_enter_cafe()
+	if _pending == "shift" and _in_counter_zone():
+		_start_shift()
 	_pending = ""
 
 
@@ -430,37 +409,40 @@ func _on_coins_changed(value: int) -> void:
 
 # ---------------------------------------------------------------- машины
 
-func _update_traffic(delta: float) -> void:
-	for lane in 2:
-		_lane_timer[lane] -= delta
-		if _lane_timer[lane] <= 0.0:
-			_lane_timer[lane] = randf_range(3.0, 8.0)
-			_spawn_car(1 if lane == 0 else -1)
-	for car in _cars.duplicate():
-		if car.position.x < -300.0 or car.position.x > WORLD_W + 300.0:
-			_cars.erase(car)
-			car.halo.queue_free()
-			_glows = _glows.filter(func(g: Dictionary) -> bool: return g["node"] != car.halo)
-			car.queue_free()
-		else:
-			car.halo.position = car.position + car.headlight_offset()
-
-
-func _spawn_car(dir: int, x := INF) -> void:
-	var def: Dictionary = (Data.street["vehicles"] as Array).pick_random()
-	var car := Car.new()
-	car.setup(def, dir)
-	var edge := -car.width() if dir > 0 else WORLD_W + car.width()
-	car.position = Vector2(edge if x == INF else x, LANE_EAST_Y if dir > 0 else LANE_WEST_Y)
-	car.speed = 55.0 if String(def["id"]).begins_with("bus") else randf_range(80.0, 120.0)
-	_actors.add_child(car)
+func _on_car_spawned(car: Car) -> void:
 	car.halo = _add_halo(car.position + car.headlight_offset(), 1.6, 0.8, Color(1.0, 0.9, 0.6), 0.6)
-	_cars.append(car)
+
+
+func _on_car_removed(car: Car) -> void:
+	if car.halo != null:
+		_glows = _glows.filter(func(g: Dictionary) -> bool: return g["node"] != car.halo)
+		car.halo.queue_free()
+
+
+# ---------------------------------------------------------------- коты: заходят и выходят сами
+
+## Раз в несколько секунд кот выбирает новую цель: погулять там же, где он, или перейти в другое место
+## (с улицы в зал или из зала на улицу) — путь проходит через проём входа.
+func _npc_tick(delta: float) -> void:
+	for n in _npcs:
+		var cat: CatWalker = n["cat"]
+		if cat.is_moving():
+			continue
+		n["timer"] = float(n["timer"]) - delta
+		if float(n["timer"]) > 0.0:
+			continue
+		var inside := _nav.is_interior(WorldNav.cell_of_feet(cat.position))
+		var go_inside := (not inside) if randf() < 0.3 else inside
+		cat.walk_to(WorldNav.feet_at(_nav.random_cell(go_inside)))
+		n["timer"] = randf_range(2.0, 6.0)
 
 
 # ---------------------------------------------------------------- ввод
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_F3:
+		_toggle_zones()
+		return
 	if _shift_layer != null or get_tree().paused:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -470,64 +452,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			_pressing = false
 	elif event is InputEventMouseMotion and _pressing:
 		var p: Vector2 = (_world.make_input_local(event) as InputEventMouse).position
-		var cell := Vector2i(int(p.x / CafeRoom.T), int(p.y / CafeRoom.T))
+		var cell := WorldNav.cell_at(p)
 		if cell != _last_cell:
 			_last_cell = cell
-			_player.walk_to(_room.to_local(p) if _inside else p)
+			_player.walk_to(p)
 
 
 func _on_press(p: Vector2) -> void:
 	_pending = ""
-	if _inside:
-		_press_inside(_room.to_local(p), p)
-	else:
-		_press_outside(p)
-
-
-func _press_inside(lp: Vector2, world_p: Vector2) -> void:
-	if not Rect2(Vector2.ZERO, CafeRoom.ROOM_SIZE).has_point(lp):
-		return
-	for v in _visitors:
-		if Rect2(v.position + Vector2(-16, -34), Vector2(32, 40)).has_point(lp):
-			_talk(v, world_p)
+	for n in _npcs:
+		var cat: CatWalker = n["cat"]
+		if cat.visible and cat.modulate.a > 0.4 and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
+			_talk(cat, p)
 			return
-	if _room.counter_hit(lp):
+	for b in _building_nodes:
+		if not b.is_cafe and b.world_rect().has_point(p):
+			_toast("Здесь закрыто", p)
+			return
+	if _xray > 0.35 and _interior_rect.has_point(p) and _room.counter_hit(_room.to_local(p)):
 		_pending = "shift"
-		if _room.in_counter_zone(_player.position):
+		if _in_counter_zone():
 			_start_shift()
 		else:
-			_player.walk_to(CafeRoom.feet_at(Vector2i(clampi(CafeRoom.cell_at(lp).x, 0, 2), 0)))
+			_player.walk_to(_nav.counter_feet(CafeRoom.cell_at(_room.to_local(p)).x))
 		return
-	if CafeRoom.DOOR_CELLS.has_point(CafeRoom.cell_at(lp)) and lp.y >= CafeRoom.ORIGIN.y:
-		_pending = "exit"
-		if _room.in_door_zone(_player.position):
-			_exit_cafe()
-		else:
-			_player.walk_to(lp)
-		return
+	# обычный тап: идём туда; тап по фасаду кафе ведёт кота внутрь через проём
 	_pressing = true
-	_last_cell = Vector2i(int(world_p.x / CafeRoom.T), int(world_p.y / CafeRoom.T))
-	_player.walk_to(lp)
-
-
-func _press_outside(p: Vector2) -> void:
-	for w in _walkers:
-		if Rect2(w.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
-			_talk(w, p)
-			return
-	var door := Rect2(_door_x - 48.0, BASE_Y - 110.0, 96.0, 130.0)
-	if door.has_point(p):
-		_pending = "enter"
-		if absf(_player.position.x - _door_x) < 40.0:
-			_enter_cafe()
-		else:
-			_player.walk_to(Vector2(_door_x, WALK_BAND.position.y + 6.0))
-		return
-	if p.y < BASE_Y + 4.0 and p.y > BASE_Y - 120.0:
-		_toast("Здесь закрыто", p)
-		return
-	_pressing = true
-	_last_cell = Vector2i(int(p.x / CafeRoom.T), int(p.y / CafeRoom.T))
+	_last_cell = WorldNav.cell_at(p)
 	_player.walk_to(p)
 
 
@@ -543,6 +494,14 @@ func _talk(cat: CatWalker, world_p: Vector2) -> void:
 func _toast(text: String, world_p: Vector2) -> void:
 	var s := _world.get_global_transform_with_canvas() * world_p
 	Ui.toast(_ui, text, Vector2(clampf(s.x, 170.0, 190.0), clampf(s.y, 60.0, 600.0)))
+
+
+## F3: показать зоны уровня поверх игры (ходьба, полосы машин, интерьер...).
+func _toggle_zones() -> void:
+	StreetZone.show_in_game = not StreetZone.show_in_game
+	_level.visible = StreetZone.show_in_game
+	for z in _level.find_children("*", "StreetZone", true, false):
+		(z as StreetZone)._refresh()
 
 
 # ---------------------------------------------------------------- смена (готовка поверх города)
