@@ -1,9 +1,10 @@
 class_name CafeRoom
 extends Node2D
-## Комната кафе, общая для режимов «прогулка» и «украшение».
+## Интерьер кафе: его видно в городе (рентген, когда мы внутри) и в режиме «украшение».
 ##
 ## Вся геометрия — на сетке 16×16 пикселей арта. Спрайты рисуются в масштабе 2, поэтому клетка T = 32 px.
-## Пол — COLS×ROWS клеток от ORIGIN, стена над ним — WALL_ROWS клеток по высоте.
+## Все координаты — в системе самой комнаты (узел можно ставить куда угодно). Пол — COLS×ROWS клеток от ORIGIN,
+## стена над ним — WALL_ROWS клеток по высоте.
 ## Мебель занимает целое число клеток (`tiles` в data/furniture.json) и хранится как клетка (c, r)
 ## левого верхнего угла: {"id", "c", "r", "flip"}. Спрайт ставится по низу и по центру своих клеток.
 ## Коты ходят по центрам клеток (путь — AStarGrid2D).
@@ -12,27 +13,24 @@ const FURN_TEX: Texture2D = preload("res://assets/cafe/neko-cafe-furnitures.png"
 const S := 2.0                       # масштаб арта: 1 пиксель арта = 2 логических
 const T := 32                        # клетка 16×16 арта
 const COLS := 10
-const ROWS := 10
-const ORIGIN := Vector2(20, 192)     # левый верх пола; слева и справа остаётся по 20 px «стены»
-const WALL_ROWS := 6                 # стена: клетки (c, wr), низ строки WALL_ROWS-1 = верх пола
-const ROOM_W := 360
+const ROWS := 7
+const WALL_ROWS := 3                 # стена: клетки (c, wr), низ последней строки = верх пола
+const ORIGIN := Vector2(0, 96)       # левый верх пола в координатах комнаты (над ним 3 клетки стены)
+const ROOM_SIZE := Vector2(320, 320) # 10×10 клеток: ровно по габариту фасада кафе (Building4 при масштабе 2)
 const FEET_DY := 10.0                # лапки кота ниже центра клетки
 
-const FLOOR_RECT := Rect2(20, 192, 320, 320)
-const WALL_RECT := Rect2(20, 0, 320, 192)
-
-# Стойка кофейни — неподвижная, у стены над клетками (0..2, 0). Из неё запускается готовка.
+# Стойка кофейни — неподвижная, у стены над клетками (0..2, 0). Отсюда начинается смена.
 const COUNTER_SRC := Rect2(17, 112, 46, 16)
 const COUNTER_CELLS := Rect2i(0, 0, 3, 1)          # здесь стоит кот у стойки; мебель ставить нельзя
-const COUNTER_SPRITE := Rect2(20, 144, 96, 48)     # прилавок + кофемашина, для тапа
-const WALL_RESERVED := Rect2i(0, 3, 3, 3)          # стена над стойкой занята
-const SPAWN_CELLS := Rect2i(4, 8, 2, 2)            # вход; тоже держим свободным
-const SPAWN_CELL := Vector2i(4, 9)
-const WALL_FIRST_ROW := 1                          # верхний ряд стены под HUD
+const COUNTER_SPRITE := Rect2(0, 48, 96, 48)       # прилавок + кофемашина, для тапа
+const WALL_RESERVED := Rect2i(0, 1, 3, 2)          # стена над стойкой занята
+const SPAWN_CELLS := Rect2i(4, 5, 2, 2)            # вход; тоже держим свободным
+const SPAWN_CELL := Vector2i(4, 6)
+const DOOR_CELLS := Rect2i(4, 6, 2, 1)             # коврик у двери: отсюда можно выйти на улицу
+const WALL_FIRST_ROW := 0
 
 const WALL_COLOR := Color("cdb892")
 const WALL_STRIPE := Color("d8c6a3")
-const WALL_EDGE := Color("b79f78")
 const BASEBOARD := Color("a98763")
 const FLOOR_A := Color("7c5a3a")
 const FLOOR_B := Color("86633f")
@@ -211,24 +209,21 @@ func _build_counter() -> void:
 
 func _draw() -> void:
 	# стена: полосы по две клетки, совпадают с сеткой
-	draw_rect(Rect2(0, 0, ROOM_W, ORIGIN.y), WALL_COLOR)
+	draw_rect(Rect2(0, 0, ROOM_SIZE.x, ORIGIN.y), WALL_COLOR)
 	for c in range(0, COLS, 2):
 		draw_rect(Rect2(ORIGIN.x + c * T, 0, T, ORIGIN.y - T / 2.0), WALL_STRIPE)
-	draw_rect(Rect2(0, ORIGIN.y - T / 2.0, ROOM_W, T / 2.0), BASEBOARD)
-	draw_rect(Rect2(0, ORIGIN.y - 4, ROOM_W, 4), BASEBOARD.darkened(0.35))
-	draw_rect(Rect2(0, 0, ORIGIN.x, ORIGIN.y), WALL_EDGE)
-	draw_rect(Rect2(ORIGIN.x + COLS * T, 0, ROOM_W - ORIGIN.x - COLS * T, ORIGIN.y), WALL_EDGE)
-	# пол: шахматка по клеткам и тёмные поля по бокам
+	draw_rect(Rect2(0, ORIGIN.y - T / 2.0, ROOM_SIZE.x, T / 2.0), BASEBOARD)
+	draw_rect(Rect2(0, ORIGIN.y - 4, ROOM_SIZE.x, 4), BASEBOARD.darkened(0.35))
+	# пол: шахматка по клеткам
 	for r in ROWS:
 		for c in COLS:
 			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + r * T, T, T), FLOOR_A if (r + c) % 2 == 0 else FLOOR_B)
-		draw_rect(Rect2(0, ORIGIN.y + r * T, ORIGIN.x, T), FLOOR_EDGE)
-		draw_rect(Rect2(ORIGIN.x + COLS * T, ORIGIN.y + r * T, ROOM_W - ORIGIN.x - COLS * T, T), FLOOR_EDGE)
-	# коврик у входа — ровно по клеткам входа
-	var mat := Rect2(ORIGIN.x + SPAWN_CELLS.position.x * T, ORIGIN.y + (ROWS - 1) * T, SPAWN_CELLS.size.x * T, T)
+	# коврик у входа — ровно по клеткам двери
+	var mat := Rect2(ORIGIN.x + DOOR_CELLS.position.x * T, ORIGIN.y + DOOR_CELLS.position.y * T, DOOR_CELLS.size.x * T, T)
 	draw_rect(mat.grow(-4), Color("5b3d27"))
 	draw_rect(mat.grow(-8), Color("7a5238"))
-	draw_rect(Rect2(0, ORIGIN.y + ROWS * T, ROOM_W, 40), FLOOR_EDGE)
+	# рамка разреза здания
+	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), FLOOR_EDGE, false, 4.0)
 
 
 # ---------------------------------------------------------------- проверка размещения
@@ -393,6 +388,10 @@ func random_free_point() -> Vector2:
 		if not _astar.is_point_solid(c) and not SPAWN_CELLS.has_point(c):
 			return feet_at(c)
 	return feet_at(SPAWN_CELL)
+
+
+func in_door_zone(feet: Vector2) -> bool:
+	return DOOR_CELLS.has_point(cell_of_feet(feet))
 
 
 func in_counter_zone(feet: Vector2) -> bool:

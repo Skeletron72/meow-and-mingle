@@ -4,6 +4,8 @@ extends Node2D
 
 const MAX_ITEMS := 40
 const PANEL_Y := 520.0
+const ROOM_POS := Vector2(20, 64)     # где на экране стоит комната (её размер 320×320)
+const TOOLBAR_Y := 400.0
 const CARD_W := 96.0
 const CARD_H := 100.0
 const SEL_COLOR := Color("fff1d6")
@@ -26,7 +28,13 @@ var _drag_err := ""
 
 
 func _ready() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.size = Vector2(360, 640)
+	backdrop.color = Color("2e2330")
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(backdrop)
 	_room = CafeRoom.new()
+	_room.position = ROOM_POS
 	add_child(_room)
 	_room.set_layout(GameState.layout)
 	_sel_box = Node2D.new()
@@ -61,7 +69,7 @@ func _build_top() -> void:
 	Ui.panel(Rect2(116, 8, 176, 40), Ui.UI_CREAM, _hint)
 	Ui.label("Тяни мебель", Rect2(116, 10, 176, 36), Ui.FONT_SIZE, Ui.INK, _hint, HORIZONTAL_ALIGNMENT_CENTER, true)
 	var back := Ui.button("", Rect2(300, 8, 52, 40), "home", _ui)
-	back.pressed.connect(Nav.go.bind(self, Nav.MENU))
+	back.pressed.connect(_back)
 
 
 func _build_toolbar() -> void:
@@ -132,29 +140,39 @@ func _toast(text: String, pos: Vector2) -> void:
 	Ui.toast(_ui, text, pos)
 
 
+## Тост у точки комнаты (координаты комнаты -> экран).
+func _toast_at(text: String, room_pos: Vector2) -> void:
+	_toast(text, _room.to_global(room_pos))
+
+
+func _back() -> void:
+	GameState.save_game()
+	Nav.go(self, Nav.CITY)
+
+
 # ---------------------------------------------------------------- выбор и перетаскивание
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			_on_press((make_input_local(event) as InputEventMouse).position)
+			_on_press((_room.make_input_local(event) as InputEventMouse).position)
 		elif _dragging:
 			_drop()
 	elif event is InputEventMouseMotion and _dragging:
-		_drag_to((make_input_local(event) as InputEventMouse).position)
+		_drag_to((_room.make_input_local(event) as InputEventMouse).position)
 
 
 func _pointer_cell(id: String, p: Vector2) -> Vector2i:
 	return CafeRoom.wall_cell_at(p) if CafeRoom.is_wall(id) else CafeRoom.cell_at(p)
 
 
-func _on_press(p: Vector2) -> void:
-	if p.y >= PANEL_Y:
+func _on_press(p: Vector2) -> void:   # p — в координатах комнаты
+	if _room.to_global(p).y >= PANEL_Y:
 		return
 	var i := _room.hit_test(p)
 	if i < 0:
 		if _room.counter_hit(p):
-			_toast("Стойку нельзя двигать", p)
+			_toast_at("Стойку нельзя двигать", p)
 		_deselect()
 		return
 	_select(i)
@@ -170,10 +188,7 @@ func _select(i: int) -> void:
 	_sel = i
 	_hint.visible = false
 	_toolbar.visible = true
-	# панель инструментов уходит от выбранного предмета: вниз или вверх
-	var item := GameState.layout[i]
-	var top := CafeRoom.is_wall(String(item["id"])) or int(item["r"]) < 4
-	_toolbar.position = Vector2(0, 452.0 if top else 56.0)
+	_toolbar.position = Vector2(0, TOOLBAR_Y)   # под комнатой: ничего не закрывает
 	_sel_box.queue_redraw()
 
 
@@ -201,7 +216,7 @@ func _drop() -> void:
 	n.modulate = Color.WHITE
 	if _drag_err != "":
 		_room.preview_move(_sel, _drag_start.x, _drag_start.y)
-		_toast(_drag_err, n.position + Vector2(0, -60))
+		_toast_at(_drag_err, n.position + Vector2(0, -60))
 	elif _drag_cell != _drag_start:
 		GameState.layout[_sel]["c"] = _drag_cell.x
 		GameState.layout[_sel]["r"] = _drag_cell.y
@@ -231,14 +246,14 @@ func _draw_selection() -> void:
 func _buy(id: String) -> void:
 	var price := int(CafeRoom.item_def(id)["price"])
 	if GameState.layout.size() >= MAX_ITEMS:
-		_toast("Кафе переполнено", Vector2(180, 480))
+		_toast("Кафе переполнено", Vector2(180, 470))
 		return
 	if GameState.coins < price:
-		_toast("Не хватает монет", Vector2(180, 480))
+		_toast("Не хватает монет", Vector2(180, 470))
 		return
 	var spot := _room.find_free_spot(id)
 	if spot.x < 0:
-		_toast("Нет свободного места", Vector2(180, 480))
+		_toast("Нет свободного места", Vector2(180, 470))
 		return
 	GameState.layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
 	_room.rebuild()
@@ -265,4 +280,4 @@ func _remove_selected() -> void:
 	_room.rebuild()
 	_deselect()
 	GameState.add_coins(price)  # возврат полной цены; заодно сохраняет расстановку
-	_toast("+%d" % price, at + Vector2(0, -50))
+	_toast_at("+%d" % price, at + Vector2(0, -50))

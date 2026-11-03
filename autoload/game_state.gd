@@ -11,6 +11,7 @@ var coins: int = 0
 var served_total: int = 0
 var cat_progress: Dictionary = {}  # cat_id -> {"chapter": int, "likes": int} (этап 2)
 var last_visit_unix: int = 0       # для чаевой банки (этап 3)
+var city_inside := true            # где игрок в городе: в кафе (true) или на улице; только на время работы приложения
 var layout: Array[Dictionary] = [] # расставленная мебель: {"id", "c", "r", "flip"} — клетки сетки (режим украшения)
 
 
@@ -48,6 +49,7 @@ func save_game() -> void:
 		"cat_progress": cat_progress,
 		"last_visit_unix": last_visit_unix,
 		"layout": layout,
+		"hour": TimeOfDay.hour,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -72,6 +74,7 @@ func load_game() -> void:
 	cat_progress = data.get("cat_progress", {})
 	last_visit_unix = int(data.get("last_visit_unix", 0))
 	layout = _sanitize_layout(data.get("layout", null))
+	TimeOfDay.hour = clampf(float(data.get("hour", 9.0)), 0.0, 24.0)
 
 
 func _migrate(data: Dictionary) -> Dictionary:

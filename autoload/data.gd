@@ -7,6 +7,7 @@ var drinks: Dictionary = {}    # id -> Dictionary
 var pastries: Dictionary = {}  # id -> Dictionary
 var furniture: Dictionary = {} # id -> Dictionary (режим украшения, см. data/furniture.json)
 var default_layout: Array[Dictionary] = []  # расстановка кафе у нового игрока
+var street: Dictionary = {}    # городские ассеты: размеры, окна фасадов, машины (data/street.json, делает tools/curate_street_assets.py)
 
 
 func _ready() -> void:
@@ -18,6 +19,11 @@ func _ready() -> void:
 	for f in _read_array("res://data/furniture.json"):
 		furniture[f["id"]] = f
 	default_layout = _read_array("res://data/default_layout.json")
+	var f := FileAccess.open("res://data/street.json", FileAccess.READ)
+	if f != null:
+		var parsed: Variant = JSON.parse_string(f.get_as_text())
+		if parsed is Dictionary:
+			street = parsed
 
 
 func _read_array(path: String) -> Array[Dictionary]:

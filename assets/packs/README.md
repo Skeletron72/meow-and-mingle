@@ -15,7 +15,8 @@
 
 PostApocalypse Asset Pack (TheLazyStone) в репозиторий не добавлен: его лицензия запрещает распространение, а репозиторий публичный.
 
-Вне этой папки в корне лежат `AssetPack_V01_FREE.png` (Specialty Coffee, бесплатный сэмпл) и `IconsEssential.png`: их используют `scripts/main.gd`,
-поэтому они не перемещены. Копии нескольких спрайтов, подключённых в игре, лежат в `assets/cats`, `assets/cafe`, `assets/ui`.
+`assets/packs` закрыта от импорта Godot (`.gdignore`): здесь исходники паков (около 30 тысяч файлов). В игре используются копии в
+`assets/street` (здания, объекты, машины — делает `tools/curate_street_assets.py`), `assets/cats`, `assets/cafe`, `assets/ui`.
+Если нужен новый спрайт из пака — добавьте его в скрипт отбора и запустите заново.
 
 Нужные авторы для экрана титров: hellorumin, Alex Kovacs (CC BY 4.0), автор Specialty Coffee, dobo_ui.

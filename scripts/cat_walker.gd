@@ -1,7 +1,8 @@
 class_name CatWalker
 extends Node2D
 ## Кот, который ходит по комнате кафе: игрок (официант) или гуляющий посетитель.
-## Начало координат — «ноги». Кот — одна клетка 16×16 и ходит по центрам клеток (путь — CafeRoom.find_path).
+## Начало координат — «ноги». Кот — одна клетка 16×16; в кафе ходит по центрам клеток (путь — CafeRoom.find_path),
+## на улице — по тротуару (StreetNav). Куда идти, определяет `nav`, поэтому одного кота можно переносить между ними.
 
 signal arrived
 
@@ -12,7 +13,7 @@ const FRAME := 16
 
 var wander := false         # гуляющий кот сам выбирает, куда идти
 var def: Dictionary = {}
-var room: CafeRoom
+var nav: Object   # CafeRoom (в кафе) или StreetNav (на улице): find_path, is_blocked, random_free_point
 
 var _sprite: Sprite2D
 var _path := PackedVector2Array()
@@ -22,8 +23,8 @@ var _idle_left := 0.0
 var _hop: Tween
 
 
-func setup(cafe_room: CafeRoom, cat_def: Dictionary) -> void:
-	room = cafe_room
+func setup(navigation: Object, cat_def: Dictionary) -> void:
+	nav = navigation
 	def = cat_def
 	_sprite = Sprite2D.new()
 	_sprite.texture = load(SHEET_DIR + String(def["sprite"])) as Texture2D
@@ -43,7 +44,7 @@ func is_moving() -> bool:
 
 ## Идти к точке. false — пути нет (кот остаётся на месте).
 func walk_to(target: Vector2) -> bool:
-	var p := room.find_path(position, target)
+	var p: PackedVector2Array = nav.find_path(position, target)
 	if p.is_empty():
 		return false
 	_path = p
@@ -62,11 +63,11 @@ func nudge(dir: Vector2, delta: float) -> bool:
 	var step := dir.normalized() * SPEED * delta
 	var moved := false
 	var nx := position + Vector2(step.x, 0.0)
-	if not room.is_blocked(nx):
+	if not nav.is_blocked(nx):
 		position = nx
 		moved = true
 	var ny := position + Vector2(0.0, step.y)
-	if not room.is_blocked(ny):
+	if not nav.is_blocked(ny):
 		position = ny
 		moved = true
 	if moved:
@@ -109,7 +110,7 @@ func step(delta: float) -> void:
 		if _idle_left <= 0.0:
 			_idle_left = randf_range(2.0, 6.0)
 			for _i in 5:
-				if walk_to(room.random_free_point()):
+				if walk_to(nav.random_free_point()):
 					break
 
 

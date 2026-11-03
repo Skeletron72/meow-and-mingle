@@ -2,9 +2,8 @@ class_name Nav
 extends RefCounted
 ## Пути сцен и переходы между режимами игры.
 
-const MENU := "res://scenes/menu.tscn"
-const BREW := "res://main.tscn"                 # кофейня: сборка заказов
-const WALK := "res://scenes/cafe_walk.tscn"     # прогулка по кафе
+const CITY := "res://scenes/city.tscn"          # игра: город с кафе (прогулка + смена за стойкой + меню)
+const BREW := "res://main.tscn"                 # смена за стойкой: сборка заказов (в игре открывается поверх города)
 const DECORATE := "res://scenes/decorate.tscn"  # режим украшения
 
 

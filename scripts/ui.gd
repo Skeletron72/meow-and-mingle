@@ -23,6 +23,7 @@ const FONT_SIZE_BIG := 48
 ## Область иконки в IconsEssential.png (x, y, w, h).
 const ICON_RECTS := {
 	"home": Rect2(113, 17, 14, 15),
+	"gear": Rect2(16, 16, 16, 16),
 	"cat": Rect2(145, 82, 13, 12),
 	"play": Rect2(212, 177, 9, 13),
 	"brush": Rect2(308, 114, 7, 13),

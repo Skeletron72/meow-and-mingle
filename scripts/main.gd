@@ -10,6 +10,13 @@ const PASTRY_CHANCE := 0.5
 const TRASH_POS := Vector2(318, 322)
 const INK := Ui.INK
 
+## Смена закончена (кнопка выхода): сколько подано и заработано. Когда сцена встроена в город — освобождается сам город.
+signal closed(served: int, earned: int)
+
+var embedded := false   # true — смена идёт поверх города, а не отдельной сценой
+var shift_served := 0
+var shift_earned := 0
+
 const COFFEE_SHEET: Texture2D = preload("res://assets/cafe/drinks-and-pastries.png")  # сетка 16x16, 5 колонок
 const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
 const FURN: Texture2D = preload("res://assets/cafe/neko-cafe-furnitures.png")
@@ -89,9 +96,9 @@ func _build_hud() -> void:
 	_served_label = _label("", Rect2(130, 8, 160, 32), INK, null, true)
 	_served_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_served_label.z_index = 5
-	var menu_btn := Ui.button("", Rect2(300, 4, 52, 40), "home", self)
-	menu_btn.z_index = 5
-	menu_btn.pressed.connect(Nav.go.bind(self, Nav.MENU))
+	var end_btn := Ui.button("", Rect2(300, 4, 52, 40), "exit", self)
+	end_btn.z_index = 5
+	end_btn.pressed.connect(_end_shift)
 
 
 func _add_source(kind: String, id: String, title: String, tex: Texture2D, center: Vector2) -> void:
@@ -227,6 +234,8 @@ func _serve() -> void:
 		var elapsed := (Time.get_ticks_msec() - _arrive_msec) / 1000.0
 		var bonus := 5 if elapsed < 8.0 else (2 if elapsed < 15.0 else 0)
 		GameState.register_served()
+		shift_served += 1
+		shift_earned += price + tip + bonus
 		GameState.add_coins(price + tip + bonus)
 		_toast("+%d  (чаевые %d, скорость %d)" % [price + tip + bonus, tip, bonus], CAT_POS + Vector2(0, -90))
 	else:
@@ -235,6 +244,14 @@ func _serve() -> void:
 	_cup.clear()
 	_hide_bubble()
 	_refresh_cup()
+
+
+## Конец смены: во встроенном режиме сообщаем городу (он закроет оверлей), отдельной сценой — возвращаемся в город.
+func _end_shift() -> void:
+	if embedded:
+		closed.emit(shift_served, shift_earned)
+	else:
+		Nav.go(self, Nav.CITY)
 
 
 # ---------------------------------------------------------------- отображение
