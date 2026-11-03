@@ -184,38 +184,27 @@ func _build_object(def: Dictionary) -> void:
 	match String(def["kind"]):
 		"web":
 			if left > 0:
-				var w := IntroComic.Web.new()
-				w.position = pos
-				w.dx = (def["dir"] as Vector2i).x
-				w.dy = (def["dir"] as Vector2i).y
-				w.radius = float(def["radius"])
+				var size_art := 24 if float(def["radius"]) >= 36.0 else 16
+				var dir: Vector2i = def["dir"]
+				var w := PixelArt.sprite(PixelArt.web(size_art), pos, false)
+				w.flip_h = dir.x < 0
+				w.flip_v = dir.y < 0
+				w.position = Vector2(pos.x - (size_art * 2.0 if dir.x < 0 else 0.0), pos.y - (size_art * 2.0 if dir.y < 0 else 0.0))
+				w.modulate = Color(1, 1, 1, 0.92)
 				_grime.add_child(w)
 				_nodes[id] = w
 		"dust":
 			if left > 0:
 				var d := Dust.new()
+				d.setup(int(float(def["radius"])), id.hash(), int(def["taps"]))
 				d.position = pos
-				d.radius = float(def["radius"])
-				d.seed_id = id.hash()
 				d.level = left
-				d.max_level = int(def["taps"])
 				_grime.add_child(d)
 				_nodes[id] = d
 		"curtain":
 			if left > 0:
-				var cur := ColorRect.new()
-				cur.position = Vector2(224, 32)
-				cur.size = Vector2(64, 34)
-				cur.color = Color("4a4350")
-				cur.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var cur := PixelArt.sprite(PixelArt.curtain(32, 17), Vector2(224, 32), false)
 				_grime.add_child(cur)
-				for i in 4:
-					var fold := ColorRect.new()
-					fold.position = Vector2(8 + i * 16, 0)
-					fold.size = Vector2(4, 34)
-					fold.color = Color("38323f")
-					fold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-					cur.add_child(fold)
 				_nodes[id] = cur
 			else:
 				_add_window()
@@ -230,16 +219,11 @@ func _build_object(def: Dictionary) -> void:
 				_nodes[id] = b
 		"cover":
 			if left > 0:
-				var c := Cover.new()
-				c.position = Vector2(2, 54)
+				var c := PixelArt.sprite(PixelArt.cover(48, 21), Vector2(2, 54), false)
 				_grime.add_child(c)
 				_nodes[id] = c
 		"machine":
-			var m := ColorRect.new()
-			m.position = Vector2(66, 48)
-			m.size = Vector2(26, 30)
-			m.color = Color(0.42, 0.38, 0.34, 0.8 * float(left) / 3.0)
-			m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var m := PixelArt.sprite(PixelArt.noise(13, 15, Color(0.30, 0.27, 0.24), 0.62 * float(left) / 3.0, 5), Vector2(66, 48), false)
 			m.visible = left > 0
 			_grime.add_child(m)
 			_nodes[id] = m
@@ -247,11 +231,9 @@ func _build_object(def: Dictionary) -> void:
 			var tn := _furniture_node("table_small")
 			if tn != null and left > 0:
 				var d2 := Dust.new()
+				d2.setup(26, 77, int(def["taps"]))
 				d2.position = Vector2(0, -22)
-				d2.radius = 26.0
-				d2.seed_id = 77
 				d2.level = left
-				d2.max_level = int(def["taps"])
 				tn.add_child(d2)
 				_nodes[id] = d2
 		"stool":
@@ -361,7 +343,7 @@ func _act(id: String) -> void:
 				t2.chain().tween_callback(node.queue_free)
 		"machine":
 			if node != null:
-				(node as ColorRect).color.a = 0.8 * float(left) / 3.0
+				(node as Sprite2D).texture = PixelArt.noise(13, 15, Color(0.30, 0.27, 0.24), 0.62 * float(left) / 3.0, 5)
 				if left <= 0:
 					node.visible = false
 			if left > 0:
@@ -536,63 +518,57 @@ func _finish_cleanup() -> void:
 	cleanup_finished.emit()
 
 
-## Ставни: рифлёная заслонка; lift 0..1 — насколько поднята.
+## Ставни: пиксельная заслонка (полосы, ржавчина, замок); lift 0..1 — насколько поднята (низ уезжает вверх).
 class Shutter extends Node2D:
+	const W := 104   # размеры в пикселях арта (208×72 px мира)
+	const H := 36
 	var size := Vector2(208, 72)
+	var _slats: Sprite2D
+	var _bar: Sprite2D
 	var lift := 0.0:
 		set(v):
 			lift = v
-			queue_redraw()
+			_update()
 
-	func _draw() -> void:
-		var h := size.y * (1.0 - lift)
-		var n := ceili(h / 12.0)
-		for i in n:
-			var y := float(i) * 12.0
-			var sh := mini(12, int(h - y))
-			draw_rect(Rect2(0, y, size.x, sh), Color("8a8f9c") if i % 2 == 0 else Color("7a7f8c"))
-			if sh > 10:
-				draw_rect(Rect2(0, y + 10, size.x, 2), Color("565a66"))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 33
-		for _i in 14:
-			var rx := snappedf(rng.randf_range(0.0, size.x - 24.0), 2.0)
-			var ry := snappedf(rng.randf_range(0.0, maxf(2.0, h - 12.0)), 2.0)
-			if ry < h:
-				draw_rect(Rect2(rx, ry, snappedf(rng.randf_range(4.0, 18.0), 2.0), 4), Color("8a5a3a"))
-		draw_rect(Rect2(0, h - 6, size.x, 6), Color("4a4d58"))
-		draw_rect(Rect2(size.x / 2.0 - 16, h - 14, 32, 8), Color("30323a"))
+	func _ready() -> void:
+		_slats = PixelArt.sprite(PixelArt.shutter(W, H), Vector2.ZERO, false)
+		_slats.region_enabled = true
+		add_child(_slats)
+		_bar = PixelArt.sprite(PixelArt.shutter_bar(W), Vector2.ZERO, false)
+		add_child(_bar)
+		_update()
+
+	func _update() -> void:
+		if _slats == null:
+			return
+		var vis := int(round(H * (1.0 - lift)))
+		_slats.region_rect = Rect2(0, 0, W, maxi(vis - 5, 0))
+		_slats.visible = vis > 5
+		_bar.position = Vector2(0, maxi(vis - 5, 0) * 2)
+		_bar.visible = vis > 0
 
 
-## Пыль на полу или столе: серо-бурые пятнышки; level (сколько тапов осталось) задаёт густоту.
-class Dust extends Node2D:
-	var radius := 34.0
+## Пыль на полу или столе: пиксельное пятно; level (сколько тапов осталось) задаёт густоту.
+class Dust extends Sprite2D:
+	var radius_art := 17
 	var seed_id := 1
+	var max_level := 2
 	var level := 2:
 		set(v):
 			level = v
-			queue_redraw()
-	var max_level := 2
+			_refresh()
 
-	func _draw() -> void:
+	func setup(radius_logical: int, seed_value: int, max_taps: int) -> void:
+		radius_art = radius_logical
+		seed_id = seed_value
+		max_level = max_taps
+		scale = Vector2(2, 2)
+
+	func _refresh() -> void:
 		if level <= 0:
+			visible = false
 			return
-		var rng := RandomNumberGenerator.new()
-		rng.seed = seed_id
-		var a := 0.75 * float(level) / float(max_level)
-		for _i in 22:
-			var ang := rng.randf() * TAU
-			var d := sqrt(rng.randf()) * radius
-			var w := snappedf(rng.randf_range(4.0, 16.0), 2.0)
-			draw_rect(Rect2(snappedf(cos(ang) * d, 2.0), snappedf(sin(ang) * d * 0.55, 2.0), w, 4), Color(0.62, 0.57, 0.5, a))
-		draw_rect(Rect2(-radius * 0.6, -2, radius * 1.2, 6), Color(0.62, 0.57, 0.5, a * 0.5))
+		texture = PixelArt.dust(radius_art * 2 / 2, maxi(8, radius_art * 2 / 5), seed_id, float(level) / float(max_level))
 
-
-## Покрывало на стойке: складчатая простыня.
-class Cover extends Node2D:
-	func _draw() -> void:
-		var pts := PackedVector2Array([Vector2(0, 8), Vector2(24, 0), Vector2(70, 4), Vector2(94, 0), Vector2(96, 40), Vector2(0, 42)])
-		draw_colored_polygon(pts, Color(0.78, 0.76, 0.7))
-		for x in [14.0, 34.0, 58.0, 78.0]:
-			draw_line(Vector2(x, 6), Vector2(x - 4, 40), Color(0.6, 0.58, 0.54), 2.0)
-		draw_rect(Rect2(0, 38, 96, 4), Color(0.55, 0.53, 0.5))
+	func _ready() -> void:
+		_refresh()

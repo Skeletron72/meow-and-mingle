@@ -47,6 +47,8 @@ var _wall_layer: Node2D
 var _flat_layer: Node2D
 var _nodes: Array[Node2D] = []       # узел мебели для каждого элемента layout (тот же индекс)
 var _astar: AStarGrid2D
+var _lamp_glows: Array[Sprite2D] = []   # тёплые пятна света от ламп (пиксельные, additive)
+var _beam: Sprite2D                     # луч дневного света из окна
 
 
 func _init() -> void:
@@ -59,6 +61,7 @@ func _init() -> void:
 	add_child(_flat_layer)
 	add_child(actors)
 	_build_counter()
+	_build_lights()
 
 
 # ---------------------------------------------------------------- данные о мебели и клетках
@@ -187,6 +190,11 @@ func _spawn_item(item: Dictionary) -> Node2D:
 	var n := Node2D.new()
 	n.position = foot_pos(id, c, r)
 	var src: Array = def["rect"]
+	if is_solid(id):   # контактная тень под мебелью
+		var t := tiles(id)
+		var blob := PixelArt.sprite(PixelArt.blob(t.x * 8 + 2, 4), Vector2(0, -2))
+		blob.modulate = Color(1, 1, 1, 0.55)
+		n.add_child(blob)
 	var sp := Sprite2D.new()
 	sp.texture = FURN_TEX
 	sp.region_enabled = true
@@ -195,6 +203,17 @@ func _spawn_item(item: Dictionary) -> Node2D:
 	sp.scale = Vector2(S, S)
 	sp.position = sprite_rect(id, c, r).position - n.position
 	sp.flip_h = bool(item.get("flip", false))
+	if is_wall(id):   # настенное отбрасывает мягкую тень на стену
+		var drop := Sprite2D.new()
+		drop.texture = FURN_TEX
+		drop.region_enabled = true
+		drop.region_rect = sp.region_rect
+		drop.centered = false
+		drop.scale = Vector2(S, S)
+		drop.position = sp.position + Vector2(4, 4)
+		drop.flip_h = sp.flip_h
+		drop.modulate = Color(0, 0, 0, 0.30)
+		n.add_child(drop)
 	n.add_child(sp)
 	var layer: Node2D = _wall_layer if is_wall(id) else (_flat_layer if is_flat(id) else actors)
 	if external_actors != null and is_solid(id):
@@ -203,6 +222,32 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		n.set_meta("interior", true)
 	layer.add_child(n)
 	return n
+
+
+func _build_lights() -> void:
+	for x in [96.0, 224.0]:   # лампы под потолком: тёплые пятна на стене и полу
+		var g := Fx.pixel_light(Vector2(x, 140), Vector2(230, 180), Color(1.0, 0.78, 0.42, 0.22))
+		add_child(g)
+		_lamp_glows.append(g)
+
+
+## Освещение зала: днём из окна падает луч, вечером разгораются лампы. day и night — 0..1.
+func set_lighting(day: float, night: float) -> void:
+	for g in _lamp_glows:
+		g.modulate.a = 0.12 + 0.34 * night
+	if _beam == null and _has_item("window"):
+		_beam = PixelArt.sprite(PixelArt.beam(28, 64, -30), Vector2(172, 64), false)
+		_beam.material = Fx.additive()
+		add_child(_beam)
+	if _beam != null:
+		_beam.modulate = Color(1.0, 0.93, 0.72, 0.30 * day)
+
+
+func _has_item(id: String) -> bool:
+	for it in layout:
+		if String(it["id"]) == id:
+			return true
+	return false
 
 
 func _build_counter() -> void:
@@ -244,6 +289,11 @@ func _draw() -> void:
 	var mat := Rect2(ORIGIN.x + ENTRANCE_CELLS.position.x * T, ORIGIN.y + ENTRANCE_CELLS.position.y * T, ENTRANCE_CELLS.size.x * T, T)
 	draw_rect(mat.grow(-4), Color("5b3d27"))
 	draw_rect(mat.grow(-8), Color("7a5238"))
+	# объём: затенение под стеной, под потолком и у боковых стен — дизеринг, а не плавный градиент
+	draw_texture_rect(PixelArt.dither_gradient(160, 12, false, false), Rect2(0, ORIGIN.y, 320, 24), false, Color(0, 0, 0, 0.40))
+	draw_texture_rect(PixelArt.dither_gradient(160, 8, false, false), Rect2(0, 0, 320, 16), false, Color(0, 0, 0, 0.32))
+	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, false), Rect2(0, 0, 20, 320), false, Color(0, 0, 0, 0.28))
+	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, true), Rect2(300, 0, 20, 320), false, Color(0, 0, 0, 0.28))
 	# рамка разреза здания
 	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), FLOOR_EDGE, false, 4.0)
 

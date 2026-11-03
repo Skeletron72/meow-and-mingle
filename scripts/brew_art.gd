@@ -76,8 +76,10 @@ func _draw_wall() -> void:
 		_r(sx, 208, 64, 4, Color("3f2815"))
 		_r(sx + 6, 208, 6, 14, Color("5f3b20"))
 		_r(sx + 52, 208, 6, 14, Color("5f3b20"))
-	# косой луч света (из окна за кадром)
-	draw_polygon(PackedVector2Array([Vector2(250, 0), Vector2(360, 0), Vector2(360, 120), Vector2(150, TOP_Y), Vector2(60, TOP_Y)]), PackedColorArray([Color(1, 0.95, 0.7, 0.10), Color(1, 0.95, 0.7, 0.10), Color(1, 0.95, 0.7, 0.05), Color(1, 0.95, 0.7, 0.0), Color(1, 0.95, 0.7, 0.0)]))
+	# затенение по углам и под потолком: дизеринг, а не плавный градиент
+	draw_texture_rect(PixelArt.dither_gradient(180, 10, false, false), Rect2(0, 0, 360, 20), false, Color(0, 0, 0, 0.30))
+	draw_texture_rect(PixelArt.dither_gradient(10, 134, true, false), Rect2(0, 0, 20, 268), false, Color(0, 0, 0, 0.22))
+	draw_texture_rect(PixelArt.dither_gradient(10, 134, true, true), Rect2(340, 0, 20, 268), false, Color(0, 0, 0, 0.22))
 
 
 func _draw_counter() -> void:
@@ -103,7 +105,7 @@ func _draw_counter() -> void:
 		_r(x + 4, 348, 68, 2, FRONT_L)
 		_r(x + 4, 372, 68, 2, FRONT_D.lightened(0.05))
 	_r(0, 380, 360, 8, PLINTH)
-	_r(0, 388, 360, 8, Color(0, 0, 0, 0.28))   # тень на стол
+	draw_texture_rect(PixelArt.dither_gradient(180, 10, false, false), Rect2(0, 388, 360, 20), false, Color(0, 0, 0, 0.45))   # тень прилавка на стол
 
 
 func _draw_table() -> void:
@@ -130,16 +132,11 @@ class PendantLamp extends Node2D:
 	var halo: Sprite2D
 
 	func _ready() -> void:
-		halo = Sprite2D.new()
-		halo.texture = Fx.halo_tex()
-		halo.position = Vector2(0, 74)
-		halo.scale = Vector2(1.5, 1.2)
-		halo.modulate = Color(1.0, 0.82, 0.45, 0.5)
-		halo.material = Fx.additive()
+		halo = Fx.pixel_light(Vector2(0, 74), Vector2(200, 160), Color(1.0, 0.82, 0.45, 0.5))
 		add_child(halo)
-		var t := create_tween().set_loops()
-		t.tween_property(self, "rotation", 0.05, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		t.tween_property(self, "rotation", -0.05, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		var base_x := position.x
+		var sway := create_tween().set_loops()   # качается шагами по 2 px — чистые пиксели, без поворота
+		sway.tween_method(func(u: float) -> void: position.x = base_x + roundf(sin(u * TAU) * 2.0 / 2.0) * 2.0, 0.0, 1.0, 3.2)
 		var f := create_tween().set_loops()   # лёгкое мерцание
 		f.tween_property(halo, "modulate:a", 0.38, 0.9).set_trans(Tween.TRANS_SINE)
 		f.tween_property(halo, "modulate:a", 0.55, 1.1).set_trans(Tween.TRANS_SINE)

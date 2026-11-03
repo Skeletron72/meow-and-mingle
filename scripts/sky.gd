@@ -43,7 +43,6 @@ func _draw() -> void:
 	var top := TimeOfDay.sky_top()
 	var bottom := TimeOfDay.sky_bottom()
 	var night := TimeOfDay.night()
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(W, 0), Vector2(W, H), Vector2(0, H)]), PackedColorArray([top, top, bottom, bottom]))
 	# звёзды
 	if night > 0.3:
 		var t := Time.get_ticks_msec() / 1000.0

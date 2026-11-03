@@ -75,6 +75,13 @@ func _ready() -> void:
 	add_child(_fx)
 	_build_hud()
 	_build_coach()
+	var post := PostFx.new()   # пиксельный блум ламп и виньетка; порог высокий, чтобы не светились кремовые панели
+	post.layer = 6
+	post.day_threshold = 0.97
+	post.night_threshold = 0.97
+	post.day_bloom = 0.4
+	post.night_bloom = 0.4
+	add_child(post)
 	GameState.coins_changed.connect(_on_coins_changed)
 	_shown_coins = GameState.coins
 	_coins_label.text = str(GameState.coins)

@@ -187,13 +187,7 @@ func _disc(art: Node2D, c: Vector2, r: float, color: Color) -> void:
 
 
 func _halo(art: Node2D, pos: Vector2, size: Vector2, color: Color) -> void:
-	var h := Sprite2D.new()
-	h.texture = Fx.halo_tex()
-	h.position = pos
-	h.scale = size / 128.0
-	h.modulate = color
-	h.material = Fx.additive()
-	art.add_child(h)
+	art.add_child(Fx.pixel_light(pos, size, color))
 
 
 ## Панель 1: вечер дома, на столе ключ.
@@ -284,9 +278,9 @@ func _panel_facade(art: Node2D) -> void:
 	sign.rotation = -0.02
 	for x in [92, 196]:
 		_r(art, x, 80, 2, 16, Color("4a4256"))
-	_web(art, Vector2(6, 128), 1, 1, 50.0)
-	_web(art, Vector2(290, 128), -1, 1, 50.0)
-	_web(art, Vector2(150, 96), 1, 1, 30.0)
+	_web(art, Vector2(6, 128), 1, 1, 24)
+	_web(art, Vector2(290, 128), -1, 1, 24)
+	_web(art, Vector2(150, 96), 1, 1, 16)
 	var cat := _cat(art, "back", Vector2(148, 206), 3.0)
 	cat.offset = Vector2(0, -8)
 	var sway := cat.create_tween().set_loops()
@@ -296,12 +290,12 @@ func _panel_facade(art: Node2D) -> void:
 
 
 ## Паутина-веер из угла: dir_x/dir_y — куда расходятся нити.
-func _web(art: Node2D, corner: Vector2, dir_x: int, dir_y: int, radius: float) -> void:
-	var w := Web.new()
-	w.position = corner
-	w.dx = dir_x
-	w.dy = dir_y
-	w.radius = radius
+func _web(art: Node2D, corner: Vector2, dir_x: int, dir_y: int, size_art: int) -> void:
+	var w := PixelArt.sprite(PixelArt.web(size_art), corner, false)
+	w.flip_h = dir_x < 0
+	w.flip_v = dir_y < 0
+	w.position = Vector2(corner.x - (size_art * 2.0 if dir_x < 0 else 0.0), corner.y - (size_art * 2.0 if dir_y < 0 else 0.0))
+	w.modulate = Color(1, 1, 1, 0.92)
 	art.add_child(w)
 
 
@@ -335,20 +329,17 @@ func _panel_lock(art: Node2D) -> void:
 	pulse.tween_interval(0.6)
 
 
-## Рисует рифлёную заслонку: lift 0..1 — насколько поднята (верх остаётся, низ уезжает вверх).
+## Пиксельная заслонка в кадре: lift 0..1 — насколько поднята.
 func _draw_shutter(root: Node2D, rect: Rect2, lift: float) -> void:
-	var h := rect.size.y * (1.0 - lift)
-	var n := int(h / 12.0)
-	for i in n:
-		var y := rect.position.y + i * 12.0
-		_r(root, rect.position.x, y, rect.size.x, 12, Color("8a8f9c") if i % 2 == 0 else Color("7a7f8c"))
-		_r(root, rect.position.x, y + 10, rect.size.x, 2, Color("565a66"))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 21
-	for _i in 22:   # ржавые пятна
-		_r(root, snappedf(rng.randf_range(rect.position.x, rect.end.x - 24), 2.0), snappedf(rng.randf_range(rect.position.y, rect.position.y + h - 12), 2.0), snappedf(rng.randf_range(4, 20), 2.0), 4, Color("8a5a3a"))
-	_r(root, rect.position.x, rect.position.y + h - 6, rect.size.x, 8, Color("4a4d58"))
-	_r(root, rect.position.x + rect.size.x / 2.0 - 16, rect.position.y + h - 14, 32, 10, Color("30323a"))   # ручка/замок
+	var w_art := int(rect.size.x / 2.0)
+	var h_art := int(rect.size.y / 2.0)
+	var vis := int(round(h_art * (1.0 - lift)))
+	var slats := PixelArt.sprite(PixelArt.shutter(w_art, h_art), rect.position, false)
+	slats.region_enabled = true
+	slats.region_rect = Rect2(0, 0, w_art, maxi(vis - 5, 0))
+	root.add_child(slats)
+	var bar := PixelArt.sprite(PixelArt.shutter_bar(w_art), Vector2(rect.position.x, rect.position.y + maxi(vis - 5, 0) * 2.0), false)
+	root.add_child(bar)
 
 
 ## Панель 5: заслонка приподнята, свет и пыль, Мяу улыбается, у стены хмурый Тучка.
@@ -380,25 +371,3 @@ func _panel_decision(art: Node2D) -> void:
 	grump.modulate.a = 0.9
 	_r(art, 212, 112, 28, 8, Color("6a6a78"))
 	Fx.burst(art, Vector2(150, 60), "sparkle", Color("fff3b0"), 8, 80.0, 20.0, 1.4, 1.0)
-
-
-## Паутина: радиальные нити и дуги, нарисованные пиксельными линиями.
-class Web extends Node2D:
-	var dx := 1
-	var dy := 1
-	var radius := 40.0
-
-	func _draw() -> void:
-		var col := Color(1, 1, 1, 0.7)
-		var rays := 5
-		for i in rays:
-			var a := PI / 2.0 * (float(i) / (rays - 1))
-			var end := Vector2(cos(a) * dx, sin(a) * dy) * radius
-			draw_line(Vector2.ZERO, end, col, 2.0)
-		for ring in [0.35, 0.6, 0.85]:
-			var pts := PackedVector2Array()
-			for i in rays:
-				var a := PI / 2.0 * (float(i) / (rays - 1))
-				var sag := 0.88 + 0.08 * sin(i * 2.1)
-				pts.append(Vector2(cos(a) * dx, sin(a) * dy) * radius * ring * sag)
-			draw_polyline(pts, col, 2.0)

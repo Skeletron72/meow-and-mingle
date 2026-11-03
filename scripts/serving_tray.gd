@@ -62,9 +62,8 @@ func pop_pastry() -> void:
 func set_ready(on: bool) -> void:
 	if on and _glow == null:
 		_glow = Fx.glow(self, Vector2(0, -16), Vector2(300, 120), Color("ffd27a"))
-		var bob := create_tween().set_loops()
-		bob.tween_property(self, "scale", Vector2(1.04, 1.04), 0.5).set_trans(Tween.TRANS_SINE)
-		bob.tween_property(self, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_SINE)
+		var bob := create_tween().set_loops()   # содержимое подпрыгивает шагами по 2 px — пиксели остаются целыми
+		bob.tween_method(_bob, 0.0, 1.0, 1.0)
 		set_meta("ready_tween", bob)
 	elif not on and _glow != null:
 		_glow.queue_free()
@@ -72,7 +71,14 @@ func set_ready(on: bool) -> void:
 		if has_meta("ready_tween"):
 			(get_meta("ready_tween") as Tween).kill()
 			remove_meta("ready_tween")
-		scale = Vector2.ONE
+		drink.position = DRINK_POS
+		pastry.position = PASTRY_POS
+
+
+func _bob(u: float) -> void:
+	var dy := -2.0 * roundf(absf(sin(u * PI)) * 2.0)
+	drink.position.y = DRINK_POS.y + dy
+	pastry.position.y = PASTRY_POS.y + dy
 
 
 func _draw() -> void:

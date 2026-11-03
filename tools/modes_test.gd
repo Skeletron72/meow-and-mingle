@@ -33,6 +33,7 @@ func _ready() -> void:
 	await _test_decorate_input()
 	_test_save_migration()
 	_test_assets()
+	await _test_pixel_lighting()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -1035,3 +1036,36 @@ func _test_assets() -> void:
 			_check(ResourceLoader.exists("res://assets/street/vehicles/%s_%s.png" % [v["id"], d]), "нет машины %s_%s" % [v["id"], d])
 	for path in [Nav.BREW, Nav.CITY, Nav.DECORATE, "res://scenes/street.tscn"]:
 		_check(ResourceLoader.exists(path), "сцена существует: " + path)
+
+
+## Чистые пиксели и объёмный свет: жёсткая альфа у декора, мало уровней у свечения, слои PostFx/теней.
+func _alphas(tex: Texture2D) -> Array:
+	var img := tex.get_image()
+	var seen := {}
+	for y in img.get_height():
+		for x in img.get_width():
+			seen[snappedf(img.get_pixel(x, y).a, 0.01)] = true
+	return seen.keys()
+
+
+func _test_pixel_lighting() -> void:
+	for tex in [PixelArt.web(16), PixelArt.dust(24, 12, 3, 0.5), PixelArt.shutter(52, 18), PixelArt.shutter_bar(52), PixelArt.cover(20, 20), PixelArt.curtain(20, 20)]:
+		for a in _alphas(tex):
+			_check(a == 0.0 or a == 1.0, "декор: только 0/1 альфа, а найдено %s" % a)
+	for tex in [PixelArt.glow(24, 24), PixelArt.cone(40, 12), PixelArt.beam(20, 40, 8), PixelArt.dither_gradient(20, 10), PixelArt.blob(10, 5)]:
+		_check(_alphas(tex).size() <= 8, "свечение постеризовано: %d уровней" % _alphas(tex).size())
+	_check(PixelArt.web(16) == PixelArt.web(16), "текстуры PixelArt кэшируются")
+	for path in ["res://assets/shaders/post_fx.gdshader", "res://assets/shaders/sky_gradient.gdshader", "res://assets/shaders/dither_shadow.gdshader"]:
+		_check(load(path) is Shader, "шейдер загружается: " + path)
+	var city := _new_city(false)
+	await get_tree().process_frame
+	_check(city.get("_post") is PostFx, "в городе есть PostFx")
+	_check(city.get("_sky_bg") != null, "в городе есть небо-градиент")
+	var halo: Sprite2D = Fx.pixel_light(Vector2.ZERO, Vector2(64, 64), Color(1, 0.8, 0.4, 0.5))
+	_check(halo.texture.get_width() <= 64, "пиксельный ореол собран в разрешении арта")
+	halo.free()
+	for h in [8.0, 12.0, 19.0, 23.0]:
+		TimeOfDay.hour = h
+		await get_tree().process_frame
+	city.queue_free()
+	await get_tree().process_frame

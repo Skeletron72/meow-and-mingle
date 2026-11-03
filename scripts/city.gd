@@ -21,6 +21,8 @@ const IRIS_OPEN_SPEED := 620.0    # px/с: круг расходится
 const IRIS_CLOSE_SPEED := 900.0   # px/с: круг сжимается
 const HOLE_SHADER := preload("res://assets/shaders/xray_hole.gdshader")
 const CLIP_SHADER := preload("res://assets/shaders/xray_clip.gdshader")
+const SHADOW_SHADER := preload("res://assets/shaders/dither_shadow.gdshader")
+const SKY_SHADER := preload("res://assets/shaders/sky_gradient.gdshader")
 const CAMERA_FEET_OFFSET := 90.0   # лапки кота на улице — ниже центра экрана на столько
 
 var _level: StreetLevel
@@ -34,6 +36,8 @@ var _glow: Node2D
 var _camera: Camera2D
 var _sky_layer: CanvasLayer
 var _sky: CitySky
+var _sky_bg: ColorRect
+var _post: PostFx
 var _nav: WorldNav
 var _cafe: StreetBuilding
 var _building_nodes: Array[StreetBuilding] = []
@@ -47,7 +51,8 @@ var _player: CatWalker
 var _npcs: Array[Dictionary] = []       # {"cat": CatWalker, "timer": float}
 var _traffic: Traffic
 var _glows: Array[Dictionary] = []      # {"node", "base", "cafe"}: свечение, зависящее от ночи
-var _halo_tex: GradientTexture2D
+var _shadow_mats: Array[ShaderMaterial] = []   # косые тени зданий на тротуаре (длина и наклон — от солнца)
+var _cafe_overlays: Array[CanvasItem] = []     # затенение фасада кафе (гаснет, когда фасад вырезан)
 var _add_mat: CanvasItemMaterial
 var _pending := ""                      # действие по прибытии: "shift"
 var _pressing := false
@@ -71,13 +76,13 @@ func _ready() -> void:
 		return
 	_add_mat = CanvasItemMaterial.new()
 	_add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_halo_tex = _make_halo()
 	_hole_mat = ShaderMaterial.new()
 	_hole_mat.shader = HOLE_SHADER
 	_clip_mat = ShaderMaterial.new()
 	_clip_mat.shader = CLIP_SHADER
 	_build_sky()
 	_build_world()
+	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
 	_build_camera()
@@ -90,24 +95,17 @@ func _ready() -> void:
 
 # ---------------------------------------------------------------- построение
 
-func _make_halo() -> GradientTexture2D:
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
-	g.offsets = PackedFloat32Array([0.0, 1.0])
-	var t := GradientTexture2D.new()
-	t.gradient = g
-	t.fill = GradientTexture2D.FILL_RADIAL
-	t.fill_from = Vector2(0.5, 0.5)
-	t.fill_to = Vector2(1.0, 0.5)
-	t.width = 128
-	t.height = 128
-	return t
-
-
 func _build_sky() -> void:
 	_sky_layer = CanvasLayer.new()
 	_sky_layer.layer = -10
 	add_child(_sky_layer)
+	_sky_bg = ColorRect.new()   # градиент неба: шейдер со ступенями и дизерингом
+	_sky_bg.size = Vector2(360, 640)
+	_sky_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sky_mat := ShaderMaterial.new()
+	sky_mat.shader = SKY_SHADER
+	_sky_bg.material = sky_mat
+	_sky_layer.add_child(_sky_bg)
 	_sky = CitySky.new()
 	_sky_layer.add_child(_sky)
 
@@ -161,6 +159,12 @@ func _build_world() -> void:
 		if prop == null:
 			continue
 		prop.reparent(_actors)
+		var wa := prop.texture.get_width()   # контактная тень под предметом
+		var blob := PixelArt.sprite(PixelArt.blob(maxi(5, wa / 2 + 2), maxi(3, wa / 6 + 1)), Vector2.ZERO)
+		blob.scale = Vector2.ONE            # родитель уже в масштабе 2
+		blob.modulate = Color(1, 1, 1, 0.55)
+		blob.show_behind_parent = true
+		prop.add_child(blob)
 		if prop.blocks:
 			block_cells.append(prop.blocked_cell())
 		if prop.emits_light:
@@ -219,19 +223,61 @@ func _add_window_glows(b: StreetBuilding) -> void:
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_glow.add_child(r)
 		_glows.append({"node": r, "base": 0.55, "cafe": b.is_cafe})
+		var center := r.position + r.size / 2.0
+		var spill := Fx.pixel_light(center, r.size * 2.0 + Vector2(36, 36), Color(1.0, 0.75, 0.35, 0.0))   # свет вокруг окна
+		_glow.add_child(spill)
+		_glows.append({"node": spill, "base": 0.30, "cafe": b.is_cafe})
+		var wall_bottom := b.world_rect().end.y
+		if center.y > wall_bottom - 90.0:   # окно первого этажа бросает пятно света на тротуар
+			var pool := Fx.pixel_light(Vector2(center.x, wall_bottom + 24.0), Vector2(r.size.x + 70.0, 52.0), Color(1.0, 0.75, 0.35, 0.0))
+			_glow.add_child(pool)
+			_glows.append({"node": pool, "base": 0.26, "cafe": b.is_cafe})
 
 
-## Круглое свечение; flatten < 1 сплющивает его в эллипс (пятно на асфальте).
+## Пиксельное свечение (additive): size — множитель диаметра 128 px, flatten < 1 сплющивает в эллипс (пятно на земле).
 func _add_halo(pos: Vector2, size: float, base: float, color: Color, flatten := 1.0) -> Sprite2D:
-	var h := Sprite2D.new()
-	h.texture = _halo_tex
-	h.position = pos
-	h.scale = Vector2(size, size * flatten)
-	h.modulate = Color(color, 0.0)
-	h.material = _add_mat
+	var h := Fx.pixel_light(pos, Vector2(128.0 * size, 128.0 * size * flatten), Color(color, 0.0))
 	_glow.add_child(h)
 	_glows.append({"node": h, "base": base, "cafe": false})
 	return h
+
+
+## Объём зданий: косая тень на тротуаре (длина/наклон от солнца), контактное затенение у стены и дизеринг-затенение фасада.
+func _build_shading() -> void:
+	for b in _building_nodes:
+		var r := b.world_rect()
+		var strip := ColorRect.new()
+		strip.position = Vector2(r.position.x - 80.0, r.end.y)
+		strip.size = Vector2(r.size.x + 160.0, 100.0)
+		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var mat := ShaderMaterial.new()
+		mat.shader = SHADOW_SHADER
+		mat.set_shader_parameter("size", strip.size)
+		mat.set_shader_parameter("span", r.size.x)
+		mat.set_shader_parameter("margin", 80.0)
+		strip.material = mat
+		_ground.add_child(strip)
+		_shadow_mats.append(mat)
+		var ao := PixelArt.sprite(PixelArt.dither_gradient(int(r.size.x / 2.0), 6, false, false), r.position + Vector2(0, r.size.y), false)
+		ao.modulate = Color(1, 1, 1, 0.42)
+		_ground.add_child(ao)
+		var w_art := b.texture.get_width()
+		var h_art := b.texture.get_height()
+		var down := Sprite2D.new()   # фасад темнее к земле
+		down.texture = PixelArt.dither_gradient(w_art, h_art, false, true, 4)
+		down.centered = false
+		down.position = Vector2(0, -h_art)
+		down.modulate = Color(1, 1, 1, 0.22)
+		b.add_child(down)
+		var side := Sprite2D.new()   # и к правому краю: свет слева
+		side.texture = PixelArt.dither_gradient(w_art, h_art, true, true, 4)
+		side.centered = false
+		side.position = Vector2(0, -h_art)
+		side.modulate = Color(1, 1, 1, 0.16)
+		b.add_child(side)
+		if b.is_cafe:
+			_cafe_overlays.append(down)
+			_cafe_overlays.append(side)
 
 
 func _build_cats() -> void:
@@ -272,8 +318,11 @@ func _build_camera() -> void:
 
 
 func _build_ui() -> void:
+	_post = PostFx.new()
+	_post.layer = 1
+	add_child(_post)
 	_ui = CanvasLayer.new()
-	_ui.layer = 1
+	_ui.layer = 2
 	add_child(_ui)
 	Ui.panel(Rect2(8, 8, 104, 40), Ui.UI_CREAM, _ui)
 	var coin := Sprite2D.new()
@@ -576,7 +625,9 @@ func _apply_daylight() -> void:
 		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * night * f
 	for car in _traffic.cars():
 		if car.halo != null:
-			car.halo.position = car.position + car.headlight_offset()
+			var p := car.position + car.headlight_offset() + Vector2(car.dir * 72.0, 6.0)
+			car.halo.position = Vector2(roundf(p.x / 2.0) * 2.0, roundf(p.y / 2.0) * 2.0)
+	_update_light_volume(night)
 
 
 ## Камера едет за котом по обеим осям (за дома — на задний двор); на улице лапки стоят ниже центра экрана.
@@ -584,7 +635,29 @@ func _camera_target() -> Vector2:
 	return Vector2(clampf(_player.position.x, 180.0, _world_size.x - 180.0), clampf(_player.position.y - CAMERA_FEET_OFFSET, 320.0, _world_size.y - 320.0))
 
 
+## Солнечные тени и свет в зале: длина и наклон теней от высоты солнца (ночью теней нет); лучи и лампы в кафе.
+func _update_light_volume(night: float) -> void:
+	var p := TimeOfDay.sun_progress()
+	var strength := 0.0
+	var length := 12.0
+	var lean := 0.0
+	if p >= 0.0:
+		var elev := sin(p * PI)
+		length = lerpf(70.0, 14.0, elev)
+		lean = (0.5 - p) * 2.4
+		strength = 0.42 * clampf(elev * 3.0, 0.0, 1.0)
+	for m in _shadow_mats:
+		m.set_shader_parameter("shadow_length", length)
+		m.set_shader_parameter("lean", lean)
+		m.set_shader_parameter("strength", strength)
+	_room.set_lighting(1.0 - night, night)
+	for o in _cafe_overlays:
+		o.visible = _xray < 0.4
+
+
 func _update_camera() -> void:
+	_sky_bg.material.set_shader_parameter("top_color", TimeOfDay.sky_top())
+	_sky_bg.material.set_shader_parameter("bottom_color", TimeOfDay.sky_bottom())
 	_camera.position = _camera_target()
 	_sky.camera_x = _camera.get_screen_center_position().x
 
@@ -608,7 +681,15 @@ func _on_coins_changed(value: int) -> void:
 # ---------------------------------------------------------------- машины
 
 func _on_car_spawned(car: Car) -> void:
-	car.halo = _add_halo(car.position + car.headlight_offset(), 1.6, 0.8, Color(1.0, 0.9, 0.6), 0.6)
+	var cone := Sprite2D.new()   # пиксельный конус света фар
+	cone.texture = PixelArt.cone(36, 12)
+	cone.scale = Vector2(2, 2)
+	cone.flip_h = car.dir < 0
+	cone.modulate = Color(1.0, 0.92, 0.62, 0.0)
+	cone.material = _add_mat
+	_glow.add_child(cone)
+	_glows.append({"node": cone, "base": 0.75, "cafe": false})
+	car.halo = cone
 
 
 func _on_car_removed(car: Car) -> void:

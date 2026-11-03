@@ -42,24 +42,6 @@ static func tex(name: String) -> ImageTexture:
 	return t
 
 
-## Мягкое круглое свечение (для additive-спрайтов).
-static func halo_tex() -> GradientTexture2D:
-	if _cache.has("halo"):
-		return _cache["halo"]
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
-	g.offsets = PackedFloat32Array([0.0, 1.0])
-	var t := GradientTexture2D.new()
-	t.gradient = g
-	t.fill = GradientTexture2D.FILL_RADIAL
-	t.fill_from = Vector2(0.5, 0.5)
-	t.fill_to = Vector2(1.0, 0.5)
-	t.width = 128
-	t.height = 128
-	_cache["halo"] = t
-	return t
-
-
 static func additive() -> CanvasItemMaterial:
 	if _cache.has("add"):
 		return _cache["add"]
@@ -257,18 +239,23 @@ static func banner(parent: Node, text: String, pos: Vector2, color: Color, outli
 	t.chain().tween_callback(l.queue_free)
 
 
-## Пульсирующее свечение вокруг узла (возвращает спрайт, чтобы его можно было убрать).
-static func glow(parent: Node, pos: Vector2, size: Vector2, color: Color) -> Sprite2D:
-	var s := Sprite2D.new()
-	s.texture = halo_tex()
-	s.position = pos
-	s.scale = size / 128.0
-	s.modulate = Color(color, 0.0)
+## Пиксельное свечение: постеризованное, с дизерингом; размер size — в логических px (диаметры по x и y), позиция привязана к сетке арта.
+static func pixel_light(pos: Vector2, size: Vector2, color: Color, levels := 4, power := 1.5) -> Sprite2D:
+	var rx := maxi(2, roundi(size.x / 4.0))
+	var ry := maxi(2, roundi(size.y / 4.0))
+	var s := PixelArt.sprite(PixelArt.glow(rx, ry, levels, power), pos)
+	s.modulate = color
 	s.material = additive()
+	return s
+
+
+## Пульсирующее пиксельное свечение вокруг точки (возвращает спрайт, чтобы его можно было убрать).
+static func glow(parent: Node, pos: Vector2, size: Vector2, color: Color) -> Sprite2D:
+	var s := pixel_light(pos, size, Color(color, 0.0))
 	parent.add_child(s)
 	var t := s.create_tween().set_loops()
-	t.tween_property(s, "modulate:a", 0.55, 0.5).set_trans(Tween.TRANS_SINE)
-	t.tween_property(s, "modulate:a", 0.2, 0.5).set_trans(Tween.TRANS_SINE)
+	t.tween_property(s, "modulate:a", 0.6, 0.5).set_trans(Tween.TRANS_SINE)
+	t.tween_property(s, "modulate:a", 0.25, 0.5).set_trans(Tween.TRANS_SINE)
 	return s
 
 
