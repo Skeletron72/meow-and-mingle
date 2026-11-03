@@ -96,7 +96,7 @@ static func label(text: String, r: Rect2, font_size: int, color: Color, parent: 
 
 
 ## Кнопка на nine-patch. Без текста — кнопка-иконка. Размер округляется до чётного.
-static func button(text: String, r: Rect2, icon_name: String, parent: Node, narrow := false, tex: Texture2D = null) -> Button:
+static func button(text: String, r: Rect2, icon_name: String, parent: Node, narrow := false, tex: Texture2D = null, danger := false) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.position = r.position
@@ -122,6 +122,8 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 		b.add_theme_font_override("font", FONT_NARROW)
 	var skin := panel(Rect2(Vector2.ZERO, b.size), tex if tex else UI_BTN, b)
 	skin.show_behind_parent = true
+	if danger:
+		skin.self_modulate = Color(1.0, 0.55, 0.5)   # красноватая кнопка для опасных действий
 	b.mouse_entered.connect(func() -> void: skin.modulate = Color(1.1, 1.1, 1.1))
 	b.mouse_exited.connect(func() -> void: skin.modulate = Color.WHITE)
 	b.button_down.connect(func() -> void: skin.modulate = Color(0.8, 0.8, 0.8))

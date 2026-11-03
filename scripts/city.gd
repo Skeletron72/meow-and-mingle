@@ -58,6 +58,9 @@ var _coins_label: Label
 var _clock_btn: Button
 var _btn_shift: Button
 var _menu: CanvasLayer
+var _menu_pages: Dictionary = {}
+var _shop_page: Control
+var _account_stats: Label
 var _shift_layer: CanvasLayer
 
 
@@ -283,7 +286,8 @@ func _build_ui() -> void:
 	_btn_shift.pressed.connect(_start_shift)
 
 
-## Меню внутри игры: пауза, продолжить / украшение / время / выход.
+## Меню внутри игры (пауза). Страницы: главная → «Улучшения» (магазин), «Настройки» → «Аккаунт» → «Сбросить прогресс»
+## (спрятан глубоко и требует подтверждения).
 func _build_menu() -> void:
 	_menu = CanvasLayer.new()
 	_menu.layer = 10
@@ -295,19 +299,108 @@ func _build_menu() -> void:
 	dim.color = Color(0, 0, 0, 0.5)
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
-	var h := 296.0 if pc else 240.0
-	var top := 320.0 - h / 2.0
-	Ui.panel(Rect2(30, top, 300, h), Ui.UI_WOOD, _menu)
-	Ui.label("Меню", Rect2(30, top + 14, 300, 36), Ui.FONT_SIZE, Ui.INK, _menu)
-	var resume := Ui.button("Продолжить", Rect2(54, top + 56, 252, 52), "play", _menu)
-	resume.pressed.connect(_close_menu)
-	var deco := Ui.button("Украшение", Rect2(54, top + 114, 252, 52), "brush", _menu)
-	deco.pressed.connect(_open_decorate)
-	var skip := Ui.button("Время +3 ч", Rect2(54, top + 172, 252, 52), "gear", _menu)
-	skip.pressed.connect(TimeOfDay.skip.bind(3.0))
+	# главная
+	var main := _page("main", 356.0 if pc else 298.0, "Меню")
+	var top := 320.0 - (356.0 if pc else 298.0) / 2.0
+	Ui.button("Продолжить", Rect2(54, top + 56, 252, 52), "play", main).pressed.connect(_close_menu)
+	Ui.button("Украшение", Rect2(54, top + 114, 252, 52), "brush", main).pressed.connect(_open_decorate)
+	Ui.button("Улучшения", Rect2(54, top + 172, 252, 52), "cart", main).pressed.connect(_open_shop)
+	Ui.button("Настройки", Rect2(54, top + 230, 252, 52), "gear", main).pressed.connect(_menu_page.bind("settings"))
 	if pc:
-		var quit := Ui.button("Выход", Rect2(54, top + 230, 252, 52), "exit", _menu)
-		quit.pressed.connect(get_tree().quit)
+		Ui.button("Выход", Rect2(54, top + 288, 252, 52), "exit", main).pressed.connect(get_tree().quit)
+	# настройки
+	var settings := _page("settings", 210.0, "Настройки")
+	var st := 320.0 - 105.0
+	Ui.button("Аккаунт", Rect2(54, st + 56, 252, 52), "home", settings).pressed.connect(_menu_page.bind("account"))
+	Ui.button("Назад", Rect2(54, st + 114, 252, 52), "undo", settings).pressed.connect(_menu_page.bind("main"))
+	# аккаунт: статистика и спрятанный сброс
+	var account := _page("account", 290.0, "Аккаунт")
+	var at := 320.0 - 145.0
+	_account_stats = Ui.label("", Rect2(40, at + 52, 280, 84), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.button("Сбросить прогресс", Rect2(54, at + 148, 252, 48), "trash", account, true, null, true).pressed.connect(_menu_page.bind("confirm"))
+	Ui.button("Назад", Rect2(54, at + 208, 252, 52), "undo", account).pressed.connect(_menu_page.bind("settings"))
+	# подтверждение сброса
+	var confirm := _page("confirm", 250.0, "Сбросить прогресс?")
+	var ct := 320.0 - 125.0
+	Ui.label("Игра начнётся заново.\nОтменить нельзя.", Rect2(40, ct + 52, 280, 64), Ui.FONT_SIZE, Ui.INK, confirm, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.button("Отмена", Rect2(54, ct + 124, 252, 52), "undo", confirm).pressed.connect(_menu_page.bind("account"))
+	Ui.button("Сбросить", Rect2(54, ct + 184, 252, 48), "trash", confirm, true, null, true).pressed.connect(_confirm_reset)
+	# магазин улучшений (карточки строятся при открытии)
+	_shop_page = _page("shop", 470.0, "Улучшения")
+	_menu_page("main")
+
+
+## Страница меню: рамка и заголовок по центру экрана.
+func _page(page_name: String, height: float, title: String) -> Control:
+	var page := Control.new()
+	page.visible = false
+	_menu.add_child(page)
+	var top := 320.0 - height / 2.0
+	Ui.panel(Rect2(30, top, 300, height), Ui.UI_WOOD, page)
+	Ui.label(title, Rect2(30, top + 14, 300, 36), Ui.FONT_SIZE, Ui.INK, page, HORIZONTAL_ALIGNMENT_CENTER, title.length() > 12)
+	_menu_pages[page_name] = page
+	return page
+
+
+func _menu_page(page_name: String) -> void:
+	for k in _menu_pages:
+		(_menu_pages[k] as Control).visible = k == page_name
+	if page_name == "account":
+		_account_stats.text = "Подано за всё время: %d\nМонет в кассе: %d\nУлучшений куплено: %d" % [GameState.served_total, GameState.coins, GameState.upgrades.size()]
+
+
+func _confirm_reset() -> void:
+	GameState.reset_progress()
+	get_tree().paused = false
+	Nav.go(self, Nav.CITY)
+
+
+# ---------------------------------------------------------------- магазин улучшений
+
+func _open_shop() -> void:
+	_refresh_shop()
+	_menu_page("shop")
+
+
+## Карточки улучшений: название, что даёт, цена-кнопка. Недоступные (не хватает монет / нет условия) — серые.
+func _refresh_shop() -> void:
+	for ch in _shop_page.get_children().slice(2):   # рамка и заголовок остаются
+		ch.queue_free()
+	var top := 320.0 - 235.0
+	var y := top + 54.0
+	for u in Data.upgrades:
+		var id := String(u["id"])
+		var owned := GameState.has_upgrade(id)
+		var req := String(u["requires"])
+		var locked := req != "" and not GameState.has_upgrade(req)
+		Ui.panel(Rect2(40, y, 280, 80), Ui.UI_CREAM, _shop_page)
+		Ui.label(String(u["name"]), Rect2(48, y + 6, 160, 32), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var sub := String(u["unlocks"])
+		if locked:
+			for r in Data.upgrades:
+				if String(r["id"]) == req:
+					sub = "Нужен: " + String(r["name"]).to_lower()
+		Ui.label(sub, Rect2(48, y + 38, 160, 32), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		if owned:
+			Ui.label("Куплено", Rect2(208, y + 16, 104, 44), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
+		else:
+			var b := Ui.button(str(int(u["price"])), Rect2(212, y + 16, 100, 48), "coin", _shop_page)
+			b.disabled = locked or GameState.coins < int(u["price"])
+			b.modulate = Color(0.65, 0.65, 0.65) if b.disabled else Color.WHITE
+			b.pressed.connect(_buy_upgrade.bind(id))
+		y += 88.0
+	Ui.button("Назад", Rect2(54, top + 54.0 + 88.0 * Data.upgrades.size() + 4.0, 252, 48), "undo", _shop_page).pressed.connect(_menu_page.bind("main"))
+
+
+func _buy_upgrade(id: String) -> void:
+	if not GameState.buy_upgrade(id):
+		return
+	for u in Data.upgrades:
+		if String(u["id"]) == id:
+			Fx.burst(_menu, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
+			Ui.toast(_menu, String(u["flavor"]), Vector2(180, 560))
+	_refresh_shop()
+	_coins_label.text = str(GameState.coins)
 
 
 # ---------------------------------------------------------------- кадр
@@ -562,6 +655,7 @@ func _end_shift(served: int, earned: int) -> void:
 # ---------------------------------------------------------------- меню в игре
 
 func _open_menu() -> void:
+	_menu_page("main")
 	_menu.visible = true
 	get_tree().paused = true
 

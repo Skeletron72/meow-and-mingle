@@ -153,11 +153,23 @@ func _build_table() -> void:
 		bob.tween_property(icon, "scale", Vector2(4, 4), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
+## Какие источники на столе: в обучении — заданные, иначе по купленным улучшениям (молочник, витрина).
+func _source_available(it: Dictionary) -> bool:
+	if tutorial:
+		return tutorial_sources.is_empty() or String(it["id"]) in tutorial_sources
+	match String(it["kind"]):
+		"milk":
+			return GameState.has_upgrade("milk_pitcher")
+		"pastry":
+			return GameState.pastries_unlocked()
+	return true
+
+
 ## Раскладывает источники ряда по тарелкам; скрытые в обучении пропускаются, остальные центрируются.
 func _lay_row(items: Array[Dictionary], y: float) -> void:
 	var shown: Array[Dictionary] = []
 	for it in items:
-		if tutorial_sources.is_empty() or String(it["id"]) in tutorial_sources:
+		if _source_available(it):
 			shown.append(it)
 	var xs: Array = []
 	match shown.size():
@@ -211,7 +223,7 @@ func _build_coach() -> void:
 
 func _spawn_cat() -> void:
 	var def: Dictionary = Data.cats.pick_random()
-	var drink_id: String = Data.drinks.keys().pick_random()
+	var drink_id: String = GameState.drink_ids().pick_random()
 	var pastry_id := ""
 	if tutorial:
 		if _tutorial_index >= tutorial_orders.size():
@@ -223,7 +235,7 @@ func _spawn_cat() -> void:
 		for c in Data.cats:
 			if String(c["id"]) == String(o.get("cat", "")):
 				def = c
-	elif randf() < PASTRY_CHANCE:
+	elif GameState.pastries_unlocked() and randf() < PASTRY_CHANCE:
 		pastry_id = Data.pastries.keys().pick_random()
 	_order = {"drink": drink_id, "pastry": pastry_id}
 	_cat = CatCustomer.new()
@@ -429,7 +441,7 @@ func _serve() -> void:
 	if ok:
 		var drink_id: String = _order["drink"]
 		var pastry_id: String = _order["pastry"]
-		var price := int(Data.drinks[drink_id]["price"])
+		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
 		if pastry_id != "":
 			price += int(Data.pastries[pastry_id]["price"])
 		tip = maxi(1, int(round(price * 0.2)))

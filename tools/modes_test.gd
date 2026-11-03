@@ -26,6 +26,8 @@ func _ready() -> void:
 	await _test_npc_visits()
 	await _test_traffic()
 	await _test_city_input()
+	await _test_progress_and_menu()
+	await _test_brew()
 	await _test_decorate_logic()
 	await _test_decorate_input()
 	_test_save_migration()
@@ -49,6 +51,7 @@ func _item(id: String, c: int, r: int) -> Dictionary:
 
 
 func _new_city(inside: bool) -> Node2D:
+	GameState.intro_stage = GameState.INTRO_DONE   # интро уже пройдено: проверяем обычную игру
 	GameState.city_inside = inside
 	GameState.layout = Data.default_layout.duplicate(true)
 	var city: Node2D = load(Nav.CITY).instantiate()
@@ -66,10 +69,13 @@ func _test_texts_fit() -> void:
 		var w2 := Ui.FONT_NARROW.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
 		_check(w2 + 36.0 + 8.0 <= float(limits[t]), "«%s» не влезает в кнопку панели (%s px)" % [t, w2])
 	var font := (load("res://assets/ui/theme.tres") as Theme).default_font
-	var button_w := {"Продолжить": 252.0, "Украшение": 252.0, "Время +3 ч": 252.0, "Выход": 252.0, "Смена": 184.0, "Выйти": 184.0, "Войти": 184.0}
+	var button_w := {"Продолжить": 252.0, "Украшение": 252.0, "Улучшения": 252.0, "Настройки": 252.0, "Аккаунт": 252.0, "Назад": 252.0,
+		"Отмена": 252.0, "Сбросить": 252.0, "Выход": 252.0, "Смена": 184.0}
 	for t in button_w:
 		var w3 := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
 		_check(w3 + 36.0 + 16.0 <= float(button_w[t]), "«%s» не влезает в кнопку (%s px)" % [t, w3])
+	var narrow_w := Ui.FONT_NARROW.get_string_size("Сбросить прогресс", HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
+	_check(narrow_w + 36.0 + 16.0 <= 252.0, "«Сбросить прогресс» не влезает в кнопку (%s px)" % narrow_w)
 	for ch in "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя":
 		_check(font.has_char(ch.unicode_at(0)) and Ui.FONT_NARROW.has_char(ch.unicode_at(0)), "в шрифте нет буквы " + ch)
 
@@ -704,6 +710,155 @@ func _test_decorate_input() -> void:
 	_check(d._sel == -1, "тап по пустому месту снимает выделение")
 	d.queue_free()
 	await get_tree().process_frame
+
+
+func _same(a: Array, b: Array) -> bool:
+	return str(a) == str(b)
+
+
+func _button_texts(node: Node, out: Array[String]) -> void:
+	if node is Button:
+		out.append((node as Button).text)
+	for c in node.get_children():
+		_button_texts(c, out)
+
+
+## Сохранение v4, миграция, сброс, улучшения, спрятанная кнопка сброса, магазин.
+func _test_progress_and_menu() -> void:
+	# новая игра
+	GameState.new_game()
+	_check(GameState.intro_stage == 0 and GameState.coins == 0 and GameState.upgrades.is_empty(), "новая игра: интро с нуля, касса пуста, улучшений нет")
+	_check(GameState.layout.size() == Data.intro_layout.size() and GameState.layout.size() == 2, "новая игра: только стол и пуфик")
+	_check(_same(GameState.drink_ids(), ["espresso", "tea"]), "новая игра: только эспрессо и чай (%s)" % [GameState.drink_ids()])
+	_check(not GameState.pastries_unlocked(), "новая игра: выпечки нет")
+	# старое сохранение v3 -> v4: интро пропущено, всё открыто
+	_write_save({"version": 3, "coins": 55, "served_total": 9, "layout": Data.default_layout.duplicate(true), "hour": 15.0})
+	GameState.new_game()
+	GameState.load_game()
+	_check(GameState.intro_stage == GameState.INTRO_DONE and GameState.coins == 55, "v3 -> v4: интро пропущено, монеты целы")
+	_check(GameState.has_upgrade("milk_pitcher") and GameState.has_upgrade("display_case") and GameState.drink_ids().size() == 4, "v3 -> v4: всё открыто")
+	_check(GameState.layout.size() == Data.default_layout.size(), "v3 -> v4: расстановка не тронута")
+	# v4 пишется и читается
+	GameState.new_game()
+	GameState.coins = 80
+	GameState.intro_stage = 3
+	GameState.intro_cleaned = {"web_0": 1}
+	GameState.upgrades = ["milk_pitcher"]
+	GameState.keepsakes = ["photo"]
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	_check(GameState.coins == 80 and GameState.intro_stage == 3 and _same(GameState.upgrades, ["milk_pitcher"]) and _same(GameState.keepsakes, ["photo"]) and int(GameState.intro_cleaned.get("web_0", 0)) == 1, "v4: поля интро и улучшений сохраняются")
+	# улучшения
+	GameState.new_game()
+	GameState.coins = 29
+	_check(not GameState.can_buy_upgrade("milk_pitcher") and not GameState.buy_upgrade("milk_pitcher"), "молочник не купить за 29 монет")
+	GameState.coins = 100
+	_check(not GameState.can_buy_upgrade("matcha_kit"), "набор матчи недоступен без молочника")
+	_check(GameState.buy_upgrade("milk_pitcher") and GameState.coins == 70, "молочник куплен за 30")
+	_check(not GameState.buy_upgrade("milk_pitcher"), "второй раз купить нельзя")
+	_check("latte" in GameState.drink_ids() and not ("matcha_latte" in GameState.drink_ids()), "после молочника открыт латте, матчи ещё нет")
+	GameState.upgrades.append("espresso_pro")
+	_check(is_equal_approx(GameState.price_mult("espresso"), 1.25) and is_equal_approx(GameState.price_mult("tea"), 1.0), "кофемашина Pro: кофе дороже на 25%, чай нет")
+	# сброс прогресса
+	GameState.coins = 999
+	GameState.save_game()
+	GameState.reset_progress()
+	_check(GameState.coins == 0 and GameState.intro_stage == 0 and GameState.upgrades.is_empty(), "сброс: игра начата заново")
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.READ)
+	var saved: Dictionary = JSON.parse_string(f.get_as_text())
+	f.close()
+	_check(int(saved["coins"]) == 0 and int(saved["intro_stage"]) == 0, "сброс: в файле сохранения новая игра")
+	# меню: сброс спрятан в «Настройки → Аккаунт», на главной и в настройках его нет
+	GameState.intro_stage = GameState.INTRO_DONE
+	var city := _new_city(true)
+	await get_tree().process_frame
+	var texts_main: Array[String] = []
+	_button_texts(city._menu_pages["main"], texts_main)
+	var texts_settings: Array[String] = []
+	_button_texts(city._menu_pages["settings"], texts_settings)
+	var texts_account: Array[String] = []
+	_button_texts(city._menu_pages["account"], texts_account)
+	_check(not ("Сбросить прогресс" in texts_main) and not ("Сбросить прогресс" in texts_settings), "сброса нет ни на главной странице меню, ни в настройках")
+	_check("Настройки" in texts_main and "Аккаунт" in texts_settings and "Сбросить прогресс" in texts_account, "путь к сбросу: Меню → Настройки → Аккаунт")
+	var texts_confirm: Array[String] = []
+	_button_texts(city._menu_pages["confirm"], texts_confirm)
+	_check("Сбросить" in texts_confirm and "Отмена" in texts_confirm, "сброс требует подтверждения (есть «Отмена»)")
+	city._open_menu()
+	city._menu_page("account")
+	_check(city._menu_pages["account"].visible and not city._menu_pages["main"].visible, "страницы меню переключаются")
+	city._close_menu()
+	# магазин: карточки и покупка
+	GameState.upgrades = []
+	GameState.coins = 70
+	city._open_shop()
+	var texts_shop: Array[String] = []
+	_button_texts(city._shop_page, texts_shop)
+	_check("30" in texts_shop and "60" in texts_shop and "120" in texts_shop, "в магазине видны цены улучшений (%s)" % [texts_shop])
+	city._buy_upgrade("milk_pitcher")
+	_check(GameState.has_upgrade("milk_pitcher") and GameState.coins == 40, "покупка в магазине: списаны монеты, улучшение получено")
+	city._buy_upgrade("display_case")
+	_check(not GameState.has_upgrade("display_case"), "витрина не покупается без монет")
+	city.queue_free()
+	await get_tree().process_frame
+	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case"]
+	GameState.coins = 0
+
+
+## Мини-игра готовки: поднос, подача, улучшения в источниках, режим обучения.
+func _test_brew() -> void:
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.upgrades = []
+	var m: Node2D = load(Nav.BREW).instantiate()
+	add_child(m)
+	await get_tree().process_frame
+	var ids: Array[String] = []
+	for sc in m._sources:
+		ids.append(String(sc["id"]))
+	_check(_same(ids, ["coffee", "tea"]), "без улучшений на столе только кофе и чай (%s)" % [ids])
+	_check(m._tray != null and m._tray.is_empty(), "поднос на месте и пуст")
+	m._add_ingredient("base", "coffee", m._tray.position)
+	_check(not m._tray.is_empty() and m._cup.base == "coffee", "ингредиент ложится на поднос")
+	m._discard_cup()
+	_check(m._tray.is_empty() and m._cup.is_empty(), "поднос в корзину очищает его")
+	m.queue_free()
+	await get_tree().process_frame
+	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case"]
+	var full: Node2D = load(Nav.BREW).instantiate()
+	add_child(full)
+	await get_tree().process_frame
+	_check(full._sources.size() == 6, "со всеми улучшениями на столе 6 источников (%d)" % full._sources.size())
+	full.queue_free()
+	await get_tree().process_frame
+	# обучение: только кофе и чай, заказы по сценарию, без бонуса, неверный заказ кота не прогоняет
+	GameState.coins = 0
+	var tut: Node2D = load(Nav.BREW).instantiate()
+	tut.tutorial = true
+	tut.tutorial_sources = ["coffee", "tea"] as Array[String]
+	tut.tutorial_orders = [{"cat": "tucha", "drink": "espresso", "pastry": ""}, {"cat": "ryzhik", "drink": "tea", "pastry": ""}] as Array[Dictionary]
+	var finished := []
+	tut.tutorial_finished.connect(func(served: int, earned: int) -> void: finished.append([served, earned]))
+	add_child(tut)
+	await get_tree().create_timer(2.2).timeout
+	_check(tut._awaiting and tut._order["drink"] == "espresso", "обучение: первым пришёл заказ эспрессо")
+	_check(tut._sources.size() == 2, "в обучении на столе два источника")
+	tut._add_ingredient("base", "tea", tut._tray.position)   # неверный напиток
+	tut._serve()
+	_check(tut._awaiting and tut.shift_served == 0 and GameState.coins == 0, "обучение: неверный напиток не прогоняет кота и не платит")
+	_check(tut._tray.is_empty(), "обучение: после ошибки поднос очищен")
+	tut._add_ingredient("base", "coffee", tut._tray.position)
+	tut._serve()
+	_check(tut.shift_served == 1 and GameState.coins == 10, "обучение: эспрессо = 8 + 2 чаевых, без бонуса за скорость (монет %d)" % GameState.coins)
+	await get_tree().create_timer(4.4).timeout
+	_check(tut._awaiting and tut._order["drink"] == "tea", "обучение: вторым пришёл чай")
+	tut._add_ingredient("base", "tea", tut._tray.position)
+	tut._serve()
+	_check(GameState.coins == 18, "обучение: чай = 7 + 1 = 8 (монет %d)" % GameState.coins)
+	await get_tree().create_timer(4.6).timeout
+	_check(finished.size() == 1 and finished[0][0] == 2 and finished[0][1] == 18, "обучение: по последнему заказу смена объявлена пройденной")
+	tut.queue_free()
+	await get_tree().process_frame
+	GameState.coins = 0
 
 
 func _write_save(data: Dictionary) -> void:

@@ -1,0 +1,6 @@
+[
+	{"id": "milk_pitcher", "name": "Молочник", "price": 30, "requires": "", "flavor": "Мамин латте: две ложки терпения.", "unlocks": "Молоко и латте"},
+	{"id": "matcha_kit", "name": "Набор матчи", "price": 60, "requires": "milk_pitcher", "flavor": "Рыжик давно ждёт. Он вежлив.", "unlocks": "Матча-латте"},
+	{"id": "display_case", "name": "Витрина", "price": 120, "requires": "milk_pitcher", "flavor": "Круассаны под стеклом. Папин пафос.", "unlocks": "Выпечка"},
+	{"id": "espresso_pro", "name": "Кофемашина Pro", "price": 90, "requires": "display_case", "flavor": "Мама звала её «Громовица».", "unlocks": "Кофе дороже на 25%"}
+]

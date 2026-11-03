@@ -5,7 +5,8 @@ extends Node
 signal coins_changed(value: int)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
+const INTRO_DONE := 5   # стадии: 0 комикс, 1 катсцена, 2 расчистка, 3 обучающая смена, 4 магазин, 5 интро пройдено
 
 var coins: int = 0
 var served_total: int = 0
@@ -13,11 +14,90 @@ var cat_progress: Dictionary = {}  # cat_id -> {"chapter": int, "likes": int} (�
 var last_visit_unix: int = 0       # для чаевой банки (этап 3)
 var city_inside := true            # где игрок в городе: в кафе (true) или на улице; только на время работы приложения
 var layout: Array[Dictionary] = [] # расставленная мебель: {"id", "c", "r", "flip"} — клетки сетки (режим украшения)
+var intro_stage := INTRO_DONE
+var intro_cleaned: Dictionary = {}  # id объекта расчистки -> сколько тапов сделано
+var tutorial_served := 0
+var upgrades: Array[String] = []    # купленные функциональные улучшения (id из data/upgrades.json)
+var keepsakes: Array[String] = []   # найденные в коробках памятные вещи
 
 
 func _ready() -> void:
-	layout = Data.default_layout.duplicate(true)
-	load_game()
+	new_game()
+	load_game()   # если есть сохранение — оно перекроет начальное состояние
+
+
+## Начальное состояние новой игры (интро с первой стадии, пустая касса, только стол и пуфик).
+func new_game() -> void:
+	coins = 0
+	served_total = 0
+	cat_progress = {}
+	last_visit_unix = 0
+	city_inside = false
+	layout = Data.intro_layout.duplicate(true)
+	intro_stage = 0
+	intro_cleaned = {}
+	tutorial_served = 0
+	upgrades = []
+	keepsakes = []
+	TimeOfDay.hour = 9.0
+
+
+## Сброс прогресса из настроек аккаунта: удаляет сохранение и начинает игру заново.
+func reset_progress() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	new_game()
+	coins_changed.emit(coins)
+	save_game()
+
+
+# ---------------------------------------------------------------- улучшения
+
+func has_upgrade(id: String) -> bool:
+	return id in upgrades
+
+
+## Можно ли купить: хватает монет, ещё не куплено, выполнено условие.
+func can_buy_upgrade(id: String) -> bool:
+	for u in Data.upgrades:
+		if String(u["id"]) == id:
+			var req := String(u["requires"])
+			return not has_upgrade(id) and (req == "" or has_upgrade(req)) and coins >= int(u["price"])
+	return false
+
+
+func buy_upgrade(id: String) -> bool:
+	if not can_buy_upgrade(id):
+		return false
+	for u in Data.upgrades:
+		if String(u["id"]) == id:
+			spend_coins(int(u["price"]))
+	upgrades.append(id)
+	save_game()
+	return true
+
+
+## Напитки, которые сейчас можно заказать и приготовить.
+func drink_ids() -> Array[String]:
+	var out: Array[String] = []
+	for id in Data.drinks:
+		var recipe: Dictionary = Data.drinks[id]["recipe"]
+		if bool(recipe["milk"]) and not has_upgrade("milk_pitcher"):
+			continue
+		if String(id) == "matcha_latte" and not has_upgrade("matcha_kit"):
+			continue
+		out.append(String(id))
+	return out
+
+
+func pastries_unlocked() -> bool:
+	return has_upgrade("display_case")
+
+
+## Множитель цены напитка от улучшений (кофемашина Pro).
+func price_mult(drink_id: String) -> float:
+	var base: String = Data.drinks[drink_id]["recipe"]["base"]
+	return 1.25 if has_upgrade("espresso_pro") and base == "coffee" else 1.0
 
 
 func add_coins(amount: int) -> void:
@@ -50,6 +130,11 @@ func save_game() -> void:
 		"last_visit_unix": last_visit_unix,
 		"layout": layout,
 		"hour": TimeOfDay.hour,
+		"intro_stage": intro_stage,
+		"intro_cleaned": intro_cleaned,
+		"tutorial_served": tutorial_served,
+		"upgrades": upgrades,
+		"keepsakes": keepsakes,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
@@ -75,6 +160,11 @@ func load_game() -> void:
 	last_visit_unix = int(data.get("last_visit_unix", 0))
 	layout = _sanitize_layout(data.get("layout", null))
 	TimeOfDay.hour = clampf(float(data.get("hour", 9.0)), 0.0, 24.0)
+	intro_stage = clampi(int(data.get("intro_stage", INTRO_DONE)), 0, INTRO_DONE)
+	intro_cleaned = data.get("intro_cleaned", {})
+	tutorial_served = int(data.get("tutorial_served", 0))
+	upgrades = _string_array(data.get("upgrades", []))
+	keepsakes = _string_array(data.get("keepsakes", []))
 
 
 func _migrate(data: Dictionary) -> Dictionary:
@@ -97,9 +187,22 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["coins"] = int(data.get("coins", 0)) + refund
 		data["layout"] = Data.default_layout.duplicate(true)
 		v = 3
+	if v < 4:
+		# v3 — игра уже была в разгаре: интро пропускается, все улучшения открыты, игра идёт как раньше
+		data["intro_stage"] = INTRO_DONE
+		data["upgrades"] = ["milk_pitcher", "matcha_kit", "display_case"]
+		v = 4
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data
+
+
+func _string_array(raw: Variant) -> Array[String]:
+	var out: Array[String] = []
+	if raw is Array:
+		for x in raw:
+			out.append(String(x))
+	return out
 
 
 ## Оставляет только корректную мебель: известные id, клетки внутри зала, без наложений и без перекрытия прохода.
