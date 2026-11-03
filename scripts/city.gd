@@ -14,8 +14,7 @@ extends Node2D
 
 const STREET_SCENE := "res://scenes/street.tscn"
 const SPACE_CAFE := 0
-const SPACE_BACK := 1
-const SPACE_UP := 2
+const SPACE_UP := 2   # второй этаж; служебка — часть зала (CafeRoom)
 const PX := 2
 const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
@@ -65,7 +64,7 @@ var _weather_fx: WeatherFx
 var _door: AutoDoor                        # раздвижная дверь кафе
 var _glass: Array[WindowGlass] = []        # стёкла окон фасадов
 var _space := SPACE_CAFE                   # где сейчас кот: зал кафе, коморка или жилая зона (все стоят в одном месте здания)
-var _spaces: Dictionary = {}               # SPACE_BACK/SPACE_UP → InteriorSpace
+var _spaces: Dictionary = {}               # SPACE_UP → InteriorSpace (жилая зона)
 var _pending_portal: Dictionary = {}       # дверь или лестница, к которой кот идёт
 var _fade: ColorRect                       # затемнение при переходе между помещениями
 var _fading := false
@@ -242,17 +241,15 @@ func _build_world() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
-## Коморка и жилая зона: стоят под фасадом там же, где зал; показываются вместо него (см. _set_space).
+## Жилая зона на втором этаже: стоит под фасадом там же, где зал; показывается вместо него (см. _set_space).
 func _build_spaces() -> void:
-	for k in [InteriorSpace.Kind.BACK, InteriorSpace.Kind.UP]:
-		var sp := InteriorSpace.new()
-		sp.position = _room.position
-		_world.add_child(sp)
-		_world.move_child(sp, _room.get_index() + 1)   # под зданиями, как и зал
-		sp.setup(k, _actors)
-		_spaces[SPACE_BACK if k == InteriorSpace.Kind.BACK else SPACE_UP] = sp
-	(_spaces[SPACE_BACK] as InteriorSpace).set_stairs_locked(not GameState.has_upgrade("upstairs"))
-	_room.refresh_back_door()
+	var sp := InteriorSpace.new()
+	sp.position = _room.position
+	_world.add_child(sp)
+	_world.move_child(sp, _room.get_index() + 1)   # под зданиями, как и зал
+	sp.setup(InteriorSpace.Kind.UP, _actors)
+	_spaces[SPACE_UP] = sp
+	_room.refresh_staff()
 
 
 ## Витрина кафе: боковые окна прозрачны (сквозь них виден зал), в проёме — раздвижная стеклянная дверь.
@@ -875,8 +872,8 @@ func _set_space(space: int, arrive: Vector2i) -> void:
 ## Куда ведёт дверь или лестница и что для этого нужно.
 func _portal_gate(d: Dictionary) -> String:
 	match String(d["id"]):
-		"door_back":
-			return "" if GameState.has_upgrade("back_room") else "Дверь заколочена. Нужна «Коморка» (улучшения)"
+		"staff_locked":
+			return "Служебка заколочена. Нужна «Коморка» (улучшения)"
 		"stairs_up":
 			return "" if GameState.has_upgrade("upstairs") else "Лестница заколочена. Нужен «Второй этаж» (улучшения)"
 	return ""
@@ -907,10 +904,8 @@ func _use_portal(d: Dictionary) -> void:
 	_pending = ""
 	_pending_portal = {}
 	match String(d["to"]):
-		"back":
-			_go_space(SPACE_BACK, Vector2i(4, 5) if _space == SPACE_CAFE else Vector2i(9, 2))
-		"cafe":
-			_go_space(SPACE_CAFE, CafeRoom.BACK_DOOR_CELL + Vector2i(0, 1))
+		"cafe":   # со второго этажа вниз, в служебку
+			_go_space(SPACE_CAFE, CafeRoom.STAIRS_STAND[0])
 		"up":
 			_go_space(SPACE_UP, Vector2i(9, 2))
 		_:
@@ -930,10 +925,11 @@ func _sleep() -> void:
 
 ## Купили улучшение: дверь и лестница оживают.
 func _on_upgrade_bought(id: String) -> void:
-	if id == "back_room":
-		_room.refresh_back_door()
-	elif id == "upstairs":
-		(_spaces[SPACE_BACK] as InteriorSpace).set_stairs_locked(false)
+	if id == "back_room" or id == "upstairs":
+		_room.refresh_staff()
+		_set_space(_space, Vector2i(-1, -1))   # проходимость служебки меняется сразу
+		var at := _room.position + CafeRoom.ORIGIN + Vector2(CafeRoom.STAFF_DOOR) * CafeRoom.T + Vector2(16, 0)
+		Fx.burst(_actors, at, "puff", Color(0.85, 0.8, 0.7), 8, 80.0, -10.0, 0.9, 1.0, 120.0)
 
 
 # ---------------------------------------------------------------- машины
@@ -1015,9 +1011,11 @@ func _on_press(p: Vector2) -> void:
 		if not d.is_empty():
 			_tap_portal(d, p)
 			return
-	if _space == SPACE_CAFE and _interior_rect.has_point(p) and is_revealed(p) and _room.back_door_hit(_room.to_local(p)):
-		_tap_portal({"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, p)
-		return
+	if _space == SPACE_CAFE and _interior_rect.has_point(p) and is_revealed(p):
+		var sd := _room.staff_portal_at(_room.to_local(p))   # закрытая служебка или лестница в ней
+		if not sd.is_empty():
+			_tap_portal(sd, p)
+			return
 	if _space == SPACE_CAFE and _interior_rect.has_point(p) and is_revealed(p) and _room.counter_hit(_room.to_local(p)):
 		_pending = "shift"
 		if _in_counter_zone():

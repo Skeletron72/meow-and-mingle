@@ -24,10 +24,16 @@ const COUNTER_SRC := Rect2(17, 112, 46, 16)
 const COUNTER_CELLS := Rect2i(0, 0, 3, 1)          # здесь стоит кот у стойки; мебель ставить нельзя
 const COUNTER_SPRITE := Rect2(0, 48, 96, 48)       # прилавок + кофемашина, для тапа
 const WALL_RESERVED := Rect2i(0, 1, 3, 2)          # стена над стойкой занята
-## Дверь в коморку: в задней стене у правого угла. К ней ведёт клетка пола BACK_DOOR_CELL (её держим свободной).
-const BACK_DOOR_WALL := Rect2i(9, 1, 1, 2)
-const BACK_DOOR_CELL := Vector2i(9, 0)
-const BACK_DOOR_RECT := Rect2(288, 32, 32, 64)     # где дверь нарисована (для тапа), в координатах комнаты
+## Служебка: маленькая комната в углу зала, отделённая стенами (левая стена — колонка 6, передняя — ряд 3, в передней стене проём STAFF_DOOR).
+## Внутри — лестница наверх и пара коробок. Пока не куплено «Коморка», это закрытый чулан с заколоченной дверью.
+const STAFF_CELLS := Rect2i(6, 0, 4, 4)            # весь блок вместе со стенами: мебель сюда не ставят
+const STAFF_INNER := Rect2i(7, 0, 3, 3)            # клетки внутри
+const STAFF_DOOR := Vector2i(8, 3)                 # проём в передней стене
+const STAIRS_CELLS := Rect2i(8, 0, 2, 2)           # лестница (занимает клетки)
+const STAIRS_STAND: Array[Vector2i] = [Vector2i(8, 2), Vector2i(9, 2)]   # перед лестницей
+const STAFF_PROPS := [
+	{"k": "boxes", "c": 7, "r": 0}, {"k": "sack", "c": 7, "r": 1}, {"k": "stairs_up", "c": 8, "r": 0, "w": 2, "h": 2},
+]
 const SPAWN_CELLS := Rect2i(4, 5, 2, 2)            # вход; тоже держим свободным
 const SPAWN_CELL := Vector2i(4, 6)
 ## Передний ряд — витрина здания: непроходимый и без мебели, кроме проёма входа. Двери нет: из проёма сразу тротуар.
@@ -55,7 +61,8 @@ var _lamp_glows: Array[Sprite2D] = []   # тёплые пятна света о�
 var _windows: Array[WindowGlow] = []     # стёкла окон: цвет по времени суток
 var _day := 1.0
 var _night := 0.0
-var _back_door: BackDoor
+var _staff_props: Array[SpaceProp] = []   # лестница и коробки служебки
+var stairs_locked := true
 
 
 func _init() -> void:
@@ -68,7 +75,6 @@ func _init() -> void:
 	add_child(_flat_layer)
 	add_child(actors)
 	_build_counter()
-	_build_back_door()
 	_build_lights()
 
 
@@ -168,6 +174,7 @@ func rebuild() -> void:
 	_nodes.clear()
 	for i in layout.size():
 		_nodes.append(_spawn_item(layout[i]))
+	_rebuild_staff()
 	rebuild_nav()
 
 
@@ -256,21 +263,52 @@ func set_lighting(day: float, night: float) -> void:
 		w.apply(day, night)
 
 
-## Дверь в коморку на задней стене: до покупки «Коморки» заколочена досками.
-func _build_back_door() -> void:
-	_back_door = BackDoor.new()
-	_back_door.position = BACK_DOOR_RECT.position
-	_wall_layer.add_child(_back_door)
-	refresh_back_door()
+## Служебка открыта (куплена «Коморка»)? От этого зависят рисунок блока, проходимость и видимость вещей внутри.
+func staff_open() -> bool:
+	return GameState.has_upgrade("back_room")
 
 
-func refresh_back_door() -> void:
-	_back_door.open_to_staff = GameState.has_upgrade("back_room")
-	_back_door.queue_redraw()
+## Перерисовать служебку после покупки «Коморки» или «Второго этажа».
+func refresh_staff() -> void:
+	stairs_locked = not GameState.has_upgrade("upstairs")
+	for p in _staff_props:
+		p.visible = staff_open()
+		if p.kind_id == "stairs_up":
+			p.locked = stairs_locked
+		p.queue_redraw()
+	queue_redraw()
 
 
-func back_door_hit(p: Vector2) -> bool:
-	return BACK_DOOR_RECT.grow(4.0).has_point(p)
+## Что под точкой (координаты комнаты): закрытый чулан, лестница (если служебка открыта) или пусто.
+func staff_portal_at(p: Vector2) -> Dictionary:
+	var block := Rect2(ORIGIN + Vector2(STAFF_CELLS.position) * T, Vector2(STAFF_CELLS.size) * T)
+	if not staff_open():
+		return {"id": "staff_locked", "stand": [STAFF_DOOR + Vector2i(0, 1)], "to": ""} if block.has_point(p) else {}
+	var stairs := Rect2(ORIGIN + Vector2(STAIRS_CELLS.position) * T + Vector2(0, -96), Vector2(STAIRS_CELLS.size) * T + Vector2(0, 96))
+	if stairs.has_point(p):
+		return {"id": "stairs_up", "stand": STAIRS_STAND, "to": "up"}
+	return {}
+
+
+func _rebuild_staff() -> void:
+	for p in _staff_props:
+		p.queue_free()
+	_staff_props.clear()
+	var layer: Node2D = external_actors if external_actors != null else actors
+	for d in STAFF_PROPS:
+		var pr := SpaceProp.new()
+		pr.kind_id = String(d["k"])
+		pr.cells = Vector2i(int(d.get("w", 1)), int(d.get("h", 1)))
+		pr.cell = Vector2i(int(d["c"]), int(d["r"]))
+		pr.seed_id = pr.cell.x * 7 + pr.cell.y * 3
+		pr.local_pos = ORIGIN + Vector2(pr.cell) * T + Vector2(pr.cells.x * T / 2.0, pr.cells.y * T)
+		pr.position = pr.local_pos
+		if external_actors != null:
+			pr.position += position
+			pr.set_meta("interior", true)
+		layer.add_child(pr)
+		_staff_props.append(pr)
+	refresh_staff()
 
 
 func _has_item(id: String) -> bool:
@@ -319,6 +357,7 @@ func _draw() -> void:
 	var mat := Rect2(ORIGIN.x + ENTRANCE_CELLS.position.x * T, ORIGIN.y + ENTRANCE_CELLS.position.y * T, ENTRANCE_CELLS.size.x * T, T)
 	draw_rect(mat.grow(-4), Color("5b3d27"))
 	draw_rect(mat.grow(-8), Color("7a5238"))
+	_draw_staff()
 	# объём: затенение под стеной, под потолком и у боковых стен — дизеринг, а не плавный градиент
 	draw_texture_rect(PixelArt.dither_gradient(160, 12, false, false), Rect2(0, ORIGIN.y, 320, 24), false, Color(0, 0, 0, 0.40))
 	draw_texture_rect(PixelArt.dither_gradient(160, 8, false, false), Rect2(0, 0, 320, 16), false, Color(0, 0, 0, 0.32))
@@ -326,6 +365,65 @@ func _draw() -> void:
 	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, true), Rect2(300, 0, 20, 320), false, Color(0, 0, 0, 0.28))
 	# рамка разреза здания
 	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), FLOOR_EDGE, false, 4.0)
+
+
+## Служебка в углу зала. Закрыта — чулан с досчатой крышей и заколоченной дверью; открыта — разрез: пол внутри, стены, проём.
+func _draw_staff() -> void:
+	var ol := Color("2b2230")
+	var o := ORIGIN + Vector2(STAFF_CELLS.position) * T
+	var size := Vector2(STAFF_CELLS.size) * T
+	var door := Rect2(ORIGIN + Vector2(STAFF_DOOR) * T, Vector2(T, T))
+	if not staff_open():
+		draw_rect(Rect2(o - Vector2(2, 2), size + Vector2(4, 4)), ol)
+		for y in range(0, int(size.y) - 12, 8):   # доски крыши
+			draw_rect(Rect2(o.x, o.y + y, size.x, 8), Color("7a5c42") if (y / 8) % 2 == 0 else Color("6a4e38"))
+			draw_rect(Rect2(o.x, o.y + y, size.x, 2), Color("8e6e50"))
+		draw_rect(Rect2(o.x, o.y + size.y - 12, size.x, 12), Color("4a3626"))   # передняя стенка
+		draw_rect(Rect2(o.x, o.y + size.y - 12, size.x, 2), Color("5e4630"))
+		draw_rect(Rect2(door.position.x + 2, o.y + size.y - 28, T - 4, 28), Color("2b2230"))   # дверь внизу, заколочена
+		draw_rect(Rect2(door.position.x + 4, o.y + size.y - 26, T - 8, 26), Color("9a6a3c"))
+		for i in 12:
+			draw_rect(Rect2(door.position.x + 4 + i * 2, o.y + size.y - 26 + i * 2, 6, 4), ol)
+			draw_rect(Rect2(door.position.x + T - 12 - i * 2, o.y + size.y - 26 + i * 2, 6, 4), ol)
+		for i in 12:
+			draw_rect(Rect2(door.position.x + 5 + i * 2, o.y + size.y - 25 + i * 2, 4, 2), Color("c49a5e"))
+			draw_rect(Rect2(door.position.x + T - 11 - i * 2, o.y + size.y - 25 + i * 2, 4, 2), Color("b0864a"))
+		draw_rect(Rect2(o.x + 40, o.y + 40, 48, 22), ol)   # табличка на крыше
+		draw_rect(Rect2(o.x + 42, o.y + 42, 44, 18), Color("f4ecd8"))
+		draw_rect(Rect2(o.x + 48, o.y + 48, 32, 2), ol)
+		draw_rect(Rect2(o.x + 52, o.y + 53, 24, 2), ol)
+		return
+	# пол внутри
+	var inner_o := ORIGIN + Vector2(STAFF_INNER.position) * T
+	for r in STAFF_INNER.size.y:
+		for c in STAFF_INNER.size.x:
+			var a := Color("7b6b5c") if (r + c) % 2 == 0 else Color("827160")
+			var p := inner_o + Vector2(c, r) * T
+			draw_rect(Rect2(p, Vector2(T, T)), a)
+			draw_rect(Rect2(p.x, p.y + T - 2, T, 2), a.darkened(0.28))
+			draw_rect(Rect2(p.x + T - 2, p.y, 2, T), a.darkened(0.28))
+	var door_floor := Color("7a5238")
+	draw_rect(door, door_floor)
+	# стены: левая (колонка 6) и передняя (ряд 3), в передней — проём
+	var wall := Color("4a3d36")   # стены в разрезе — тёмная заливка, как на архитектурном плане
+	var segs: Array[Rect2] = [
+		Rect2(o.x, o.y, T, size.y),                                     # левая
+		Rect2(o.x + T, o.y + size.y - T, door.position.x - o.x - T, T),   # передняя слева от проёма
+		Rect2(door.end.x, o.y + size.y - T, o.x + size.x - door.end.x, T),   # справа от проёма
+	]
+	for seg in segs:
+		draw_rect(seg.grow(2), ol)
+	for i in segs.size():
+		var seg := segs[i]
+		draw_rect(seg, wall)
+		draw_rect(Rect2(seg.position.x + 2, seg.position.y + 2, seg.size.x - 4, 2), wall.lightened(0.22))   # кромка среза
+		if i > 0:   # лицевая сторона передней стены: штукатурка
+			draw_rect(Rect2(seg.position.x, seg.end.y - 12, seg.size.x, 12), Color("a89a86"))
+			draw_rect(Rect2(seg.position.x, seg.end.y - 12, seg.size.x, 2), Color("c9bba6"))
+			draw_rect(Rect2(seg.position.x, seg.end.y - 4, seg.size.x, 4), Color("6d6256"))
+	for x in [door.position.x - 4, door.end.x]:   # косяки проёма
+		draw_rect(Rect2(x, door.position.y - 2, 4, T + 2), ol)
+	draw_rect(Rect2(door.position.x + 2, door.position.y + 8, T - 4, 16), Color("5b3d27"))   # коврик
 
 
 # ---------------------------------------------------------------- проверка размещения
@@ -339,7 +437,7 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if is_wall(id):
 		if area.position.x < 0 or area.end.x > COLS or area.position.y < WALL_FIRST_ROW or area.end.y > WALL_ROWS:
 			return tr("Это вешается на стену")
-		if area.intersects(WALL_RESERVED) or area.intersects(BACK_DOOR_WALL):
+		if area.intersects(WALL_RESERVED):
 			return tr("Тут занято")
 		for i in layout.size():
 			var other := String(layout[i]["id"])
@@ -348,8 +446,10 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 		return ""
 	if area.position.x < 0 or area.end.x > COLS or area.position.y < 0 or area.end.y > FRONT_ROW:
 		return tr("Сюда нельзя")
+	if area.intersects(STAFF_CELLS):
+		return tr("Тут служебка")
 	var solid := is_solid(id)
-	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS) or area.has_point(BACK_DOOR_CELL)):
+	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS)):
 		return tr("Не загораживайте проход")
 	for i in layout.size():
 		var other := String(layout[i]["id"])
@@ -409,6 +509,15 @@ func walk_mask() -> PackedByteArray:
 	for r in ROWS:
 		for c in COLS:
 			m[r * COLS + c] = 0 if g.is_point_solid(Vector2i(c, r)) else 1
+	if staff_open():   # внутри служебки ходить можно: пол внутри, проём в передней стене; лестница и коробки — преграда
+		for y in range(STAFF_INNER.position.y, STAFF_INNER.end.y):
+			for x in range(STAFF_INNER.position.x, STAFF_INNER.end.x):
+				m[y * COLS + x] = 1
+		m[STAFF_DOOR.y * COLS + STAFF_DOOR.x] = 1
+		for p in _staff_props:
+			for y in range(p.cell.y, p.cell.y + p.cells.y):
+				for x in range(p.cell.x, p.cell.x + p.cells.x):
+					m[y * COLS + x] = 0
 	return m
 
 
@@ -417,6 +526,8 @@ func set_present(on: bool) -> void:
 	visible = on
 	for n in _nodes:
 		n.visible = on
+	for p in _staff_props:
+		p.visible = on and staff_open()
 
 
 func rebuild_nav() -> void:
@@ -451,6 +562,9 @@ func _make_grid(blocks: Array[Rect2i]) -> AStarGrid2D:
 	for c in COLS:   # витрина
 		if not ENTRANCE_CELLS.has_point(Vector2i(c, FRONT_ROW)):
 			g.set_point_solid(Vector2i(c, FRONT_ROW), true)
+	for y in range(STAFF_CELLS.position.y, STAFF_CELLS.end.y):   # служебка: для украшения блок целиком занят
+		for x in range(STAFF_CELLS.position.x, STAFF_CELLS.end.x):
+			g.set_point_solid(Vector2i(x, y), true)
 	return g
 
 
@@ -460,7 +574,8 @@ func _reachable(g: AStarGrid2D) -> bool:
 	var b := _free_cell(g, Vector2i(1, 0))
 	if a.x < 0 or b.x < 0:
 		return false
-	if g.is_point_solid(BACK_DOOR_CELL) or g.get_id_path(a, BACK_DOOR_CELL).is_empty():   # и до двери в коморку
+	var door_front := STAFF_DOOR + Vector2i(0, 1)   # и до двери в служебку
+	if g.is_point_solid(door_front) or g.get_id_path(a, door_front).is_empty():
 		return false
 	return not g.get_id_path(a, b).is_empty()
 
@@ -563,39 +678,3 @@ class WindowGlow extends Node2D:
 		if _night > 0.5:
 			for st: Vector2 in STARS:
 				draw_rect(Rect2(st * s, Vector2(s, s)), Color(1, 1, 0.85, (_night - 0.5) * 2.0))
-
-
-## Дверь в служебную комнату: деревянная с окошком; пока не куплена «Коморка» — заколочена крест-накрест.
-class BackDoor extends Node2D:
-	const WOOD := Color("9a6a3c")
-	const WOOD_D := Color("6f4727")
-	const WOOD_L := Color("b98552")
-	const OL := Color("2b2230")
-	var open_to_staff := false
-
-	func _draw() -> void:
-		draw_rect(Rect2(-2, -2, 36, 68), OL)
-		draw_rect(Rect2(0, 0, 32, 64), WOOD_D)
-		draw_rect(Rect2(2, 2, 28, 62), WOOD)
-		draw_rect(Rect2(2, 2, 28, 2), WOOD_L)
-		draw_rect(Rect2(6, 8, 20, 20), WOOD_D)    # верхняя филёнка с окошком
-		draw_rect(Rect2(8, 10, 16, 16), Color("5c7c8c"))
-		draw_rect(Rect2(8, 10, 16, 2), Color("8fb0c0"))
-		draw_rect(Rect2(6, 34, 20, 26), WOOD_D)   # нижняя филёнка
-		draw_rect(Rect2(8, 36, 16, 22), WOOD)
-		draw_rect(Rect2(24, 32, 4, 4), Color("e8c15a"))   # ручка
-		if open_to_staff:
-			draw_rect(Rect2(8, -10, 16, 8), OL)       # табличка «Служебная»
-			draw_rect(Rect2(10, -8, 12, 4), Color("f4ecd8"))
-			return
-		for i in 28:   # две доски крест-накрест шагами по 2 px
-			var y := 6.0 + i * 2.0
-			var x1 := 2.0 + i
-			var x2 := 28.0 - i
-			draw_rect(Rect2(snappedf(x1, 2.0) - 2, y, 6, 4), OL)
-			draw_rect(Rect2(snappedf(x2, 2.0) - 2, y, 6, 4), OL)
-		for i in 28:
-			var y := 6.0 + i * 2.0
-			draw_rect(Rect2(snappedf(2.0 + i, 2.0), y, 4, 2), Color("c49a5e"))
-			draw_rect(Rect2(snappedf(28.0 - i, 2.0), y, 4, 2), Color("b0864a"))
-		draw_rect(Rect2(14, 30, 4, 4), Color("5f5f6a"))   # гвоздь по центру

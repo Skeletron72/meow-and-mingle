@@ -20,14 +20,14 @@ const OBJECTS := [
 	{"id": "dust_0", "kind": "dust", "pos": Vector2(70, 196), "radius": 34.0, "taps": 2, "line": "Пф! Уже лучше."},
 	{"id": "dust_1", "kind": "dust", "pos": Vector2(150, 140), "radius": 34.0, "taps": 2, "line": "Пыль со стажем… уходит!"},
 	{"id": "dust_2", "kind": "dust", "pos": Vector2(262, 268), "radius": 34.0, "taps": 2, "line": "Пол помнит родителей."},
-	{"id": "curtain", "kind": "curtain", "pos": Vector2(256, 50), "radius": 36.0, "taps": 1, "line": "Лучи. И пыль в них. Красиво!"},
+	{"id": "curtain", "kind": "curtain", "pos": Vector2(192, 50), "radius": 36.0, "taps": 1, "line": "Лучи. И пыль в них. Красиво!"},
 	{"id": "box_0", "kind": "box", "pos": Vector2(56, 276), "radius": 28.0, "taps": 1, "line": "Ложек — как на свадьбу. И 20 монет!"},
 	{"id": "box_1", "kind": "box", "pos": Vector2(132, 252), "radius": 28.0, "taps": 1, "line": "«Папино, не трогать». Потрогаю. Чуть-чуть."},
-	{"id": "box_2", "kind": "box", "pos": Vector2(284, 154), "radius": 28.0, "taps": 1, "line": "«Мамино». Мам…"},
+	{"id": "box_2", "kind": "box", "pos": Vector2(200, 170), "radius": 28.0, "taps": 1, "line": "«Мамино». Мам…"},
 	{"id": "cover", "kind": "cover", "pos": Vector2(44, 84), "radius": 38.0, "taps": 1, "line": "Тут папа держал круассаны. И нервы."},
 	{"id": "machine", "kind": "machine", "pos": Vector2(80, 62), "radius": 24.0, "taps": 3, "line": "Жива!"},
-	{"id": "table", "kind": "table", "pos": Vector2(240, 208), "radius": 22.0, "taps": 2, "line": "Стол как новый. Почти."},
-	{"id": "stool", "kind": "stool", "pos": Vector2(208, 208), "radius": 20.0, "taps": 1, "line": "Одного стула хватит. Пока."},
+	{"id": "table", "kind": "table", "pos": Vector2(240, 240), "radius": 22.0, "taps": 2, "line": "Стол как новый. Почти."},
+	{"id": "stool", "kind": "stool", "pos": Vector2(208, 240), "radius": 20.0, "taps": 1, "line": "Одного стула хватит. Пока."},
 ]
 
 ## Обучающая смена: заказы по порядку (+46 монет).
@@ -203,7 +203,7 @@ func _build_object(def: Dictionary) -> void:
 				_nodes[id] = d
 		"curtain":
 			if left > 0:
-				var cur := PixelArt.sprite(PixelArt.curtain(32, 17), Vector2(224, 32), false)
+				var cur := PixelArt.sprite(PixelArt.curtain(32, 17), Vector2(160, 32), false)
 				_grime.add_child(cur)
 				_nodes[id] = cur
 			else:
@@ -257,7 +257,7 @@ func _add_window() -> void:
 	for it in _room.layout:
 		if String(it["id"]) == "window":
 			return
-	_room.add_item({"id": "window", "c": 7, "r": 1, "flip": false})
+	_room.add_item({"id": "window", "c": 5, "r": 1, "flip": false})
 	city._apply_clip_materials()
 
 

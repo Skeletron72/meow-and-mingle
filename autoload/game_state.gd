@@ -228,7 +228,7 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 		}
 		if room.check_place(fixed["id"], fixed["c"], fixed["r"]) == "":
 			out.append(fixed)
-		elif CafeRoom.is_solid(fixed["id"]) and CafeRoom.cells(fixed["id"], fixed["c"], fixed["r"]).has_point(CafeRoom.BACK_DOOR_CELL):
-			coins += int(Data.furniture[fixed["id"]].get("price", 0))   # встала у новой двери в коморку: вернули деньги
+		elif not CafeRoom.is_wall(fixed["id"]) and CafeRoom.cells(fixed["id"], fixed["c"], fixed["r"]).intersects(CafeRoom.STAFF_CELLS):
+			coins += int(Data.furniture[fixed["id"]].get("price", 0))   # стояла там, где теперь служебка: вернули деньги
 	room.free()
 	return out

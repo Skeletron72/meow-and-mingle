@@ -43,6 +43,8 @@ func build(world_size: Vector2, walk: Array[Rect2], block_rects: Array[Rect2], b
 			for y in range(b.position.y, b.end.y):
 				for x in range(b.position.x, b.end.x):
 					_set_cell(_room_cell + Vector2i(x, y), true)
+	if room != null:   # служебка: стены закрыты, пока не куплена «Коморка»
+		set_interior_mask(room.walk_mask(), true)
 	for r in block_rects:
 		_set_rect(r, true)
 	for c in block_cells:

@@ -1,4 +1,4 @@
 [
-	{"id": "table_small", "c": 7, "r": 3, "flip": false},
-	{"id": "stool", "c": 6, "r": 3, "flip": false}
+	{"id": "table_small", "c": 7, "r": 4, "flip": false},
+	{"id": "stool", "c": 6, "r": 4, "flip": false}
 ]

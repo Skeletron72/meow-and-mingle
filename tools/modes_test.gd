@@ -153,15 +153,16 @@ func _test_place_rules() -> void:
 	_check(room.check_place("window", 6, 1) != "", "окно на окно нельзя")
 	_check(room.check_place("window", 4, 0) == "", "окно на свободной стене можно")
 	_check(room.check_place("window", 4, 3) != "", "за нижним краем стены нельзя")
-	_check(room.check_place("rug", 7, 2) == "", "коврик можно под стол (плоский)")
+	_check(room.check_place("rug", 3, 2) == "", "коврик можно под стол (плоский)")
 	# ряд мебели поперёк зала: последний предмет закрыл бы проход — должен быть отклонён именно по этой причине
 	var row: Array[Dictionary] = []
-	for c in [0, 2, 4, 6]:
+	for c in [1, 3, 5]:
 		row.append(_item("cabinet", c, 4))
+	row.append(_item("machine", 7, 4))
 	row.append(_item("machine", 8, 4))
 	var sealed := _room_with(row)
 	_check(not sealed.find_path(CafeRoom.feet_at(CafeRoom.SPAWN_CELL), CafeRoom.feet_at(Vector2i(1, 0))).is_empty(), "с зазором в ряду проход есть")
-	_check(sealed.check_place("machine", 9, 4) == tr("Не загораживайте проход"), "последний предмет, закрывающий проход, отклонён")
+	_check(sealed.check_place("machine", 0, 4) == tr("Не загораживайте проход"), "последний предмет, закрывающий проход, отклонён")
 	sealed.queue_free()
 	var spot := room.find_free_spot("table_big")
 	_check(spot.x >= 0 and room.check_place("table_big", spot.x, spot.y) == "", "find_free_spot находит место")
@@ -300,7 +301,7 @@ func _test_world_nav() -> void:
 	_check(not nav.is_walkable(Vector2i(rc.x, front)) and not nav.is_walkable(Vector2i(rc.x + 9, front)), "витрина кафе не проходима, кроме проёма")
 	_check(nav.is_walkable(Vector2i(ex, front)) and nav.is_walkable(Vector2i(ex + 1, front)), "проём входа проходим")
 	_check(not nav.is_walkable(Vector2i(10, 26)), "дорога не проходима")
-	_check(not nav.is_walkable(rc + Vector2i(7, 2)), "стол в зале закрывает клетку")
+	_check(not nav.is_walkable(rc + Vector2i(3, 2)), "стол в зале закрывает клетку")
 	_check(not nav.is_walkable(Vector2i(7, 22)), "торговый автомат закрывает клетку на тротуаре")
 	# за дома: задний двор и проходы между зданиями
 	var yard := Vector2i(12, 6)
@@ -379,7 +380,7 @@ func _test_city() -> void:
 	var ex := rc.x + CafeRoom.ENTRANCE_CELLS.position.x
 	var front := rc.y + CafeRoom.FRONT_ROW
 	var out_cell := Vector2i(ex, front + 1)
-	var in_cell := Vector2i(ex, rc.y + 3)
+	var in_cell := Vector2i(ex, rc.y + 4)
 	_check(nav.is_interior(WorldNav.cell_of_feet(player.position)), "игра начинается внутри кафе")
 	_check(city.get("_btn_enter") == null and city.get("_btn_exit") == null, "кнопок «Войти/Выйти» нет — дверей нет")
 	city._update_xray(10.0)
@@ -669,7 +670,7 @@ func _test_decorate_logic() -> void:
 	scene._dragging = true
 	scene._drag_start = Vector2i(int(GameState.layout[idx]["c"]), int(GameState.layout[idx]["r"]))
 	scene._drag_off = Vector2i.ZERO
-	scene._drag_to(CafeRoom.cell_pos(7, 2) + Vector2(10, 10))  # в клетку стола
+	scene._drag_to(CafeRoom.cell_pos(3, 2) + Vector2(10, 10))  # в клетку стола
 	_check(scene._drag_err != "", "перетаскивание в стол отклонено")
 	scene._drop()
 	_check(Vector2i(int(GameState.layout[idx]["c"]), int(GameState.layout[idx]["r"])) == scene._drag_start, "позиция вернулась")
@@ -698,21 +699,26 @@ func _test_decorate_input() -> void:
 		if GameState.layout[i]["id"] == "table_big":
 			table_idx = i
 	var pos: Vector2 = d.ROOM_POS
-	_click(pos + Vector2(256, 190), true)   # стол: клетки (7..8, 2..3)
+	_click(pos + Vector2(128, 190), true)   # стол: клетки (3..4, 2..3)
 	_check(d._sel == table_idx and d._dragging, "нажатие на стол выбирает его")
-	_move_to(pos + Vector2(256, 254))
-	_click(pos + Vector2(256, 254), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 7 and int(GameState.layout[table_idx]["r"]) == 4, "стол перетащен ровно на 2 клетки вниз")
+	_move_to(pos + Vector2(64, 190))
+	_click(pos + Vector2(64, 190), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 1 and int(GameState.layout[table_idx]["r"]) == 2, "стол перетащен ровно на 2 клетки влево")
 	# в передний ряд (витрина) — нельзя: стол 2×2 в рядах 5–6 не поместится
-	_click(pos + Vector2(256, 250), true)
-	_move_to(pos + Vector2(256, 300))
-	_click(pos + Vector2(256, 300), false)
-	_check(int(GameState.layout[table_idx]["r"]) == 4, "в передний ряд (витрина) мебель не ставится")
-	# в занятую клетку (к пуфику (6,3)) — отклоняется
-	_click(pos + Vector2(256, 250), true)
-	_move_to(pos + Vector2(240, 208))
-	_click(pos + Vector2(240, 208), false)
-	_check(int(GameState.layout[table_idx]["r"]) == 4, "перетаскивание на пуфик отклонено")
+	_click(pos + Vector2(64, 190), true)
+	_move_to(pos + Vector2(64, 300))
+	_click(pos + Vector2(64, 300), false)
+	_check(int(GameState.layout[table_idx]["r"]) == 2, "в передний ряд (витрина) мебель не ставится")
+	# в занятую клетку (к пуфику (5,3)) — отклоняется
+	_click(pos + Vector2(64, 190), true)
+	_move_to(pos + Vector2(176, 208))
+	_click(pos + Vector2(176, 208), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 1, "перетаскивание на пуфик отклонено")
+	# в служебку — нельзя
+	_click(pos + Vector2(64, 190), true)
+	_move_to(pos + Vector2(250, 150))
+	_click(pos + Vector2(250, 150), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 1, "в служебку мебель не ставится")
 	_click(pos + Vector2(20, 10), true)  # пустая стена
 	_check(d._sel == -1, "тап по пустому месту снимает выделение")
 	d.queue_free()
@@ -1190,7 +1196,7 @@ func _test_weather() -> void:
 	await get_tree().process_frame
 
 
-## Коморка и второй этаж: улучшения, дверь и лестница, смена помещений, проходимость, сон.
+## Служебка в зале и второй этаж: улучшения, проём и лестница, смена помещений, проходимость, сон.
 func _test_spaces() -> void:
 	var back_def := {}
 	var up_def := {}
@@ -1207,73 +1213,75 @@ func _test_spaces() -> void:
 	GameState.upgrades = []
 	GameState.coins = 0
 
-	# дверь в коморку не даёт ставить мебель, а мебель, оказавшаяся у двери в старом сохранении, возвращает деньги
+	# служебка занимает угол зала: мебель туда не ставят, а стоявшая там в старом сохранении возвращает деньги
 	var room := CafeRoom.new()
 	add_child(room)
 	room.set_layout([])
-	_check(room.check_place("stool", 9, 0) != "", "у двери в коморку мебель не ставят")
-	_check(room.check_place("stool", 8, 0) == "", "рядом с дверью можно")
-	_check(room.check_place("board", 9, 1) != "", "на дверь в стене повесить нельзя")
+	_check(room.check_place("stool", 7, 1) != "" and room.check_place("rug", 6, 0) != "", "в служебку ничего не ставят")
+	_check(room.check_place("stool", 5, 1) == "" and room.check_place("stool", 6, 4) == "", "рядом со служебкой можно")
+	_check(room.check_place("board", 8, 1) == "", "на стену над служебкой вешать можно")
 	room.queue_free()
 	GameState.coins = 0
-	var kept := GameState._sanitize_layout([{"id": "stool", "c": 9, "r": 0, "flip": false}])
-	_check(kept.is_empty() and GameState.coins == int(Data.furniture["stool"]["price"]), "пуфик у новой двери убран, деньги возвращены")
+	var kept := GameState._sanitize_layout([{"id": "stool", "c": 8, "r": 1, "flip": false}])
+	_check(kept.is_empty() and GameState.coins == int(Data.furniture["stool"]["price"]), "пуфик из служебки убран, деньги возвращены")
 
 	var city := _new_city(true)
 	await get_tree().process_frame
 	var nav: WorldNav = city.get("_nav")
 	var rc := nav.interior_cells().position
 	var player: CatWalker = city.get("_player")
+	var croom: CafeRoom = city.get("_room")
 	_check(city.get("_space") == 0, "сначала кот в зале")
-	# заколочено, пока не куплено
+	# закрыта, пока не куплено
 	GameState.upgrades = []
-	city.call("_tap_portal", {"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, Vector2(600, 600))
-	_check(city.get("_space") == 0 and city.get("_pending") == "", "заколоченная дверь не пускает")
-	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) != "", "лестница заколочена, пока нет «Второго этажа»")
+	croom.refresh_staff()
+	city.call("_set_space", 0, Vector2i(-1, -1))
+	_check(not nav.is_walkable(rc + CafeRoom.STAFF_DOOR) and not nav.is_walkable(rc + Vector2i(8, 2)), "закрытая служебка не проходима")
+	var locked_hit := croom.staff_portal_at(Vector2(256, 160))
+	_check(String(locked_hit.get("id", "")) == "staff_locked", "тап по чулану даёт «заколочено»")
+	city.call("_tap_portal", locked_hit, Vector2(600, 600))
+	_check(city.get("_pending") == "", "заколоченная служебка не пускает")
 
+	# куплена «Коморка»: проём открыт, внутри можно ходить, лестница и коробки — преграда
 	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case", "back_room"]
-	city.get("_room").call("refresh_back_door")
-	# дверь: кот идёт к клетке у двери и там переходит
-	player.position = WorldNav.feet_at(rc + CafeRoom.BACK_DOOR_CELL)
-	city.call("_tap_portal", {"id": "door_back", "stand": [CafeRoom.BACK_DOOR_CELL], "to": "back"}, Vector2(600, 600))
-	await get_tree().create_timer(0.9).timeout
-	_check(city.get("_space") == 1 and not city.get("_fading"), "через дверь кот попал в коморку")
-	city.call("_apply_daylight")
-	_check(not city.get("_room").visible and city.get("_spaces")[1].visible, "зал спрятан, коморка видна")
-	var cell := WorldNav.cell_of_feet(player.position) - rc
-	_check(nav.is_walkable(rc + cell), "кот стоит на проходимой клетке коморки: %s" % cell)
-	_check(not nav.is_walkable(rc + Vector2i(0, 0)) and not nav.is_walkable(rc + Vector2i(8, 0)), "полки и лестница не проходимы")
-	_check(nav.is_walkable(rc + Vector2i(4, 6)) and nav.is_walkable(rc + InteriorSpace.STAIRS_STAND[0]), "дверь в кафе и клетки у лестницы проходимы")
-	_check(not nav.find_path(player.position, WorldNav.feet_at(rc + InteriorSpace.STAIRS_STAND[0])).is_empty(), "от двери до лестницы есть путь")
-	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) != "", "лестница в коморке заколочена")
-	for n in city.get("_npcs"):   # гости зала при коморке не видны
-		var cat: CatWalker = n["cat"]
-		if city.call("_depth", cat.position) > 0.05:
-			_check(not cat.visible, "гость зала спрятан, пока кот в коморке")
+	city.call("_on_upgrade_bought", "back_room")
+	_check(nav.is_walkable(rc + CafeRoom.STAFF_DOOR) and nav.is_walkable(rc + Vector2i(8, 2)) and nav.is_walkable(rc + Vector2i(7, 2)), "служебка открыта: проём и пол внутри проходимы")
+	_check(not nav.is_walkable(rc + Vector2i(8, 0)) and not nav.is_walkable(rc + Vector2i(7, 0)) and not nav.is_walkable(rc + Vector2i(6, 1)) and not nav.is_walkable(rc + Vector2i(7, 3)), "лестница, коробки и стены не проходимы")
+	_check(not nav.find_path(WorldNav.feet_at(rc + Vector2i(5, 5)), WorldNav.feet_at(rc + Vector2i(8, 2))).is_empty(), "из зала можно пройти в служебку")
+	var stairs_hit := croom.staff_portal_at(Vector2(260, 100))
+	_check(String(stairs_hit.get("id", "")) == "stairs_up", "тап по лестнице в служебке")
+	_check(String(city.call("_portal_gate", stairs_hit)) != "", "лестница заколочена, пока нет «Второго этажа»")
+	city.call("_tap_portal", stairs_hit, Vector2(600, 600))
+	_check(city.get("_pending") == "", "заколоченная лестница не пускает")
 
 	# второй этаж
 	GameState.upgrades.append("upstairs")
 	city.call("_on_upgrade_bought", "upstairs")
-	_check(String(city.call("_portal_gate", {"id": "stairs_up"})) == "", "после покупки лестница свободна")
-	player.position = WorldNav.feet_at(rc + InteriorSpace.STAIRS_STAND[0])
-	city.call("_tap_portal", {"id": "stairs_up", "stand": InteriorSpace.STAIRS_STAND, "to": "up"}, Vector2(600, 600))
+	_check(String(city.call("_portal_gate", stairs_hit)) == "", "после покупки лестница свободна")
+	player.position = WorldNav.feet_at(rc + CafeRoom.STAIRS_STAND[0])
+	city.call("_tap_portal", stairs_hit, Vector2(600, 600))
 	await get_tree().create_timer(0.9).timeout
-	_check(city.get("_space") == 2, "по лестнице кот поднялся в жилую зону")
+	_check(city.get("_space") == 2 and not city.get("_fading"), "по лестнице кот поднялся в жилую зону")
+	city.call("_apply_daylight")
+	_check(not croom.visible and city.get("_spaces")[2].visible, "зал спрятан, жилая зона видна")
 	_check(not nav.is_walkable(rc + Vector2i(3, 0)) and not nav.is_walkable(rc + Vector2i(4, 1)), "кровать занимает клетки")
 	_check(not nav.find_path(player.position, WorldNav.feet_at(rc + InteriorSpace.BED_STAND[0])).is_empty(), "до кровати можно дойти")
+	for n in city.get("_npcs"):   # гости зала наверху не видны
+		var cat: CatWalker = n["cat"]
+		if city.call("_depth", cat.position) > 0.05:
+			_check(not cat.visible, "гость зала спрятан, пока кот наверху")
 	# сон: ночью — до утра
 	TimeOfDay.hour = 22.0
 	city.call("_sleep")
 	await get_tree().create_timer(0.9).timeout
 	_check(is_equal_approx(TimeOfDay.hour, 7.0), "после сна утро: %s" % TimeOfDay.hour)
-	# вниз, в коморку, и обратно в кафе
-	city.call("_use_portal", {"id": "stairs_down", "stand": InteriorSpace.STAIRS_STAND, "to": "back"})
+	# вниз, в служебку
+	city.call("_use_portal", {"id": "stairs_down", "stand": InteriorSpace.STAIRS_STAND, "to": "cafe"})
 	await get_tree().create_timer(0.9).timeout
-	_check(city.get("_space") == 1, "лестница вниз ведёт в коморку")
-	city.call("_use_portal", {"id": "door_cafe", "stand": InteriorSpace.BACK_DOOR_CELLS, "to": "cafe"})
-	await get_tree().create_timer(0.9).timeout
-	_check(city.get("_space") == 0, "дверь коморки ведёт в кафе")
-	_check(nav.is_walkable(rc + Vector2i(5, 4)) and nav.is_walkable(rc + CafeRoom.BACK_DOOR_CELL), "в зале снова проходимы его клетки")
+	_check(city.get("_space") == 0, "лестница вниз ведёт в служебку")
+	_check(nav.is_walkable(rc + Vector2i(5, 4)) and nav.is_walkable(rc + CafeRoom.STAFF_DOOR), "в зале снова проходимы его клетки")
+	var back_cell := WorldNav.cell_of_feet(player.position) - rc
+	_check(CafeRoom.STAFF_INNER.has_point(back_cell), "кот вышел из лестницы внутри служебки: %s" % back_cell)
 	# магазин показывает все шесть улучшений
 	GameState.upgrades = []
 	city.call("_open_shop")
