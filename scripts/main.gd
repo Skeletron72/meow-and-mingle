@@ -198,6 +198,7 @@ func _build_hud() -> void:
 	_served_label.z_index = 81
 	var end_btn := Ui.button("", Rect2(300, 4, 52, 40), "exit", self)
 	end_btn.z_index = 82
+	end_btn.visible = not tutorial   # обучающую смену нельзя бросить
 	end_btn.pressed.connect(_end_shift)
 
 

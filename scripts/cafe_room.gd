@@ -160,6 +160,15 @@ func rebuild() -> void:
 	rebuild_nav()
 
 
+## Добавляет предмет в уже построенную комнату, не пересоздавая остальные (для интро: окно и доска появляются по ходу).
+func add_item(item: Dictionary) -> Node2D:
+	layout.append(item)
+	var n := _spawn_item(item)
+	_nodes.append(n)
+	rebuild_nav()
+	return n
+
+
 func node_for(index: int) -> Node2D:
 	return _nodes[index]
 

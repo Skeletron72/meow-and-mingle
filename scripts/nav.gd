@@ -5,6 +5,7 @@ extends RefCounted
 const CITY := "res://scenes/city.tscn"          # игра: город с кафе (прогулка + смена за стойкой + меню)
 const BREW := "res://main.tscn"                 # смена за стойкой: сборка заказов (в игре открывается поверх города)
 const DECORATE := "res://scenes/decorate.tscn"  # режим украшения
+const COMIC := "res://scenes/intro_comic.tscn"  # комикс-завязка новой игры
 
 
 static func go(from: Node, path: String) -> void:

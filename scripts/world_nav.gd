@@ -13,6 +13,7 @@ var _cols := 0
 var _rows := 0
 var _room_cell := Vector2i.ZERO   # клетка мира, где лежит левый верх пола зала
 var _room_rect := Rect2i()        # клетки пола зала в мире
+var _entrance: Array[Vector2i] = []   # клетки проёма входа (их можно закрыть ставнями)
 
 
 ## walk — зоны ходьбы, block_rects — запретные зоны, block_cells — клетки-предметы, room — интерьер (или null).
@@ -35,6 +36,8 @@ func build(world_size: Vector2, walk: Array[Rect2], block_rects: Array[Rect2], b
 			for c in CafeRoom.COLS:
 				var open := r < CafeRoom.FRONT_ROW or CafeRoom.ENTRANCE_CELLS.has_point(Vector2i(c, r))
 				_set_cell(_room_cell + Vector2i(c, r), not open)
+				if CafeRoom.ENTRANCE_CELLS.has_point(Vector2i(c, r)):
+					_entrance.append(_room_cell + Vector2i(c, r))
 		for b in room.solid_cells():
 			for y in range(b.position.y, b.end.y):
 				for x in range(b.position.x, b.end.x):
@@ -43,6 +46,12 @@ func build(world_size: Vector2, walk: Array[Rect2], block_rects: Array[Rect2], b
 		_set_rect(r, true)
 	for c in block_cells:
 		_set_cell(c, true)
+
+
+## Закрыть/открыть проём входа (ставни в интро): закрытый — стена, пройти нельзя.
+func set_entrance_open(open: bool) -> void:
+	for c in _entrance:
+		_set_cell(c, not open)
 
 
 func _set_rect(r: Rect2, solid: bool) -> void:

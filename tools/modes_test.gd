@@ -28,6 +28,7 @@ func _ready() -> void:
 	await _test_city_input()
 	await _test_progress_and_menu()
 	await _test_brew()
+	await _test_intro()
 	await _test_decorate_logic()
 	await _test_decorate_input()
 	_test_save_migration()
@@ -859,6 +860,130 @@ func _test_brew() -> void:
 	tut.queue_free()
 	await get_tree().process_frame
 	GameState.coins = 0
+
+
+func _intro_city(stage: int) -> Node2D:
+	GameState.new_game()
+	GameState.intro_stage = stage
+	GameState.coins = 0
+	var city: Node2D = load(Nav.CITY).instantiate()
+	add_child(city)
+	return city
+
+
+## Интро: комикс, ставни (катсцена), расчистка на 21 тап с наградами, обучение → магазин → свободная игра.
+func _test_intro() -> void:
+	# комикс: 5 панелей, подписи и реплики влезают в кадр
+	_check(IntroComic.PANELS.size() == 5, "в комиксе 5 панелей")
+	for pn in IntroComic.PANELS:
+		for line in String(pn["caption"]).split("\n"):
+			_check(Ui.FONT_NARROW.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x <= 296.0, "подпись комикса не влезает в кадр: «%s»" % line)
+		for ln in pn["lines"]:
+			var tw := Ui.FONT_NARROW.get_string_size(String(ln["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
+			_check(tw + 26.0 <= 280.0, "реплика не влезает в пузырь: «%s» (%s px)" % [ln["text"], tw])
+	var taps := 0
+	for d in Intro.OBJECTS:
+		taps += int(d["taps"])
+	_check(Intro.OBJECTS.size() == 15 and taps == Intro.TOTAL_TAPS and taps == 21, "расчистка: 15 объектов и 21 тап (%d)" % taps)
+	_check(Intro.TUTORIAL_ORDERS.size() == 5, "в обучающей смене 5 заказов")
+	var tut_total := 0
+	for o in Intro.TUTORIAL_ORDERS:
+		var price := int(Data.drinks[o["drink"]]["price"])
+		tut_total += price + maxi(1, int(round(price * 0.2)))
+		_check(String(o["drink"]) in ["espresso", "tea"], "в обучении только эспрессо и чай")
+	_check(tut_total == 46, "обучающая смена приносит 46 монет (%d)" % tut_total)
+	# стадия 1: закрытые ставни не пускают в кафе
+	var city := _intro_city(1)
+	await get_tree().process_frame
+	var nav: WorldNav = city._nav
+	var rc := nav.interior_cells().position
+	var ex := rc.x + CafeRoom.ENTRANCE_CELLS.position.x
+	var out_cell := Vector2i(ex, rc.y + CafeRoom.FRONT_ROW + 1)
+	var in_cell := Vector2i(ex, rc.y + 3)
+	_check(city._intro != null and city._intro.active() and city._npcs.is_empty(), "интро идёт, кафе пустое (гостей нет)")
+	_check(nav.find_path(WorldNav.feet_at(out_cell), WorldNav.feet_at(in_cell)).is_empty(), "закрытые ставни: в кафе не пройти")
+	_check(city._player.position.y > 700.0, "катсцена начинается на улице у кафе")
+	_check(city._intro.light().r < 0.5, "до расчистки в зале темно")
+	var before_hour := TimeOfDay.hour
+	city._skip_hour()
+	_check(TimeOfDay.hour == before_hour, "во время интро время не перематывается")
+	# два тапа по ставням открывают их
+	var shutter_p := Intro.SHUTTER_RECT.get_center()
+	_check(city._intro.on_tap(shutter_p) and city._intro._knocks == 1 and GameState.intro_stage == 1, "первый тап: ставни заело")
+	_check(city._intro.on_tap(shutter_p) and GameState.intro_stage == 1, "второй тап: «Пяткой!» — ставни пошли вверх")
+	await get_tree().create_timer(1.6).timeout
+	_check(GameState.intro_stage == 2 and city._intro._shutter == null, "ставни открыты, началась расчистка")
+	_check(not nav.find_path(WorldNav.feet_at(out_cell), WorldNav.feet_at(in_cell)).is_empty(), "после открытия ставней в кафе можно войти")
+	_check(city._player.is_moving(), "кот сам заходит в кафе")
+	_check(city._intro._nodes.size() == 15 - 0 and is_equal_approx(city._intro.progress(), 0.0), "расчистка: объекты созданы, прогресс 0")
+	_check(GameState.layout.size() == 2, "в зале только стол и пуфик")
+	# тап по объекту отправляет кота к нему; тап по пустому месту — нет
+	city._player.position = WorldNav.feet_at(rc + Vector2i(4, 4))
+	city._update_xray(10.0)
+	var web_world: Vector2 = city._room.to_global(Intro.OBJECTS[0]["pos"] + Vector2(6, 6))
+	_check(city._intro.on_tap(web_world) and city._intro._target == "web_0" and city._player.is_moving(), "тап по паутине: кот идёт к ней")
+	city._player.stop()
+	_check(not city._intro.on_tap(city._room.to_global(Vector2(160, 300))), "тап по пустому месту интро не перехватывает")
+	# все 21 тап: прогресс растёт монотонно, награды выдаются
+	var finished := []
+	city._intro.cleanup_finished.connect(func() -> void: finished.append(true))
+	var last := 0.0
+	var done_taps := 0
+	for d in Intro.OBJECTS:
+		for _i in int(d["taps"]):
+			city._intro._act(String(d["id"]))
+			done_taps += 1
+			var pr: float = city._intro.progress()
+			_check(pr >= last - 0.0001, "прогресс не убывает")
+			last = pr
+			if done_taps == 20:
+				_check(finished.is_empty() and GameState.intro_stage == 2, "на 20-м тапе кафе ещё не готово")
+	await get_tree().create_timer(0.7).timeout
+	for ch in city.get_children():   # окно с фото ставит игру на паузу — закрываем, как игрок
+		if ch is CanvasLayer and (ch as CanvasLayer).layer == 9:
+			ch.queue_free()
+	get_tree().paused = false
+	_check(is_equal_approx(city._intro.progress(), 1.0) and finished.size() == 1, "21 тап = 100%, расчистка завершена один раз")
+	_check(GameState.intro_stage == 3, "после расчистки — обучающая смена (стадия 3)")
+	_check(GameState.coins == 20, "коробка с посудой дала 20 монет (%d)" % GameState.coins)
+	_check("recipe_latte" in GameState.keepsakes and "photo" in GameState.keepsakes, "в коробках найдены рецепт и фото")
+	var ids: Array[String] = []
+	for it in GameState.layout:
+		ids.append(String(it["id"]))
+	_check("window" in ids and "board" in ids and "table_small" in ids and "stool" in ids, "после расчистки появились окно и доска, стол и стул на месте (%s)" % [ids])
+	_check(GameState.intro_cleaned.size() == 15, "прогресс расчистки сохранён по объектам")
+	_check(city._intro.light().is_equal_approx(Color.WHITE), "после расчистки свет нормальный")
+	# дальше — обучающая смена в оверлее
+	city._start_tutorial()
+	_check(city._shift_layer != null and city._shift_layer.get_child(0).tutorial and city._shift_layer.get_child(0).tutorial_orders.size() == 5, "обучающая смена открылась поверх города")
+	city._on_tutorial_finished(5, 46)
+	_check(GameState.intro_stage == 4 and GameState.tutorial_served == 5 and city._shift_layer == null, "обучение пройдено: стадия 4, магазин")
+	await get_tree().create_timer(2.8).timeout
+	_check(city._menu.visible and city._menu_pages["shop"].visible, "после обучения сам открылся магазин улучшений")
+	GameState.coins = 66
+	city._buy_upgrade("milk_pitcher")
+	_check(GameState.has_upgrade("milk_pitcher") and GameState.coins == 36, "в магазине куплен молочник")
+	city._shop_back()
+	_check(GameState.intro_stage == GameState.INTRO_DONE and city._intro == null and not city._menu.visible, "закрытие магазина завершает интро")
+	_check(city._npcs.size() == 4, "после интро в кафе приходят гости")
+	city.queue_free()
+	await get_tree().process_frame
+	# возобновление: часть расчистки уже сделана (сохранение посреди интро)
+	GameState.new_game()
+	GameState.intro_stage = 2
+	GameState.intro_cleaned = {"web_0": 1, "dust_0": 1, "machine": 2}
+	var resumed: Node2D = load(Nav.CITY).instantiate()
+	add_child(resumed)
+	await get_tree().process_frame
+	_check(not resumed._intro._nodes.has("web_0") and resumed._intro._nodes.has("web_1"), "возобновление: сделанная паутина не рисуется")
+	_check(resumed._intro._nodes["dust_0"].level == 1 and resumed._intro._nodes["dust_1"].level == 2, "возобновление: пыль с одним тапом тусклее")
+	_check(is_equal_approx(resumed._intro.progress(), 4.0 / 21.0), "возобновление: прогресс %.3f" % resumed._intro.progress())
+	resumed.queue_free()
+	await get_tree().process_frame
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case"]
+	GameState.coins = 0
+	TimeOfDay.set_process(false)
 
 
 func _write_save(data: Dictionary) -> void:

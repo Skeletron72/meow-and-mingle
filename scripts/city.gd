@@ -62,9 +62,13 @@ var _menu_pages: Dictionary = {}
 var _shop_page: Control
 var _account_stats: Label
 var _shift_layer: CanvasLayer
+var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
 
 
 func _ready() -> void:
+	if GameState.intro_stage == 0:   # новая игра начинается с комикса
+		Nav.go(self, Nav.COMIC)
+		return
 	_add_mat = CanvasItemMaterial.new()
 	_add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	_halo_tex = _make_halo()
@@ -79,6 +83,7 @@ func _ready() -> void:
 	_build_camera()
 	_build_ui()
 	_build_menu()
+	_start_intro_if_needed()
 	_update_xray(10.0)
 	_apply_daylight()
 
@@ -239,7 +244,12 @@ func _build_cats() -> void:
 		_player.position = WorldNav.feet_at(room_cell + Vector2i(5, 4))
 	else:   # на тротуаре у проёма входа
 		_player.position = WorldNav.feet_at(room_cell + Vector2i(CafeRoom.ENTRANCE_CELLS.position.x, CafeRoom.ROWS))
-	# коты-посетители: половина в зале, половина на улице; дальше сами заходят и выходят
+	if GameState.intro_stage >= GameState.INTRO_DONE:
+		_spawn_npcs()
+
+
+## Коты-посетители: половина в зале, половина на улице; дальше сами заходят и выходят. (Во время интро кафе пустое.)
+func _spawn_npcs() -> void:
 	for i in 4:
 		var cat := CatWalker.new()
 		_actors.add_child(cat)
@@ -278,7 +288,7 @@ func _build_ui() -> void:
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		_clock_btn.add_theme_color_override(c, Ui.INK)
 	_clock_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
-	_clock_btn.pressed.connect(TimeOfDay.skip.bind(1.0))
+	_clock_btn.pressed.connect(_skip_hour)
 	var gear := Ui.button("", Rect2(300, 8, 52, 40), "gear", _ui)
 	gear.pressed.connect(_open_menu)
 	_btn_shift = Ui.button("Смена", Rect2(88, 568, 184, 56), "play", _ui)
@@ -389,7 +399,14 @@ func _refresh_shop() -> void:
 			b.modulate = Color(0.65, 0.65, 0.65) if b.disabled else Color.WHITE
 			b.pressed.connect(_buy_upgrade.bind(id))
 		y += 88.0
-	Ui.button("Назад", Rect2(54, top + 54.0 + 88.0 * Data.upgrades.size() + 4.0, 252, 48), "undo", _shop_page).pressed.connect(_menu_page.bind("main"))
+	Ui.button("Назад", Rect2(54, top + 54.0 + 88.0 * Data.upgrades.size() + 4.0, 252, 48), "undo", _shop_page).pressed.connect(_shop_back)
+
+
+func _shop_back() -> void:
+	if GameState.intro_stage == 4:
+		_close_menu()   # завершает интро
+	else:
+		_menu_page("main")
 
 
 func _buy_upgrade(id: String) -> void:
@@ -401,6 +418,67 @@ func _buy_upgrade(id: String) -> void:
 			Ui.toast(_menu, String(u["flavor"]), Vector2(180, 560))
 	_refresh_shop()
 	_coins_label.text = str(GameState.coins)
+
+
+# ---------------------------------------------------------------- интро
+
+func _skip_hour() -> void:
+	if GameState.intro_stage >= GameState.INTRO_DONE:
+		TimeOfDay.skip(1.0)
+
+
+## Запускает нужную часть интро по стадии (1 ставни, 2 расчистка, 3 обучение, 4 магазин); время стоит на 9:00.
+func _start_intro_if_needed() -> void:
+	var stage := GameState.intro_stage
+	if stage >= GameState.INTRO_DONE:
+		return
+	TimeOfDay.hour = 9.0
+	TimeOfDay.set_process(false)
+	_intro = Intro.new()
+	add_child(_intro)
+	_intro.setup(self)
+	_intro.cleanup_finished.connect(_on_cleanup_finished)
+	if stage == 3:
+		get_tree().create_timer(0.8).timeout.connect(_start_tutorial)
+	elif stage == 4:
+		get_tree().create_timer(0.8).timeout.connect(_open_first_shop)
+
+
+func _on_cleanup_finished() -> void:
+	get_tree().create_timer(2.0).timeout.connect(_start_tutorial)
+
+
+func _on_tutorial_finished(served: int, earned: int) -> void:
+	if _shift_layer != null:
+		_shift_layer.queue_free()
+		_shift_layer = null
+	_world.visible = true
+	_sky_layer.visible = true
+	_ui.visible = true
+	GameState.tutorial_served = served
+	GameState.intro_stage = 4
+	GameState.save_game()
+	Fx.banner(_ui, "Первая смена!", Vector2(180, 200), Color("ffd640"))
+	Fx.confetti(_ui, Vector2(180, 180), 36)
+	Ui.toast(_ui, "Пять чашек, +%d. Мама бы заказала шесть." % earned, Vector2(180, 260))
+	get_tree().create_timer(2.4).timeout.connect(_open_first_shop)
+
+
+## После обучения предлагаем первые покупки; закрытие магазина завершает интро.
+func _open_first_shop() -> void:
+	_open_menu()
+	_open_shop()
+
+
+func _finish_intro() -> void:
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.save_game()
+	TimeOfDay.set_process(true)
+	if _intro != null:
+		_intro.queue_free()
+		_intro = null
+	_spawn_npcs()
+	_apply_clip_materials()
 
 
 # ---------------------------------------------------------------- кадр
@@ -479,6 +557,8 @@ func _apply_clip_materials() -> void:
 func _apply_daylight() -> void:
 	var amb := TimeOfDay.ambient()
 	var ind := TimeOfDay.indoor()
+	if _intro != null:
+		ind *= _intro.light()   # пока зал не расчищен, в нём темно
 	var night := TimeOfDay.night()
 	_ground.modulate = amb
 	_buildings.modulate = amb
@@ -514,6 +594,8 @@ func _in_counter_zone() -> bool:
 
 
 func _on_player_arrived() -> void:
+	if _intro != null:
+		_intro.on_arrived()
 	if _pending == "shift" and _in_counter_zone():
 		_start_shift()
 	_pending = ""
@@ -576,6 +658,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_press(p: Vector2) -> void:
 	_pending = ""
+	if _intro != null and _intro.on_tap(p):
+		return
 	for n in _npcs:
 		var cat: CatWalker = n["cat"]
 		if is_revealed(cat.position) and Rect2(cat.position + Vector2(-16, -34), Vector2(32, 40)).has_point(p):
@@ -623,6 +707,15 @@ func _toggle_zones() -> void:
 # ---------------------------------------------------------------- смена (готовка поверх города)
 
 func _start_shift() -> void:
+	_open_shift(false)
+
+
+## Обучающая смена интро: только кофе и чай, пять заказов по сценарию, кнопки выхода нет.
+func _start_tutorial() -> void:
+	_open_shift(true)
+
+
+func _open_shift(tutorial: bool) -> void:
 	if _shift_layer != null:
 		return
 	_player.stop()
@@ -634,6 +727,11 @@ func _start_shift() -> void:
 	var shift: Node2D = load(Nav.BREW).instantiate()
 	shift.embedded = true
 	shift.modulate = TimeOfDay.indoor()
+	if tutorial:
+		shift.tutorial = true
+		shift.tutorial_sources = ["coffee", "tea"] as Array[String]
+		shift.tutorial_orders = Intro.TUTORIAL_ORDERS.duplicate(true)
+		shift.tutorial_finished.connect(_on_tutorial_finished)
 	shift.closed.connect(_end_shift)
 	_shift_layer.add_child(shift)
 	_world.visible = false
@@ -663,9 +761,14 @@ func _open_menu() -> void:
 func _close_menu() -> void:
 	_menu.visible = false
 	get_tree().paused = false
+	if GameState.intro_stage == 4:   # первые покупки сделаны (или отложены) — интро закончено
+		_finish_intro()
 
 
 func _open_decorate() -> void:
+	if GameState.intro_stage < GameState.INTRO_DONE:
+		Ui.toast(_menu, "Сначала откроем кафе", Vector2(180, 560))
+		return
 	get_tree().paused = false
 	GameState.save_game()
 	Nav.go(self, Nav.DECORATE)
