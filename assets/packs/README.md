@@ -10,6 +10,10 @@
 | `cosy-cabin/` | Тайлы и объекты уютного домика (полная и упрощённая версии), палитра | itch.io, CosyCabin | **Не проверено**: лицензию сверить на странице пака |
 | `modern-interiors-free/` | Интерьеры 16/32/48 px, персонажи (бесплатная часть ~1%) | [Modern Interiors Free v2.2](https://limezu.itch.io/moderninteriors) (LimeZu) | **Только некоммерческое использование**, см. `LICENSE.txt` внутри. Для релиза в RuStore не подходит без покупки полной версии |
 | `pixel-16-interiors/` | Тайлы и предметы интерьера | itch.io, Pixel 16 interiors v2 free | **Не проверено**: лицензию сверить на странице пака |
+| `topdown-vehicles/` | Транспорт сверху, анимации (30 тыс. файлов) | [TopDown Vehicles v1.17](https://minzinn.itch.io/) (MinZiin_) | CC BY 4.0, титры обязательны |
+| `city-essentials/` | 50+ городских объектов | Ranitaya's 50+ City Essential Assets Pack | **Не проверено**: лицензию сверить на странице пака |
+
+PostApocalypse Asset Pack (TheLazyStone) в репозиторий не добавлен: его лицензия запрещает распространение, а репозиторий публичный.
 
 Вне этой папки в корне лежат `AssetPack_V01_FREE.png` (Specialty Coffee, бесплатный сэмпл) и `IconsEssential.png`: их используют `scripts/main.gd`,
 поэтому они не перемещены. Копии нескольких спрайтов, подключённых в игре, лежат в `assets/cats`, `assets/cafe`, `assets/ui`.
