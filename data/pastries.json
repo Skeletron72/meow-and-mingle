@@ -1,0 +1,5 @@
+[
+	{"id": "croissant", "name": "Круассан", "price": 6, "col": 1, "row": 4},
+	{"id": "cheesecake", "name": "Чизкейк", "price": 8, "col": 0, "row": 5},
+	{"id": "donut", "name": "Пончик", "price": 7, "col": 2, "row": 6}
+]

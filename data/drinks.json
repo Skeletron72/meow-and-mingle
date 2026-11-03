@@ -1,0 +1,6 @@
+[
+	{"id": "espresso", "name": "Эспрессо", "price": 8, "brew_time": 0.0, "recipe": {"base": "coffee", "milk": false}, "col": 2, "row": 1},
+	{"id": "latte", "name": "Латте", "price": 12, "brew_time": 0.0, "recipe": {"base": "coffee", "milk": true}, "col": 4, "row": 1},
+	{"id": "tea", "name": "Чай", "price": 7, "brew_time": 0.0, "recipe": {"base": "tea", "milk": false}, "col": 0, "row": 0},
+	{"id": "matcha_latte", "name": "Матча-латте", "price": 14, "brew_time": 0.0, "recipe": {"base": "tea", "milk": true}, "col": 0, "row": 2}
+]
