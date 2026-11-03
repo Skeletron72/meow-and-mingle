@@ -37,7 +37,6 @@ var _camera: Camera2D
 var _sky_layer: CanvasLayer
 var _sky: CitySky
 var _sky_bg: ColorRect
-var _post: PostFx
 var _nav: WorldNav
 var _cafe: StreetBuilding
 var _building_nodes: Array[StreetBuilding] = []
@@ -318,9 +317,6 @@ func _build_camera() -> void:
 
 
 func _build_ui() -> void:
-	_post = PostFx.new()
-	_post.layer = 1
-	add_child(_post)
 	_ui = CanvasLayer.new()
 	_ui.layer = 2
 	add_child(_ui)

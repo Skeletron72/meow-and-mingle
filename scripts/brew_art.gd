@@ -71,6 +71,24 @@ static func _ellipse_on(ci: CanvasItem, c: Vector2, rx: float, ry: float, color:
 		dy += G
 
 
+## Смещение содержимого клетки 16×16 от её центра в пикселях спрайта (целое): чтобы чашку на тарелке ставить по центру рисунка, а не клетки.
+static func content_offset(tex: Texture2D) -> Vector2:
+	var at := tex as AtlasTexture
+	var key: Variant = at.region if at != null else 0
+	if _offsets.has(key):
+		return _offsets[key]
+	var off := Vector2.ZERO
+	if at != null:
+		var used := at.atlas.get_image().get_region(Rect2i(at.region)).get_used_rect()
+		if used.size.x > 0:
+			off = Vector2(roundf(used.position.x + used.size.x / 2.0 - at.region.size.x / 2.0), roundf(used.position.y + used.size.y / 2.0 - at.region.size.y / 2.0))
+	_offsets[key] = off
+	return off
+
+
+static var _offsets := {}
+
+
 ## Предмет из строк [y, полуширина, цвет] с обводкой в один пиксель сетки и бликом слева / тенью справа.
 static func shape(ci: CanvasItem, rows: Array, outline := OUTLINE, shade := true) -> void:
 	for i in rows.size():
@@ -99,8 +117,10 @@ func _draw_wall() -> void:
 	_r(0, 236, 360, 16, BASEBOARD)
 	_r(0, 248, 360, 4, BASEBOARD.darkened(0.35))
 	# вывеска на цепочках
-	for cx in [100, 252]:
-		_r(cx, 40, 4, 16, Color("4a4256"))
+	for cx in [100, 252]:   # цепи идут от потолка
+		for y in range(0, 56, 8):
+			_r(cx, y, 4, 8, Color("4a4256"))
+			_r(cx, y + 4, 4, 4, Color("6b6178"))
 	_r(76, 56, 208, 40, Color("3f2815"))
 	_r(80, 60, 200, 32, Color("6b4527"))
 	_r(80, 60, 200, 4, Color("8a5a34"))
@@ -177,26 +197,39 @@ func _draw_table() -> void:
 		_disc(c + Vector2(0, 4), plate_radius - 12.0, PLATE.darkened(0.04))
 
 
-## Подвесная лампа: покачивается на шнуре; свет — additive-ореол.
+## Подвесная лампа: узел стоит в точке подвеса (у верха кадра), шнур идёт от потолка; качается шагами по 4 px,
+## верх шнура неподвижен — как маятник. Свет — additive-ореол.
 class PendantLamp extends Node2D:
+	const DROP := 48.0   # от точки подвеса до колпака
 	var halo: Sprite2D
+	var swing := 0:   # -1, 0, 1 — отклонение нижнего конца в пикселях сетки
+		set(v):
+			swing = v
+			if halo != null:
+				halo.position.x = v * BrewArt.G
+			queue_redraw()
 
 	func _ready() -> void:
-		halo = Fx.pixel_light(Vector2(0, 76), Vector2(200, 160), Color(1.0, 0.82, 0.45, 0.5))
+		halo = Fx.pixel_light(Vector2(0, DROP + 28.0), Vector2(200, 160), Color(1.0, 0.82, 0.45, 0.5))
 		add_child(halo)
-		var base_x := position.x
-		var sway := create_tween().set_loops()   # качается шагами по 4 px — пиксели остаются целыми, без поворота
-		sway.tween_method(func(u: float) -> void: position.x = base_x + snappedf(sin(u * TAU) * 4.0, 4.0), 0.0, 1.0, 3.2)
+		var sway := create_tween().set_loops()
+		sway.tween_method(func(u: float) -> void: swing = roundi(sin(u * TAU)), 0.0, 1.0, 3.2)
 		var f := create_tween().set_loops()   # лёгкое мерцание
 		f.tween_property(halo, "modulate:a", 0.38, 0.9).set_trans(Tween.TRANS_SINE)
 		f.tween_property(halo, "modulate:a", 0.55, 1.1).set_trans(Tween.TRANS_SINE)
 
 	func _draw() -> void:
-		draw_rect(Rect2(-2, 0, 4, 40), BrewArt.OUTLINE)   # шнур
+		var g := BrewArt.G
+		var rows := int(DROP / g)
+		for i in rows:   # шнур: сдвиг растёт книзу, верх на месте
+			var off := snappedf(swing * g * float(i) / float(rows - 1), g)
+			draw_rect(Rect2(off - 2, i * g, 4, g), BrewArt.OUTLINE)
+		draw_set_transform(Vector2(swing * g, DROP - 8.0))
 		var cap := Color("6b5f78")
 		var red := Color("d65a3c")
-		BrewArt.shape(self, [[40, 8, cap], [44, 12, red], [48, 16, red], [52, 20, red], [56, 24, red], [60, 28, red.darkened(0.08)]])
-		BrewArt.shape(self, [[68, 8, Color("ffe9a0")]], BrewArt.OUTLINE, false)   # лампочка
+		BrewArt.shape(self, [[0, 8, cap], [4, 12, red], [8, 16, red], [12, 20, red], [16, 24, red], [20, 28, red.darkened(0.08)]])
+		BrewArt.shape(self, [[28, 8, Color("ffe9a0")]], BrewArt.OUTLINE, false)   # лампочка
+		draw_set_transform(Vector2.ZERO)
 
 
 ## Корзина для брака: подпрыгивает крышкой, когда в неё бросают.

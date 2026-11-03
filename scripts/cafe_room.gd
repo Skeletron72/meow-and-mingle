@@ -48,7 +48,9 @@ var _flat_layer: Node2D
 var _nodes: Array[Node2D] = []       # узел мебели для каждого элемента layout (тот же индекс)
 var _astar: AStarGrid2D
 var _lamp_glows: Array[Sprite2D] = []   # тёплые пятна света от ламп (пиксельные, additive)
-var _beam: Sprite2D                     # луч дневного света из окна
+var _windows: Array[WindowGlow] = []     # стёкла окон: цвет по времени суток
+var _day := 1.0
+var _night := 0.0
 
 
 func _init() -> void:
@@ -215,6 +217,12 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		drop.modulate = Color(0, 0, 0, 0.30)
 		n.add_child(drop)
 	n.add_child(sp)
+	if id == "window":
+		var w := WindowGlow.new()
+		w.position = sp.position
+		n.add_child(w)
+		_windows.append(w)
+		w.apply(_day, _night)
 	var layer: Node2D = _wall_layer if is_wall(id) else (_flat_layer if is_flat(id) else actors)
 	if external_actors != null and is_solid(id):
 		layer = external_actors
@@ -231,16 +239,15 @@ func _build_lights() -> void:
 		_lamp_glows.append(g)
 
 
-## Освещение зала: днём из окна падает луч, вечером разгораются лампы. day и night — 0..1.
+## Освещение зала: окна светятся цветом неба (день — голубое, закат — оранжевое, ночь — тёмное со звёздами), вечером разгораются лампы.
 func set_lighting(day: float, night: float) -> void:
+	_day = day
+	_night = night
 	for g in _lamp_glows:
 		g.modulate.a = 0.12 + 0.34 * night
-	if _beam == null and _has_item("window"):
-		_beam = PixelArt.sprite(PixelArt.beam(28, 64, -30), Vector2(172, 64), false)
-		_beam.material = Fx.additive()
-		add_child(_beam)
-	if _beam != null:
-		_beam.modulate = Color(1.0, 0.93, 0.72, 0.30 * day)
+	_windows = _windows.filter(func(w: WindowGlow) -> bool: return is_instance_valid(w))
+	for w in _windows:
+		w.apply(day, night)
 
 
 func _has_item(id: String) -> bool:
@@ -476,3 +483,40 @@ func in_entrance_zone(feet: Vector2) -> bool:
 
 func in_counter_zone(feet: Vector2) -> bool:
 	return COUNTER_CELLS.has_point(cell_of_feet(feet))
+
+
+## Стёкла окна поверх спрайта: цвет берётся у неба (TimeOfDay), ночью — звёзды, вокруг окна пиксельное свечение.
+class WindowGlow extends Node2D:
+	const PANES := [Rect2(2, 3, 12, 5), Rect2(16, 3, 12, 5), Rect2(2, 10, 12, 5), Rect2(16, 10, 12, 5)]   # в пикселях спрайта окна
+	const STARS := [Vector2(5, 4), Vector2(11, 6), Vector2(20, 5), Vector2(25, 7), Vector2(7, 12), Vector2(22, 13)]
+	var _top := Color.WHITE
+	var _bottom := Color.WHITE
+	var _night := 0.0
+	var _glow: Sprite2D
+
+	func _ready() -> void:
+		_glow = Fx.pixel_light(Vector2(30, 17), Vector2(150, 110), Color(1, 1, 1, 0.3))
+		add_child(_glow)
+		move_child(_glow, 0)
+
+	func apply(day: float, night: float) -> void:
+		_night = night
+		_bottom = TimeOfDay.sky_bottom().lerp(Color("c9e8ff"), day * 0.5).lightened(0.12)
+		_top = TimeOfDay.sky_top().lerp(Color("8ec7f5"), day * 0.5).lightened(0.05)
+		if _glow != null:
+			_glow.modulate = Color(_bottom.lightened(0.2), 0.10 + 0.25 * day + 0.12 * night)
+		queue_redraw()
+
+	func _draw() -> void:
+		var s := CafeRoom.S
+		for p: Rect2 in PANES:
+			var r := Rect2(p.position * s, p.size * s)
+			draw_rect(r, _top)
+			draw_rect(Rect2(r.position.x, r.position.y + r.size.y * 0.5, r.size.x, r.size.y * 0.5), _bottom)
+			if _night < 0.6:   # блик стекла днём
+				var g := Color(1, 1, 1, 0.55 * (1.0 - _night))
+				for k in 3:
+					draw_rect(Rect2(r.position.x + (r.size.x - 4 * s) + k * s, r.position.y + k * s, 2 * s, s), g)
+		if _night > 0.5:
+			for st: Vector2 in STARS:
+				draw_rect(Rect2(st * s, Vector2(s, s)), Color(1, 1, 0.85, (_night - 0.5) * 2.0))

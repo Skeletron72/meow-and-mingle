@@ -76,14 +76,6 @@ func _ready() -> void:
 	add_child(_fx)
 	_build_hud()
 	_build_coach()
-	var post := PostFx.new()   # пиксельный блум ламп и виньетка; порог высокий, чтобы не светились кремовые панели
-	post.layer = 6
-	post.day_threshold = 0.97
-	post.night_threshold = 0.97
-	post.day_bloom = 0.4
-	post.night_bloom = 0.4
-	post.vignette_mul = 0.5
-	add_child(post)
 	GameState.coins_changed.connect(_on_coins_changed)
 	_shown_coins = GameState.coins
 	_coins_label.text = str(GameState.coins)
@@ -104,7 +96,7 @@ func _build_wall() -> void:
 	# банки и чашки на боковых полках рисует BrewArt
 	for x in [44.0, 316.0]:
 		var lamp := BrewArt.PendantLamp.new()
-		lamp.position = Vector2(x, 48)
+		lamp.position = Vector2(x, 0)
 		add_child(lamp)
 	Fx.motes(self, Rect2(120, 70, 190, 170), 18)
 
@@ -143,7 +135,9 @@ func _build_table() -> void:
 		_table.plates.append(s["center"])
 	_table.queue_redraw()
 	for s in _sources:
-		var icon := _sprite(s["tex"], (s["center"] as Vector2) + Vector2(0, -4), 4.0)
+		var rest := (s["center"] as Vector2) - BrewArt.content_offset(s["tex"]) * 4.0   # рисунок по центру тарелки
+		s["rest"] = rest
+		var icon := _sprite(s["tex"], rest, 4.0)
 		s["icon"] = icon
 		var cap := _label(s["title"], Rect2((s["center"] as Vector2).x - 54, (s["center"] as Vector2).y + 40, 108, 28), Color("fff1d6"), null, true)
 		cap.add_theme_color_override("font_outline_color", Color("3f2815"))
@@ -292,8 +286,8 @@ func _show_bubble() -> void:
 	if pastry_id != "":
 		drink_x = -32.0
 		title += " + " + String(Data.pastries[pastry_id]["name"]).to_lower()
-		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(32, -14), 2.0, _bubble))
-	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14), 2.0, _bubble))
+		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(32, -14) - BrewArt.content_offset(_pastry_tex(pastry_id)) * 2.0, 2.0, _bubble))
+	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14) - BrewArt.content_offset(_drink_tex(_order["drink"])) * 2.0, 2.0, _bubble))
 	_label(title, Rect2(-120, 2, 240, 28), INK, _bubble, true)
 	Fx.rise_in(_bubble, 24.0, 0.3, 2.0)
 	for i in icons.size():   # значки подпрыгивают друг за другом
@@ -366,7 +360,7 @@ func _end_drag() -> void:
 		_add_ingredient(String(d["kind"]), String(d["id"]), drop)
 	else:   # промах: ингредиент возвращается на место
 		var src: Dictionary = d["src"]
-		_glide(ghost, (src["center"] as Vector2) + Vector2(0, -4), 0.2).tween_callback(ghost.queue_free)
+		_glide(ghost, src["rest"], 0.2).tween_callback(ghost.queue_free)
 	_refresh_cup()
 
 

@@ -17,6 +17,8 @@ var lift := 0.0:            # приподнятость при перетаск
 		lift = v
 		queue_redraw()
 var drink: Sprite2D
+var _drink_pos := DRINK_POS
+var _pastry_pos := PASTRY_POS
 var pastry: Sprite2D
 var _steam: CPUParticles2D
 var _glow: Sprite2D
@@ -45,9 +47,13 @@ func set_contents(drink_tex: Texture2D, pastry_tex: Texture2D) -> void:
 	drink.visible = drink_tex != null
 	if drink_tex != null:
 		drink.texture = drink_tex
+		_drink_pos = DRINK_POS - BrewArt.content_offset(drink_tex) * 4.0   # рисунок по центру своего места
+		drink.position = _drink_pos
 	pastry.visible = pastry_tex != null
 	if pastry_tex != null:
 		pastry.texture = pastry_tex
+		_pastry_pos = PASTRY_POS - BrewArt.content_offset(pastry_tex) * 4.0
+		pastry.position = _pastry_pos
 	_steam.emitting = drink.visible
 
 
@@ -72,14 +78,14 @@ func set_ready(on: bool) -> void:
 		if has_meta("ready_tween"):
 			(get_meta("ready_tween") as Tween).kill()
 			remove_meta("ready_tween")
-		drink.position = DRINK_POS
-		pastry.position = PASTRY_POS
+		drink.position = _drink_pos
+		pastry.position = _pastry_pos
 
 
 func _bob(u: float) -> void:
 	var dy := -4.0 * roundf(absf(sin(u * PI)))
-	drink.position.y = DRINK_POS.y + dy
-	pastry.position.y = PASTRY_POS.y + dy
+	drink.position.y = _drink_pos.y + dy
+	pastry.position.y = _pastry_pos.y + dy
 
 
 func _draw() -> void:
