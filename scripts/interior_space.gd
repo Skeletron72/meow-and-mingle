@@ -50,6 +50,7 @@ func _add(def: Dictionary) -> SpaceProp:
 	p.local_pos = ORIGIN + Vector2(p.cell) * T + Vector2(p.cells.x * T / 2.0, p.cells.y * T)
 	p.position = p.local_pos + position   # общий слой мира стоит в нуле, пространство — со смещением
 	p.set_meta("interior", true)
+	p.set_meta("upper", true)   # второй этаж: режется своим кругом
 	external_actors.add_child(p)
 	props.append(p)
 	return p

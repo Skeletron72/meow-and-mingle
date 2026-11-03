@@ -402,28 +402,38 @@ func _draw_staff() -> void:
 			draw_rect(Rect2(p, Vector2(T, T)), a)
 			draw_rect(Rect2(p.x, p.y + T - 2, T, 2), a.darkened(0.28))
 			draw_rect(Rect2(p.x + T - 2, p.y, 2, T), a.darkened(0.28))
-	var door_floor := Color("7a5238")
-	draw_rect(door, door_floor)
-	# стены: левая (колонка 6) и передняя (ряд 3), в передней — проём
-	var wall := Color("4a3d36")   # стены в разрезе — тёмная заливка, как на архитектурном плане
+	draw_rect(door, Color("7a5238"))   # пол в проёме
+	draw_rect(Rect2(door.position.x + 2, door.position.y + 8, T - 4, 16), Color("5b3d27"))   # коврик
+	# стены — невысокие перегородки (разрез дома): левая тонкая полоска от задней стены, передняя с проёмом.
+	# Штукатурка в тон стены зала, светлая кромка сверху, плинтус снизу, тёмная обводка.
+	var plaster := Color("d4c3a4")
+	var cap := Color("efe3cc")
+	var base := Color("a98763")
+	var base_y := o.y + size.y        # низ передней стены = низ ряда 3
+	var lx := o.x + T - 10.0          # левая перегородка: правый край колонки 6
+	# левая: верхняя кромка идёт от плинтуса задней стены (y 72) вниз до торца
+	draw_rect(Rect2(lx - 2, ORIGIN.y - 26, 16, base_y - ORIGIN.y + 28), ol)
+	draw_rect(Rect2(lx, ORIGIN.y - 24, 12, base_y - ORIGIN.y), cap)
+	draw_rect(Rect2(lx, base_y - 24, 12, 24), plaster)          # торец перегородки
+	draw_rect(Rect2(lx, base_y - 6, 12, 6), base)
+	draw_rect(Rect2(lx + 8, ORIGIN.y - 24, 4, base_y - ORIGIN.y - 24), plaster.darkened(0.1))   # тень на дальней кромке
+	# передняя: два куска по обе стороны проёма
 	var segs: Array[Rect2] = [
-		Rect2(o.x, o.y, T, size.y),                                     # левая
-		Rect2(o.x + T, o.y + size.y - T, door.position.x - o.x - T, T),   # передняя слева от проёма
-		Rect2(door.end.x, o.y + size.y - T, o.x + size.x - door.end.x, T),   # справа от проёма
+		Rect2(lx, base_y - 24, door.position.x - lx, 24),
+		Rect2(door.end.x, base_y - 24, o.x + size.x - door.end.x, 24),
 	]
 	for seg in segs:
-		draw_rect(seg.grow(2), ol)
-	for i in segs.size():
-		var seg := segs[i]
-		draw_rect(seg, wall)
-		draw_rect(Rect2(seg.position.x + 2, seg.position.y + 2, seg.size.x - 4, 2), wall.lightened(0.22))   # кромка среза
-		if i > 0:   # лицевая сторона передней стены: штукатурка
-			draw_rect(Rect2(seg.position.x, seg.end.y - 12, seg.size.x, 12), Color("a89a86"))
-			draw_rect(Rect2(seg.position.x, seg.end.y - 12, seg.size.x, 2), Color("c9bba6"))
-			draw_rect(Rect2(seg.position.x, seg.end.y - 4, seg.size.x, 4), Color("6d6256"))
-	for x in [door.position.x - 4, door.end.x]:   # косяки проёма
-		draw_rect(Rect2(x, door.position.y - 2, 4, T + 2), ol)
-	draw_rect(Rect2(door.position.x + 2, door.position.y + 8, T - 4, 16), Color("5b3d27"))   # коврик
+		draw_rect(Rect2(seg.position.x - 2, seg.position.y - 8, seg.size.x + 4, seg.size.y + 10), ol)
+	for seg in segs:
+		draw_rect(Rect2(seg.position.x, seg.position.y - 6, seg.size.x, 6), cap)       # кромка (верх стены)
+		draw_rect(seg, plaster)
+		draw_rect(Rect2(seg.position.x, seg.end.y - 6, seg.size.x, 6), base)            # плинтус
+		draw_rect(Rect2(seg.position.x, seg.end.y - 8, seg.size.x, 2), base.darkened(0.3))
+		for x in range(int(seg.position.x) + 14, int(seg.end.x) - 2, 32):                # вертикальные полосы обоев
+			draw_rect(Rect2(x, seg.position.y, 2, 16), plaster.darkened(0.06))
+	for x in [door.position.x - 4, door.end.x - 2]:   # косяки проёма
+		draw_rect(Rect2(x, base_y - 32, 6, 32), ol)
+		draw_rect(Rect2(x + 1, base_y - 31, 4, 4), cap)
 
 
 # ---------------------------------------------------------------- проверка размещения

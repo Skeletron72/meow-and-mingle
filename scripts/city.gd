@@ -14,7 +14,8 @@ extends Node2D
 
 const STREET_SCENE := "res://scenes/street.tscn"
 const SPACE_CAFE := 0
-const SPACE_UP := 2   # второй этаж; служебка — часть зала (CafeRoom)
+const SPACE_UP := 2   # второй этаж стоит в мире выше первого (UPPER_DY); служебка — часть зала (CafeRoom)
+const UPPER_DY := 192.0   # на сколько второй этаж выше первого
 const PX := 2
 const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
@@ -66,7 +67,12 @@ var _glass: Array[WindowGlass] = []        # стёкла окон фасадо�
 var _space := SPACE_CAFE                   # где сейчас кот: зал кафе, коморка или жилая зона (все стоят в одном месте здания)
 var _spaces: Dictionary = {}               # SPACE_UP → InteriorSpace (жилая зона)
 var _pending_portal: Dictionary = {}       # дверь или лестница, к которой кот идёт
-var _fade: ColorRect                       # затемнение при переходе между помещениями
+var _fade: ColorRect                       # затемнение (сон)
+var _upper_rect := Rect2()                 # габарит второго этажа в мире
+var _upper_hole_mat: ShaderMaterial        # вырез в фасаде второго этажа
+var _clip_mat_up: ShaderMaterial           # обрезка мебели второго этажа
+var _upper_sprite: Sprite2D                # фасад пристроенного второго этажа
+var _floor_nav := FloorNav.new()           # сетка ходьбы второго этажа
 var _fading := false
 var _pending := ""                      # действие по прибытии: "shift"
 var _pressing := false
@@ -95,6 +101,11 @@ func _ready() -> void:
 	_hole_mat.shader = HOLE_SHADER
 	_clip_mat = ShaderMaterial.new()
 	_clip_mat.shader = CLIP_SHADER
+	_upper_hole_mat = ShaderMaterial.new()
+	_upper_hole_mat.shader = HOLE_SHADER
+	_upper_hole_mat.set_shader_parameter("roof_frac", 0.25)
+	_clip_mat_up = ShaderMaterial.new()
+	_clip_mat_up.shader = CLIP_SHADER
 	_ground_mat = ShaderMaterial.new()
 	_ground_mat.shader = GROUND_WEATHER_SHADER
 	for mode in [0, 1, 2]:
@@ -104,6 +115,7 @@ func _ready() -> void:
 		_prop_mats[mode] = pm
 	_build_sky()
 	_build_world()
+	_refresh_upper()   # предметы двора уже в слое — убираем те, на которые наползает пристройка
 	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
@@ -187,6 +199,7 @@ func _build_world() -> void:
 	_room.external_actors = _actors
 	_room.set_layout(GameState.layout)
 	_build_spaces()
+	_build_upper_glows()
 
 	var block_cells: Array[Vector2i] = []
 	for node in _level.get_node("Props").get_children():
@@ -241,15 +254,56 @@ func _build_world() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
-## Жилая зона на втором этаже: стоит под фасадом там же, где зал; показывается вместо него (см. _set_space).
+## Второй этаж — пристройка над кафе: свой фасад (крыша, окна) и своя комната 10×7, стоящая в мире выше первого этажа.
+## Поднявшись по лестнице, кот попадает туда по-настоящему: камера плывёт вверх, у него своя сетка ходьбы (FloorNav),
+## а первый этаж остаётся закрытым фасадом. Пока «Второй этаж» не куплен, пристройки нет.
 func _build_spaces() -> void:
+	_upper_rect = Rect2(_room.position.x, _room.position.y - UPPER_DY, 320, 320)
 	var sp := InteriorSpace.new()
-	sp.position = _room.position
+	sp.position = _upper_rect.position
 	_world.add_child(sp)
 	_world.move_child(sp, _room.get_index() + 1)   # под зданиями, как и зал
 	sp.setup(InteriorSpace.Kind.UP, _actors)
 	_spaces[SPACE_UP] = sp
+	_floor_nav.setup(_upper_rect.position + InteriorSpace.ORIGIN, sp.walk_mask())
+	_upper_sprite = Sprite2D.new()   # фасад в слое актёров: сортируется по низу и закрывает двор, пока не вырезан кругом
+	_upper_sprite.texture = PixelArt.upper_story(160, 160)
+	_upper_sprite.centered = false
+	_upper_sprite.scale = Vector2(2, 2)
+	_upper_sprite.offset = Vector2(0, -160)
+	_upper_sprite.position = Vector2(_upper_rect.position.x, _upper_rect.end.y)
+	_upper_sprite.material = _upper_hole_mat
+	_actors.add_child(_upper_sprite)
+	_upper_sprite.set_meta("upper_facade", true)
 	_room.refresh_staff()
+	_refresh_upper()
+
+
+## Второй этаж виден, только когда куплен: надстройка появляется, двор под ней освобождается (предметы убираются).
+func _refresh_upper() -> void:
+	var owned := GameState.has_upgrade("upstairs")
+	_upper_sprite.visible = owned
+	(_spaces[SPACE_UP] as InteriorSpace).set_active(owned)
+	for ch in _actors.get_children():   # предметы двора, на которые наползает пристройка, убираем
+		if ch is StreetProp and ch.texture != null and ch != _upper_sprite:
+			var w: float = ch.texture.get_width() * 2.0
+			var h: float = ch.texture.get_height() * 2.0
+			var rect := Rect2(ch.position.x - w / 2.0, ch.position.y - h, w, h)
+			if rect.intersects(_upper_rect) and ch.position.y < _upper_rect.end.y:
+				ch.visible = not owned
+
+
+## Светится ли второй этаж ночью: окна фасада.
+func _build_upper_glows() -> void:
+	for wx in [18, 98]:
+		var r := ColorRect.new()
+		r.position = _upper_rect.position + Vector2(wx + 3, 40 + 22 + 3) * PX
+		r.size = Vector2(38, 40) * PX
+		r.color = Color(1.0, 0.78, 0.36)
+		r.material = _add_mat
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_glow.add_child(r)
+		_glows.append({"node": r, "base": 0.5, "cafe": false, "upper": true})
 
 
 ## Витрина кафе: боковые окна прозрачны (сквозь них виден зал), в проёме — раздвижная стеклянная дверь.
@@ -278,7 +332,7 @@ func _update_door() -> void:
 	if _door == null:
 		return
 	var open := false
-	if _nav.is_entrance_open() and _space == SPACE_CAFE:
+	if _nav.is_entrance_open():
 		var c := _door.rect.get_center()
 		var cats: Array[Node2D] = [_player]
 		for n in _npcs:
@@ -661,30 +715,44 @@ func _process(delta: float) -> void:
 
 ## Насколько глубоко в здание зашли лапки: 0 — снаружи (у фасада и дальше), 1 — полностью внутри.
 func _depth(feet: Vector2) -> float:
-	if feet.x < _interior_rect.position.x or feet.x > _interior_rect.end.x:
-		return 0.0
-	return clampf((_interior_rect.end.y - feet.y + 6.0) / DEPTH_ZONE, 0.0, 1.0)
+	for rect in [_interior_rect, _upper_rect]:
+		if rect == _upper_rect and not GameState.has_upgrade("upstairs"):
+			continue
+		if feet.x >= rect.position.x and feet.x <= rect.end.x and feet.y <= rect.end.y + 6.0 and feet.y >= rect.position.y:
+			return clampf((rect.end.y - feet.y + 6.0) / DEPTH_ZONE, 0.0, 1.0)
+	return 0.0
 
 
 ## Рентген — пиксельная диафрагма: пока игрок внутри здания, круг вокруг него расходится и вырезает фасад;
 ## вышел — круг сжимается к нему. Радиус считается от лапок игрока.
 func _update_xray(delta: float) -> void:
 	var center := _player.position
-	_iris_max = _farthest_corner(center) + 8.0   # с запасом, чтобы круг гарантированно накрыл весь интерьер
+	var rect := _floor_rect()
+	_iris_max = _farthest_corner(center, rect) + 8.0   # с запасом, чтобы круг гарантированно накрыл весь интерьер
 	var target := _iris_max if _depth(center) > 0.05 else 0.0
 	_iris_r = move_toward(_iris_r, target, (IRIS_OPEN_SPEED if target > _iris_r else IRIS_CLOSE_SPEED) * delta)
 	_iris_r = minf(_iris_r, _iris_max)
 	_xray = clampf(_iris_r / _iris_max, 0.0, 1.0)
+	var lower := _space == SPACE_CAFE
 	var hole := Vector4(_interior_rect.position.x, _interior_rect.position.y, _interior_rect.size.x, _interior_rect.size.y)
 	var inner := Vector4(hole.x, hole.y, hole.z, hole.w - T)   # без переднего ряда (витрины): гости на тротуаре не режутся
+	var r_low := _iris_r if lower else 0.0
 	_hole_mat.set_shader_parameter("center", center)
-	_hole_mat.set_shader_parameter("radius", _iris_r)
+	_hole_mat.set_shader_parameter("radius", r_low)
 	_hole_mat.set_shader_parameter("region", hole)
 	if _door != null:
-		_door.set_iris(center, _iris_r, hole)
+		_door.set_iris(center, r_low, hole)
 	_clip_mat.set_shader_parameter("center", center)
-	_clip_mat.set_shader_parameter("radius", _iris_r)
+	_clip_mat.set_shader_parameter("radius", r_low)
 	_clip_mat.set_shader_parameter("region", inner)
+	var up_hole := Vector4(_upper_rect.position.x, _upper_rect.position.y, _upper_rect.size.x, _upper_rect.size.y)
+	var r_up := 0.0 if lower else _iris_r
+	_upper_hole_mat.set_shader_parameter("center", center)
+	_upper_hole_mat.set_shader_parameter("radius", r_up)
+	_upper_hole_mat.set_shader_parameter("region", up_hole)
+	_clip_mat_up.set_shader_parameter("center", center)
+	_clip_mat_up.set_shader_parameter("radius", r_up)
+	_clip_mat_up.set_shader_parameter("region", up_hole)
 	_update_weather_mask()
 
 
@@ -693,21 +761,24 @@ func _update_weather_mask() -> void:
 	if _weather_fx == null or _camera == null:
 		return
 	var xf := _world.get_global_transform_with_canvas()
-	var a := xf * _interior_rect.position
-	var b := xf * _interior_rect.end
+	var rect := _floor_rect()
+	var a := xf * rect.position
+	var b := xf * rect.end
 	_weather_fx.set_mask(Rect2(a, b - a), _xray)
 
 
-func _farthest_corner(from: Vector2) -> float:
+func _farthest_corner(from: Vector2, rect: Rect2) -> float:
 	var far := 0.0
-	for c in [_interior_rect.position, Vector2(_interior_rect.end.x, _interior_rect.position.y), Vector2(_interior_rect.position.x, _interior_rect.end.y), _interior_rect.end]:
+	for c in [rect.position, Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), rect.end]:
 		far = maxf(far, from.distance_to(c))
 	return far
 
 
 ## Виден ли предмет в точке: снаружи здания — всегда, внутри — если его накрывает круг рентгена.
 func is_revealed(p: Vector2) -> bool:
-	return _depth(p) < 0.05 or p.distance_to(_player.position) < _iris_r
+	if _depth(p) < 0.05:
+		return true
+	return _floor_rect().has_point(p) and p.distance_to(_player.position) < _iris_r   # только свой этаж
 
 
 ## Мебель и гости внутри здания рисуются поверх фасада, поэтому им нужен материал обрезки по кругу.
@@ -716,7 +787,7 @@ func _apply_clip_materials() -> void:
 		if ch is CatWalker and ch != _player:
 			(ch as CatWalker).use_clip_material(_clip_mat)
 		elif ch.has_meta("interior"):
-			(ch as Node2D).material = _clip_mat
+			(ch as Node2D).material = _clip_mat_up if ch.has_meta("upper") else _clip_mat
 			for sub in ch.get_children():
 				(sub as CanvasItem).use_parent_material = true
 
@@ -731,21 +802,24 @@ func _apply_daylight() -> void:
 	var lit := clampf(night + Weather.overcast() * 0.3, 0.0, 1.0)   # в пасмурную погоду окна и фонари зажигаются раньше
 	_ground.modulate = amb
 	_buildings.modulate = amb
-	_room.visible = _space == SPACE_CAFE   # зал виден сквозь прозрачные окна и дверь (если кот не в коморке или наверху)
+	_room.visible = true   # зал виден сквозь прозрачные окна и дверь
 	for k in _spaces:
 		(_spaces[k] as CanvasItem).modulate = ind
 	_room.modulate = ind
 	for ch in _actors.get_children():
 		if ch is CatWalker:
 			ch.modulate = amb.lerp(ind, _depth(ch.position))
-			if ch != _player:   # гости зала не видны, пока кот в коморке или наверху
-				ch.visible = _space == SPACE_CAFE or _depth(ch.position) < 0.05
+
 		elif ch.has_meta("interior"):
 			ch.modulate = ind
 		else:
 			ch.modulate = amb
 	for g in _glows:
-		var f := (1.0 - _xray) if g["cafe"] else 1.0
+		var f := 1.0
+		if g["cafe"]:
+			f = 1.0 - (_xray if _space == SPACE_CAFE else 0.0)
+		elif g.has("upper"):
+			f = 1.0 - (_xray if _space == SPACE_UP else 0.0)
 		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * lit * f
 	for car in _traffic.cars():
 		if car.halo != null:
@@ -803,8 +877,7 @@ func _on_player_arrived() -> void:
 	if _pending == "shift" and _in_counter_zone():
 		_start_shift()
 	elif _pending == "portal" and not _pending_portal.is_empty():
-		var room_cell := _nav.interior_cells().position
-		if (WorldNav.cell_of_feet(_player.position) - room_cell) in (_pending_portal["stand"] as Array):
+		if _local_cell(_player.position) in (_pending_portal["stand"] as Array):
 			_use_portal(_pending_portal)
 			return
 	_pending = ""
@@ -845,28 +918,54 @@ func _with_fade(action: Callable) -> void:
 	t.tween_callback(func() -> void: _fading = false)
 
 
-## Переход в другое помещение: затемнение, смена, проявление.
+## Переход на другой этаж: кот оказывается наверху (внизу), камера плывёт к нему, круг рентгена переходит на другой фасад.
 func _go_space(space: int, arrive: Vector2i) -> void:
-	_with_fade(_set_space.bind(space, arrive))
+	if _fading:
+		return
+	Fx.burst(_actors, _player.position + Vector2(0, -20), "puff", Color(0.85, 0.8, 0.7), 5, 60.0, -10.0, 0.7, 1.0, 120.0)
+	_set_space(space, arrive)
+	Fx.burst(_actors, _player.position + Vector2(0, -20), "puff", Color(0.85, 0.8, 0.7), 5, 60.0, -10.0, 0.7, 1.0, 120.0)
 
 
 ## Мгновенно переключает помещение: что рисуем, где ходит кот, кто виден. arrive — клетка зала (локальная), (-1,-1) — остаться на месте.
 func _set_space(space: int, arrive: Vector2i) -> void:
+	var changed := space != _space
 	_space = space
 	_pending = ""
 	_pending_portal = {}
-	_room.set_present(space == SPACE_CAFE)
-	for k in _spaces:
-		(_spaces[k] as InteriorSpace).set_active(k == space)
-	var mask := _room.walk_mask() if space == SPACE_CAFE else (_spaces[space] as InteriorSpace).walk_mask()
-	_nav.set_interior_mask(mask, space == SPACE_CAFE)
+	_nav.set_interior_mask(_room.walk_mask(), true)
+	_floor_nav.rebuild((_spaces[SPACE_UP] as InteriorSpace).walk_mask())
+	_player.nav = _nav if space == SPACE_CAFE else _floor_nav
+	if changed:
+		_iris_r = 0.0   # новый этаж раскрывается заново
 	if arrive.x >= 0:
-		var room_cell := _nav.interior_cells().position
-		var cell := _nav.nearest_free_cell(room_cell + arrive)
 		_player.stop()
-		_player.position = WorldNav.feet_at(cell)
-		_camera.position = _camera_target()
-		_camera.reset_smoothing()
+		if space == SPACE_CAFE:
+			var cell := _nav.nearest_free_cell(_nav.interior_cells().position + arrive)
+			_player.position = WorldNav.feet_at(cell)
+		else:
+			_player.position = _floor_nav.feet_at(_floor_nav.nearest_free_cell(arrive))
+		if not changed:
+			_camera.position = _camera_target()
+			_camera.reset_smoothing()
+
+
+## Клетка кота на этаже, где он сейчас (локальные клетки пола 10×7).
+func _local_cell(feet: Vector2) -> Vector2i:
+	if _space == SPACE_UP:
+		return _floor_nav.cell_of_feet(feet)
+	return WorldNav.cell_of_feet(feet) - _nav.interior_cells().position
+
+
+func _local_feet(cell: Vector2i) -> Vector2:
+	if _space == SPACE_UP:
+		return _floor_nav.feet_at(cell)
+	return WorldNav.feet_at(_nav.interior_cells().position + cell)
+
+
+## Габарит этажа, на котором кот.
+func _floor_rect() -> Rect2:
+	return _upper_rect if _space == SPACE_UP else _interior_rect
 
 
 ## Куда ведёт дверь или лестница и что для этого нужно.
@@ -886,8 +985,7 @@ func _tap_portal(d: Dictionary, world_p: Vector2) -> void:
 		_toast(gate, world_p)
 		return
 	var stand: Array = d["stand"]
-	var room_cell := _nav.interior_cells().position
-	var here := WorldNav.cell_of_feet(_player.position) - room_cell
+	var here := _local_cell(_player.position)
 	_pending = "portal"
 	_pending_portal = d
 	if here in stand:
@@ -895,9 +993,9 @@ func _tap_portal(d: Dictionary, world_p: Vector2) -> void:
 		return
 	var best: Vector2i = stand[0]
 	for c: Vector2i in stand:
-		if WorldNav.feet_at(room_cell + c).distance_to(_player.position) < WorldNav.feet_at(room_cell + best).distance_to(_player.position):
+		if _local_feet(c).distance_to(_player.position) < _local_feet(best).distance_to(_player.position):
 			best = c
-	_player.walk_to(WorldNav.feet_at(room_cell + best))
+	_player.walk_to(_local_feet(best))
 
 
 func _use_portal(d: Dictionary) -> void:
@@ -907,7 +1005,7 @@ func _use_portal(d: Dictionary) -> void:
 		"cafe":   # со второго этажа вниз, в служебку
 			_go_space(SPACE_CAFE, CafeRoom.STAIRS_STAND[0])
 		"up":
-			_go_space(SPACE_UP, Vector2i(9, 2))
+			_go_space(SPACE_UP, InteriorSpace.STAIRS_STAND[2])
 		_:
 			_sleep()
 
@@ -927,6 +1025,7 @@ func _sleep() -> void:
 func _on_upgrade_bought(id: String) -> void:
 	if id == "back_room" or id == "upstairs":
 		_room.refresh_staff()
+		_refresh_upper()
 		_set_space(_space, Vector2i(-1, -1))   # проходимость служебки меняется сразу
 		var at := _room.position + CafeRoom.ORIGIN + Vector2(CafeRoom.STAFF_DOOR) * CafeRoom.T + Vector2(16, 0)
 		Fx.burst(_actors, at, "puff", Color(0.85, 0.8, 0.7), 8, 80.0, -10.0, 0.9, 1.0, 120.0)
@@ -957,8 +1056,6 @@ func _on_car_removed(car: Car) -> void:
 ## Раз в несколько секунд кот выбирает новую цель: погулять там же, где он, или перейти в другое место
 ## (с улицы в зал или из зала на улицу) — путь проходит через проём входа.
 func _npc_tick(delta: float) -> void:
-	if _space != SPACE_CAFE:
-		return   # гости ждут в зале, пока кот в других помещениях
 	for n in _npcs:
 		var cat: CatWalker = n["cat"]
 		if cat.is_moving():
@@ -1006,8 +1103,8 @@ func _on_press(p: Vector2) -> void:
 		if not b.is_cafe and b.world_rect().has_point(p):
 			_toast("Здесь закрыто", p)
 			return
-	if _interior_rect.has_point(p) and is_revealed(p) and _space != SPACE_CAFE:
-		var d := (_spaces[_space] as InteriorSpace).portal_at(p - _room.position)
+	if _space == SPACE_UP and _upper_rect.has_point(p) and is_revealed(p):
+		var d := (_spaces[_space] as InteriorSpace).portal_at(p - _upper_rect.position)
 		if not d.is_empty():
 			_tap_portal(d, p)
 			return

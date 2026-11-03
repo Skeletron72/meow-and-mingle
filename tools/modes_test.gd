@@ -446,7 +446,7 @@ func _test_city() -> void:
 	for ch in city._actors.get_children():
 		if ch.has_meta("interior"):
 			furniture += 1
-			_check((ch as Node2D).material == city._clip_mat, "у мебели кафе есть материал обрезки по кругу")
+			_check((ch as Node2D).material == (city._clip_mat_up if ch.has_meta("upper") else city._clip_mat), "у мебели кафе есть материал обрезки по кругу")
 	_check(furniture >= 3, "мебель из раскладки есть в общем слое (%d)" % furniture)
 	_check((guest.material == city._clip_mat) and player.material == null, "гости обрезаются кругом, игрок всегда виден")
 	# камера следует по двум осям
@@ -1170,6 +1170,9 @@ func _test_weather() -> void:
 	var nav: WorldNav = city.get("_nav")
 	var rc := nav.interior_cells().position
 	var player: CatWalker = city.get("_player")
+	for n in city.get("_npcs"):   # гости не у двери: иначе она откроется для них
+		(n["cat"] as CatWalker).position = WorldNav.feet_at(Vector2i(75, 23))
+		n["timer"] = 1000.0
 	player.position = WorldNav.feet_at(rc + Vector2i(5, 9))   # далеко на тротуаре
 	city.call("_update_door")
 	await get_tree().create_timer(0.6).timeout
@@ -1261,15 +1264,23 @@ func _test_spaces() -> void:
 	player.position = WorldNav.feet_at(rc + CafeRoom.STAIRS_STAND[0])
 	city.call("_tap_portal", stairs_hit, Vector2(600, 600))
 	await get_tree().create_timer(0.9).timeout
-	_check(city.get("_space") == 2 and not city.get("_fading"), "по лестнице кот поднялся в жилую зону")
+	_check(city.get("_space") == 2, "по лестнице кот поднялся в жилую зону")
+	var up_rect: Rect2 = city.get("_upper_rect")
+	var floor_nav: FloorNav = city.get("_floor_nav")
+	_check(up_rect.position.y < croom.position.y and up_rect.end.y <= croom.position.y + 320.0, "второй этаж стоит в мире выше первого: %s" % up_rect)
+	_check(up_rect.has_point(player.position) and player.nav == floor_nav, "кот наверху: на втором этаже и со своей сеткой ходьбы")
+	_check(not floor_nav.is_walkable(Vector2i(3, 0)) and not floor_nav.is_walkable(Vector2i(4, 1)), "кровать занимает клетки")
+	_check(not floor_nav.find_path(player.position, floor_nav.feet_at(InteriorSpace.BED_STAND[0])).is_empty(), "до кровати можно дойти")
+	# с этажа не выйти: путь «на улицу» упирается в стены
+	var out := floor_nav.find_path(player.position, Vector2(up_rect.end.x + 200.0, up_rect.end.y + 200.0))
+	for pt in out:
+		_check(up_rect.has_point(pt), "кот наверху не выходит за стены этажа: %s" % pt)
 	city.call("_apply_daylight")
-	_check(not croom.visible and city.get("_spaces")[2].visible, "зал спрятан, жилая зона видна")
-	_check(not nav.is_walkable(rc + Vector2i(3, 0)) and not nav.is_walkable(rc + Vector2i(4, 1)), "кровать занимает клетки")
-	_check(not nav.find_path(player.position, WorldNav.feet_at(rc + InteriorSpace.BED_STAND[0])).is_empty(), "до кровати можно дойти")
-	for n in city.get("_npcs"):   # гости зала наверху не видны
+	city.call("_update_xray", 5.0)
+	_check(city.get("_upper_hole_mat").get_shader_parameter("radius") > 1.0 and is_zero_approx(float(city.get("_hole_mat").get_shader_parameter("radius"))), "рентген открыт у второго этажа, первый закрыт")
+	for n in city.get("_npcs"):   # гости зала остаются внизу и наверху не видны
 		var cat: CatWalker = n["cat"]
-		if city.call("_depth", cat.position) > 0.05:
-			_check(not cat.visible, "гость зала спрятан, пока кот наверху")
+		_check(not city.call("is_revealed", cat.position) or city.call("_depth", cat.position) < 0.05, "гость первого этажа не виден, пока кот на втором")
 	# сон: ночью — до утра
 	TimeOfDay.hour = 22.0
 	city.call("_sleep")
@@ -1281,7 +1292,7 @@ func _test_spaces() -> void:
 	_check(city.get("_space") == 0, "лестница вниз ведёт в служебку")
 	_check(nav.is_walkable(rc + Vector2i(5, 4)) and nav.is_walkable(rc + CafeRoom.STAFF_DOOR), "в зале снова проходимы его клетки")
 	var back_cell := WorldNav.cell_of_feet(player.position) - rc
-	_check(CafeRoom.STAFF_INNER.has_point(back_cell), "кот вышел из лестницы внутри служебки: %s" % back_cell)
+	_check(CafeRoom.STAFF_INNER.has_point(back_cell) and player.nav == nav, "кот спустился в служебку и снова ходит по городской сетке: %s" % back_cell)
 	# магазин показывает все шесть улучшений
 	GameState.upgrades = []
 	city.call("_open_shop")
