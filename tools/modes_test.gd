@@ -40,6 +40,7 @@ func _ready() -> void:
 	await _test_weather()
 	await _test_spaces()
 	await _test_levels()
+	await _test_text_and_hops()
 	await _test_intro_fixes()
 	if _failed:
 		get_tree().quit(1)
@@ -1468,4 +1469,47 @@ func _test_intro_fixes() -> void:
 	Weather.force(Weather.Kind.CLEAR)
 	Weather.set_mode(Weather.AUTO)
 	c2.queue_free()
+	await get_tree().process_frame
+
+
+## Подписи: не прыгают (чётная сетка), подбирают узкий шрифт, дрейфа монеты нет.
+func _test_text_and_hops() -> void:
+	var holder := Node2D.new()
+	add_child(holder)
+	var l := Ui.label("Коротко", Rect2(10, 10, 200, 28), Ui.FONT_SIZE, Color.WHITE, holder)
+	_check(fmod(l.position.y, 2.0) == 0.0 and l.vertical_alignment == VERTICAL_ALIGNMENT_TOP, "подпись стоит на чётной сетке и не центрируется дробно")
+	var long_text := "Очень длинная подпись которая не влезает"
+	var l2 := Ui.label(long_text, Rect2(0, 0, 160, 28), Ui.FONT_SIZE, Color.WHITE, holder)
+	_check(l2.has_theme_font_override("font"), "длинная подпись переключилась на узкий шрифт")
+	_check(l2.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS, "то, что не влезло и в узком, обрезается многоточием")
+	var b := Ui.button("Погода: Авто", Rect2(0, 0, 252, 52), "cloud", holder)
+	Ui.set_button_text(b, "Погода: Снегопад очень сильный")
+	_check(b.has_theme_font_override("font"), "длинная подпись кнопки — узкий шрифт")
+	# повторные подскоки не уводят узел вверх
+	var n := Node2D.new()
+	n.position = Vector2(30, 40)
+	holder.add_child(n)
+	for i in 5:
+		Fx.hop(n, 8.0, 0.2, 2.0)
+		await get_tree().create_timer(0.07).timeout
+	await get_tree().create_timer(0.4).timeout
+	_check(is_equal_approx(n.position.y, 40.0), "иконка после серии подскоков вернулась на место, а не уплыла: %s" % n.position.y)
+	for i in 4:
+		Fx.shake(n, 6.0, 0.2, 4, 2.0)
+		await get_tree().create_timer(0.05).timeout
+	await get_tree().create_timer(0.4).timeout
+	_check(n.position == Vector2(30, 40), "после серии тряски узел на месте: %s" % n.position)
+	# в смене иконка монет стоит по центру плашки над тенью и не уплывает при серии монет
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = _quick_level(2, 30.0, 0.3)
+	add_child(m)
+	await get_tree().process_frame
+	var rest: float = m._coin_icon.position.y
+	for i in 6:
+		m._on_coin_landed()
+		await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.5).timeout
+	_check(is_equal_approx(m._coin_icon.position.y, rest), "иконка монет при серии начислений остаётся на месте: %s -> %s" % [rest, m._coin_icon.position.y])
+	m.queue_free()
+	holder.queue_free()
 	await get_tree().process_frame

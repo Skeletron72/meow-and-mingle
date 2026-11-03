@@ -227,9 +227,17 @@ static func pop_in(n: Node2D, time := 0.5, delay := 0.0) -> void:
 
 
 ## Подскок на месте строго по сетке: узел не масштабируется и не вращается, высота кратна step.
+## Исходная высота запоминается один раз: если подскок повторили, пока идёт прошлый, узел не «уплывает» вверх.
 static func hop(n: Node2D, height := 8.0, time := 0.3, step := 4.0) -> void:
 	var base_y := n.position.y
+	if n.has_meta("hop_tween"):
+		var old: Tween = n.get_meta("hop_tween")
+		if old != null and old.is_valid():
+			old.kill()
+			base_y = float(n.get_meta("hop_base"))   # прошлый подскок не закончился — отсчёт от его исходной точки
+	n.set_meta("hop_base", base_y)
 	var t := n.create_tween()
+	n.set_meta("hop_tween", t)
 	t.tween_method(func(u: float) -> void: n.position.y = base_y - snappedf(sin(u * PI) * height, step), 0.0, 1.0, time)
 	t.tween_callback(func() -> void: n.position.y = base_y)
 
@@ -262,7 +270,14 @@ static func squash_hop(n: Node2D, height := 18.0) -> void:
 ## Тряска по горизонтали (отрицательный ответ «нет» или удар).
 static func shake(n: Node2D, amp := 6.0, time := 0.35, shakes := 6, step := 2.0) -> void:
 	var base := n.position
+	if n.has_meta("shake_tween"):
+		var old: Tween = n.get_meta("shake_tween")
+		if old != null and old.is_valid():
+			old.kill()
+			base = n.get_meta("shake_base")   # прошлая тряска не закончилась — возвращаем в исходную точку, а не накапливаем сдвиг
+	n.set_meta("shake_base", base)
 	var t := n.create_tween()
+	n.set_meta("shake_tween", t)
 	for i in shakes:
 		var k := 1.0 - float(i) / float(shakes)
 		t.tween_property(n, "position:x", base.x + snappedf((amp if i % 2 == 0 else -amp) * k, step), time / shakes)

@@ -20,7 +20,7 @@ const BUBBLE_Y := 142.0
 const TUTORIAL_GAP := 1.0   # в обучении: пауза до следующего кота
 const PASTRY_CHANCE := 0.5
 const BIN_POS := Vector2(320, 360)
-const COIN_POS := Vector2(28, 26)
+const COIN_POS := Vector2(28, 20)   # по центру области плашки над нижней тенью
 const INK := Ui.INK
 
 const COFFEE_SHEET: Texture2D = preload("res://assets/cafe/drinks-and-pastries.png")  # сетка 16x16, 5 колонок
@@ -199,7 +199,7 @@ func _build_hud() -> void:
 	Ui.panel(Rect2(8, 6, 108, 40), Ui.UI_CREAM, self).z_index = 80
 	_coin_icon = _sprite(_atlas(ICONS, Rect2(210, 209, 11, 14)), COIN_POS, 2.0)
 	_coin_icon.z_index = 81
-	_coins_label = _label("0", Rect2(44, 8, 68, 36), INK)
+	_coins_label = _label("0", Rect2(44, 6, 68, 28), INK)
 	_coins_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_coins_label.z_index = 81
 	_served_label = _label("", Rect2(124, 8, 166, 32), Color("fff1d6"), null, true)
@@ -785,7 +785,7 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	dim.size = Vector2(360, 640)
 	dim.color = Color(0, 0, 0, 0.55)
 	_result.add_child(dim)
-	Ui.panel(Rect2(24, 116, 312, 400), Ui.UI_WOOD, _result)
+	Ui.panel(Rect2(24, 108, 312, 436), Ui.UI_WOOD, _result)
 	var done := mask & 1 != 0
 	Ui.label("Смена пройдена!" if done else "Смена не удалась", Rect2(24, 128, 312, 36), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 	Ui.label(String(level.get("name", "")), Rect2(24, 158, 312, 28), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _result, HORIZONTAL_ALIGNMENT_CENTER, true)

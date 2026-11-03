@@ -465,10 +465,10 @@ func _build_ui() -> void:
 	Ui.panel(Rect2(8, 8, 104, 40), Ui.UI_CREAM, _ui)
 	var coin := Sprite2D.new()
 	coin.texture = Ui.icon("coin")
-	coin.position = Vector2(28, 28)
+	coin.position = Vector2(28, 22)   # по центру области рамки над нижней тенью
 	coin.scale = Vector2(2, 2)
 	_ui.add_child(coin)
-	_coins_label = Ui.label(str(GameState.coins), Rect2(44, 10, 64, 36), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
+	_coins_label = Ui.label(str(GameState.coins), Rect2(44, 8, 64, 28), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
 	GameState.coins_changed.connect(_on_coins_changed)  # метод, а не лямбда: отпишется вместе со сценой
 	# часы: нажатие перематывает время на час
 	_clock_btn = Ui.button("", Rect2(116, 8, 112, 40), "", _ui, false, Ui.UI_CREAM)
@@ -497,8 +497,8 @@ func _build_menu() -> void:
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
 	# главная
-	var main := _page("main", 356.0 if pc else 298.0, "Меню")
-	var top := 320.0 - (356.0 if pc else 298.0) / 2.0
+	var main := _page("main", 368.0 if pc else 310.0, "Меню")
+	var top := 320.0 - (368.0 if pc else 310.0) / 2.0
 	Ui.button("Продолжить", Rect2(54, top + 56, 252, 52), "play", main).pressed.connect(_close_menu)
 	Ui.button("Украшение", Rect2(54, top + 114, 252, 52), "brush", main).pressed.connect(_open_decorate)
 	Ui.button("Улучшения", Rect2(54, top + 172, 252, 52), "cart", main).pressed.connect(_open_shop)
@@ -508,24 +508,24 @@ func _build_menu() -> void:
 	# настройки
 	var settings := _page("settings", 268.0, "Настройки")
 	var st := 320.0 - 134.0
-	_weather_btn = Ui.button("", Rect2(54, st + 56, 252, 52), "cloud", settings)
+	_weather_btn = Ui.button("Погода: Авто", Rect2(54, st + 56, 252, 52), "cloud", settings)   # с текстом: иконка встаёт слева
 	_weather_btn.pressed.connect(_cycle_weather)
 	Ui.button("Аккаунт", Rect2(54, st + 114, 252, 52), "home", settings).pressed.connect(_menu_page.bind("account"))
 	Ui.button("Назад", Rect2(54, st + 172, 252, 52), "undo", settings).pressed.connect(_menu_page.bind("main"))
 	# аккаунт: статистика и спрятанный сброс
 	var account := _page("account", 290.0, "Аккаунт")
 	var at := 320.0 - 145.0
-	_account_stats = Ui.label("", Rect2(40, at + 52, 280, 84), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_account_stats = Ui.label("\n\n", Rect2(40, at + 52, 280, 84), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
 	Ui.button("Сбросить прогресс", Rect2(54, at + 148, 252, 48), "trash", account, true, null, true).pressed.connect(_menu_page.bind("confirm"))
 	Ui.button("Назад", Rect2(54, at + 208, 252, 52), "undo", account).pressed.connect(_menu_page.bind("settings"))
 	# подтверждение сброса
-	var confirm := _page("confirm", 250.0, "Сбросить прогресс?")
-	var ct := 320.0 - 125.0
+	var confirm := _page("confirm", 260.0, "Сбросить прогресс?")
+	var ct := 320.0 - 130.0
 	Ui.label("Игра начнётся заново.\nОтменить нельзя.", Rect2(40, ct + 52, 280, 64), Ui.FONT_SIZE, Ui.INK, confirm, HORIZONTAL_ALIGNMENT_CENTER, true)
 	Ui.button("Отмена", Rect2(54, ct + 124, 252, 52), "undo", confirm).pressed.connect(_menu_page.bind("account"))
 	Ui.button("Сбросить", Rect2(54, ct + 184, 252, 48), "trash", confirm, true, null, true).pressed.connect(_confirm_reset)
 	# магазин улучшений (карточки строятся при открытии)
-	_shop_page = _page("shop", 548.0, "Улучшения")
+	_shop_page = _page("shop", 590.0, "Улучшения")
 	_menu_page("main")
 
 
@@ -543,13 +543,13 @@ func _page(page_name: String, height: float, title: String) -> Control:
 
 func _cycle_weather() -> void:
 	Weather.cycle_mode()
-	_weather_btn.text = tr("Погода: %s") % tr(Weather.mode_text())
+	Ui.set_button_text(_weather_btn, tr("Погода: %s") % tr(Weather.mode_text()))
 	GameState.save_game()
 
 
 func _menu_page(page_name: String) -> void:
 	if _weather_btn != null:
-		_weather_btn.text = tr("Погода: %s") % tr(Weather.mode_text())
+		Ui.set_button_text(_weather_btn, tr("Погода: %s") % tr(Weather.mode_text()))
 	for k in _menu_pages:
 		(_menu_pages[k] as Control).visible = k == page_name
 	if page_name == "account":
@@ -573,30 +573,30 @@ func _open_shop() -> void:
 func _refresh_shop() -> void:
 	for ch in _shop_page.get_children().slice(2):   # рамка и заголовок остаются
 		ch.queue_free()
-	var top := 320.0 - 274.0
-	var y := top + 54.0
+	var top := 320.0 - 295.0
+	var y := top + 56.0
 	for u in Data.upgrades:
 		var id := String(u["id"])
 		var owned := GameState.has_upgrade(id)
 		var req := String(u["requires"])
 		var locked := req != "" and not GameState.has_upgrade(req)
-		Ui.panel(Rect2(40, y, 280, 66), Ui.UI_CREAM, _shop_page)
-		Ui.label(String(u["name"]), Rect2(48, y + 4, 160, 30), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		Ui.panel(Rect2(40, y, 280, 72), Ui.UI_CREAM, _shop_page)
+		Ui.label(String(u["name"]), Rect2(48, y + 4, 160, 26), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
 		var sub := String(u["unlocks"])
 		if locked:
 			for r in Data.upgrades:
 				if String(r["id"]) == req:
 					sub = "Нужен: " + String(r["name"]).to_lower()
-		Ui.label(sub, Rect2(48, y + 32, 160, 30), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
+		Ui.label(sub, Rect2(48, y + 32, 160, 26), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
 		if owned:
-			Ui.label("Куплено", Rect2(208, y + 10, 104, 44), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
+			Ui.label("Куплено", Rect2(208, y + 4, 104, 54), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
 		else:
 			var b := Ui.button(str(int(u["price"])), Rect2(212, y + 8, 100, 48), "coin", _shop_page)
 			b.disabled = locked or GameState.coins < int(u["price"])
 			b.modulate = Color(0.65, 0.65, 0.65) if b.disabled else Color.WHITE
 			b.pressed.connect(_buy_upgrade.bind(id))
-		y += 70.0
-	Ui.button("Назад", Rect2(54, top + 54.0 + 70.0 * Data.upgrades.size() + 2.0, 252, 48), "undo", _shop_page).pressed.connect(_shop_back)
+		y += 76.0
+	Ui.button("Назад", Rect2(54, top + 56.0 + 76.0 * Data.upgrades.size() + 2.0, 252, 48), "undo", _shop_page).pressed.connect(_shop_back)
 
 
 func _shop_back() -> void:
@@ -1163,30 +1163,30 @@ func _open_levels() -> void:
 	dim.color = Color(0, 0, 0, 0.55)
 	_levels_layer.add_child(dim)
 	var n := Data.levels.size()
-	var h := 54.0 + n * 66.0 + 62.0
+	var h := 54.0 + n * 78.0 + 70.0
 	var top := 320.0 - h / 2.0
 	Ui.panel(Rect2(24, top, 312, h), Ui.UI_WOOD, _levels_layer)
 	Ui.label("Смены", Rect2(24, top + 12, 312, 36), Ui.FONT_SIZE, Ui.INK, _levels_layer, HORIZONTAL_ALIGNMENT_CENTER)
 	for i in n:
 		var lv: Dictionary = Data.levels[i]
-		var y := top + 52.0 + i * 66.0
+		var y := top + 54.0 + i * 78.0
 		var open := GameState.level_unlocked(i)
-		var b := Ui.button("", Rect2(40, y, 280, 60), "", _levels_layer)
+		var b := Ui.button("", Rect2(40, y, 280, 72), "", _levels_layer)
 		b.disabled = not open
 		b.modulate = Color.WHITE if open else Color(0.6, 0.6, 0.6)
 		b.pressed.connect(_start_level.bind(i))
-		Ui.label(String(lv["name"]), Rect2(52, y + 2, 180, 28), Ui.FONT_SIZE, Ui.CREAM, _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
-		var sub := "Нужна звезда на прошлой" if not open else "%d котов, очередь %d" % [int(lv["customers"]), int(lv["queue"])]
-		Ui.label(sub, Rect2(52, y + 30, 190, 26), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
+		Ui.label(String(lv["name"]), Rect2(52, y + 6, 180, 26), Ui.FONT_SIZE, Ui.CREAM, _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var sub := "Пока закрыто" if not open else "%d котов, очередь %d" % [int(lv["customers"]), int(lv["queue"])]
+		Ui.label(sub, Rect2(52, y + 32, 190, 26), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
 		var mask := GameState.level_mask(String(lv["id"]))
 		for k in 3:   # три звезды: пройдено, точность, скорость
 			var star := Sprite2D.new()
 			star.texture = Fx.tex("bigstar")
 			star.scale = Vector2(2, 2)
-			star.position = Vector2(262 + k * 22.0, y + 30)
+			star.position = Vector2(262 + k * 22.0, y + 29)
 			star.modulate = Color("ffd640") if (mask >> k) & 1 == 1 else Color("3d2c1c")
 			_levels_layer.add_child(star)
-	Ui.button("Назад", Rect2(54, top + h - 56.0, 252, 44), "undo", _levels_layer).pressed.connect(_close_levels)
+	Ui.button("Назад", Rect2(54, top + h - 68.0, 252, 48), "undo", _levels_layer).pressed.connect(_close_levels)
 
 
 func _close_levels() -> void:

@@ -17,6 +17,12 @@ const UI_CREAM: Texture2D = preload("res://assets/ui/SimpleColorContainer1_cream
 
 ## Основной шрифт — Galmuri11 (через тему проекта). Узкий — для длинных подписей.
 const FONT_NARROW: Font = preload("res://assets/fonts/Galmuri11-Condensed.ttf")
+const FONT_MAIN: Font = preload("res://assets/fonts/Galmuri11.ttf")
+
+## Сколько снизу у рамок занимает «тень/бортик» (px): текст и кнопки внутри рамки держим выше него.
+const SHADOW_CREAM := 12.0
+const SHADOW_WOOD := 22.0
+const SHADOW_BUTTON := 14.0
 const FONT_SIZE := 24   # 12 px шрифта × PX
 const FONT_SIZE_BIG := 48
 
@@ -80,20 +86,54 @@ static func panel(r: Rect2, tex: Texture2D, parent: Node) -> NinePatchRect:
 	return n
 
 
+## Подпись. Не прыгает и не лезет за рамку:
+## - вертикально ставится на чётные пиксели (иначе строки шрифта съезжают на пол-пикселя сетки), всегда сверху вниз от рассчитанной точки;
+## - если текст шире рамки, берётся узкий шрифт, а если и он не влезает — обрезается многоточием.
 static func label(text: String, r: Rect2, font_size: int, color: Color, parent: Node, align := HORIZONTAL_ALIGNMENT_CENTER, narrow := false) -> Label:
 	var l := Label.new()
+	var font: Font = FONT_NARROW if narrow else FONT_MAIN
+	var lines := text.split("\n")
+	if not narrow and _text_width(font, lines, font_size) > r.size.x:   # автоподбор: длинная строка — узкий шрифт
+		font = FONT_NARROW
+		narrow = true
 	l.text = text
-	l.position = r.position
-	l.size = r.size
 	l.horizontal_alignment = align
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	if narrow:
 		l.add_theme_font_override("font", FONT_NARROW)
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var lh := font.get_height(font_size) * float(maxi(1, lines.size()))
+	var top := floorf(maxf(0.0, r.size.y - lh) / 2.0 / float(PX)) * float(PX)   # чётный сдвиг от верха рамки
+	l.position = Vector2(r.position.x, r.position.y + top)
+	l.size = Vector2(r.size.x, maxf(lh, r.size.y - top))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	return l
+
+
+static func _text_width(font: Font, lines: PackedStringArray, font_size: int) -> float:
+	var w := 0.0
+	for line in lines:
+		w = maxf(w, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + float(PX) * 2.0)   # + обводка
+	return w
+
+
+## Область рамки без нижней тени: сюда ставим текст и кнопки.
+static func inner(r: Rect2, shadow: float) -> Rect2:
+	return Rect2(r.position, Vector2(r.size.x, r.size.y - shadow))
+
+
+## Меняет подпись кнопки с проверкой «влезает»: длинная — узким шрифтом (иконка слева учитывается).
+static func set_button_text(b: Button, text: String) -> void:
+	b.text = text
+	var pad := 4.0 + (b.get_meta("icon_pad", 0.0) as float)
+	var wide := FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + PX * 2.0 + pad + 4.0 > b.size.x - 8.0
+	if wide:
+		b.add_theme_font_override("font", FONT_NARROW)
+	else:
+		b.remove_theme_font_override("font")
 
 
 ## Кнопка на nine-patch. Без текста — кнопка-иконка. Размер округляется до чётного.
@@ -108,11 +148,13 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 	var pad := 0.0
 	if icon_name != "" and text != "":
 		pad = (ICON_RECTS[icon_name] as Rect2).size.x * PX + 8.0
+	if not narrow and text != "" and FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 8.0 + PX * 2.0 + pad > b.size.x - 8.0:
+		narrow = true   # длинная подпись на кнопке — узкий шрифт
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var sb := StyleBoxEmpty.new()
 		sb.content_margin_left = 4.0 + pad
 		sb.content_margin_right = 4.0
-		sb.content_margin_bottom = 6.0   # текст чуть выше нижнего бортика
+		sb.content_margin_bottom = SHADOW_BUTTON   # текст по центру области над нижним бортиком кнопки
 		b.add_theme_stylebox_override(state, sb)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, CREAM)
@@ -121,6 +163,7 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 	b.add_theme_font_size_override("font_size", FONT_SIZE)
 	if narrow:
 		b.add_theme_font_override("font", FONT_NARROW)
+	b.set_meta("icon_pad", pad)
 	var skin := panel(Rect2(Vector2.ZERO, b.size), tex if tex else UI_BTN, b)
 	skin.show_behind_parent = true
 	if danger:
@@ -137,7 +180,7 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 		tr_.stretch_mode = TextureRect.STRETCH_SCALE
 		tr_.size = region.size * PX
 		var x := 8.0 if text != "" else floorf((b.size.x - tr_.size.x) / (2.0 * PX)) * PX
-		tr_.position = Vector2(x, floorf((b.size.y - tr_.size.y) / (2.0 * PX)) * PX - 2.0)
+		tr_.position = Vector2(x, floorf((b.size.y - SHADOW_BUTTON - tr_.size.y) / (2.0 * PX)) * PX)
 		tr_.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(tr_)
 	return b
