@@ -16,6 +16,7 @@ var _sprite: Sprite2D
 var _idle: Tween
 var _blink: Timer
 var _leaving := false
+var mood := 0   # 0 спокоен, 1 теряет терпение, 2 злится
 
 
 func setup(cat_def: Dictionary) -> void:
@@ -36,6 +37,24 @@ func setup(cat_def: Dictionary) -> void:
 ## Центр кота (для эффектов): чуть выше «ног».
 func center() -> Vector2:
 	return global_position + Vector2(0, -6)
+
+
+## Настроение ожидающего кота: 2 — злится (краснеет и трясётся), 1 — нервничает, 0 — спокоен.
+func set_mood(m: int) -> void:
+	if m == mood or _leaving:
+		return
+	mood = m
+	var base := Color(String(def.get("tint", "#ffffff")))
+	_sprite.modulate = base.lerp(Color(1.0, 0.5, 0.45), 0.6) if m == 2 else (base.lerp(Color(1.0, 0.9, 0.7), 0.25) if m == 1 else base)
+
+
+## Ушёл злой: топнул, покраснел и убежал за экран.
+func leave_angry() -> void:
+	set_mood(2)
+	Fx.hop(_sprite, 12.0, 0.3, PIXEL_SCALE)
+	get_tree().create_timer(0.25).timeout.connect(func() -> void:
+		if is_instance_valid(self):
+			leave(false))
 
 
 func enter(target_x: float) -> void:

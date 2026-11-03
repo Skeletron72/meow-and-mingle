@@ -39,6 +39,8 @@ func _ready() -> void:
 	await _test_brew_grid()
 	await _test_weather()
 	await _test_spaces()
+	await _test_levels()
+	await _test_intro_fixes()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -475,14 +477,17 @@ func _test_city() -> void:
 		lit = maxf(lit, (g["node"] as CanvasItem).modulate.a)
 	_check(lit < 0.01, "днём свечение выключено")
 	# смена: поверх города, мир скрыт; по окончании возвращаемся
-	city._start_shift()
+	city._start_level(0)
 	_check(city._shift_layer != null and not city._world.visible, "смена открылась поверх города")
 	var shift: Node2D = city._shift_layer.get_child(0)
 	_check(shift.embedded, "смена встроена в город (без смены сцены)")
 	var coins_before := GameState.coins
-	shift._order = {"drink": "espresso", "pastry": ""}
-	shift._awaiting = true
-	shift._cup.add("base", "coffee")
+	await get_tree().create_timer(2.4).timeout   # первый кот пришёл к стойке
+	var first_order: Dictionary = shift._front()["order"]
+	var first_recipe: Dictionary = Data.drinks[first_order["drink"]]["recipe"]
+	shift._cup.add("base", first_recipe["base"])
+	if bool(first_recipe["milk"]):
+		shift._cup.add("milk", "milk")
 	shift._serve()
 	_check(GameState.coins > coins_before and shift.shift_served == 1, "в смене заказ обслужен, монеты начислены")
 	shift._end_shift()
@@ -617,8 +622,8 @@ func _test_city_input() -> void:
 	_click(_screen_of(city, counter_wp), false)
 	_check(city._pending == "shift" and player.is_moving(), "тап по стойке: кот идёт к ней, чтобы начать смену")
 	_walk(player)
-	_check(city._shift_layer != null, "дошёл до стойки — смена началась сама")
-	city._end_shift(0, 0)
+	_check(city._levels_layer != null, "дошёл до стойки — открылся выбор смены")
+	city._close_levels()
 	await get_tree().process_frame
 	# тап по тротуару снаружи: кот выходит сам, через проём
 	var out_cell := Vector2i(8, 23)
@@ -1106,11 +1111,12 @@ func _test_brew_grid() -> void:
 		_check(icon.scale == Vector2(4, 4), "иконка источника в целом масштабе")
 		var tl: Vector2 = icon.position - Vector2(32, 32)
 		_check(fmod(absf(tl.x), 4.0) == 0.0 and fmod(absf(tl.y), 4.0) == 0.0, "иконка на сетке: %s" % tl)
-	var bubble: Node2D = brew.get("_bubble")
-	if bubble != null:
-		for c in bubble.get_children():
-			if c is Sprite2D:
-				_check((c as Sprite2D).scale == Vector2(2, 2), "иконка в плашке заказа — масштаб 2")
+	for e in brew.get("_queue"):
+		var bubble: Node2D = e["bubble"]
+		if bubble != null:
+			for c in bubble.get_children():
+				if c is Sprite2D:
+					_check((c as Sprite2D).scale == Vector2(2, 2), "иконка в плашке заказа — масштаб 2")
 	brew.queue_free()
 	await get_tree().process_frame
 	_check(Fx.unit == 2.0, "после выхода из мини-игры пиксель эффектов снова 2")
@@ -1301,4 +1307,163 @@ func _test_spaces() -> void:
 	_check("150" in texts and "300" in texts, "в магазине видны коморка и второй этаж (%s)" % [texts])
 	city.call("_close_menu")
 	city.queue_free()
+	await get_tree().process_frame
+
+
+func _quick_level(customers: int, patience: float, interval: float) -> Dictionary:
+	return {"id": "t1", "name": "Тест", "customers": customers, "interval": [interval, interval], "patience": patience, "queue": 3, "speed": 30.0, "accuracy": 0.8, "pool": ["espresso", "tea"], "pastry": 0.0}
+
+
+## Уровни со звёздами, очередь котов, терпение и злость, итог смены.
+func _test_levels() -> void:
+	_check(Data.levels.size() >= 5, "есть уровни-смены")
+	var ids := {}
+	for lv in Data.levels:
+		ids[String(lv["id"])] = true
+	_check(ids.size() == Data.levels.size(), "id уровней уникальны")
+	GameState.level_stars = {}
+	_check(GameState.level_unlocked(0) and not GameState.level_unlocked(1), "открыт только первый уровень")
+	_check(GameState.record_level("l1", 1) == 1 and GameState.level_star_count("l1") == 1 and GameState.level_unlocked(1), "первая звезда открывает следующий уровень")
+	_check(GameState.record_level("l1", 3) == 1 and GameState.level_star_count("l1") == 2, "звёзды копятся, новые считаются отдельно")
+	_check(GameState.record_level("l1", 1) == 0 and GameState.level_star_count("l1") == 2, "прежние звёзды не теряются и не платятся дважды")
+	GameState.save_game()
+	GameState.level_stars = {}
+	GameState.load_game()
+	_check(GameState.level_star_count("l1") == 2, "звёзды хранятся в сохранении")
+	GameState.level_stars = {}
+	# очередь и злость: терпение короткое, коты приходят один за другим и уходят злыми
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.upgrades = []
+	GameState.coins = 0
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = _quick_level(3, 2.0, 0.3)
+	add_child(m)
+	await get_tree().create_timer(2.6).timeout
+	var waiting := 0
+	for e in m._queue:
+		if e["state"] == "wait":
+			waiting += 1
+	_check(waiting >= 2, "в очереди у стойки несколько котов: %d" % waiting)
+	var slots := {}
+	for e in m._queue:
+		slots[int(e["slot"])] = true
+	_check(slots.size() == m._queue.size(), "коты стоят на разных местах")
+	await get_tree().create_timer(1.0).timeout
+	var mooded := false
+	for e in m._queue:
+		if int(e["mood"]) > 0:
+			mooded = true
+	_check(mooded or int(m._stats["left"]) > 0, "ждущие коты теряют терпение")
+	await get_tree().create_timer(4.5).timeout
+	_check(int(m._stats["left"]) == 3 and m._result != null, "все коты ушли злыми, смена окончена и показан итог (ушло %d)" % int(m._stats["left"]))
+	_check(GameState.level_mask("t1") == 0 and GameState.coins == 0, "без поданных заказов звёзд и монет нет")
+	m.queue_free()
+	await get_tree().process_frame
+	# идеальная смена: все поданы быстро и верно — три звезды и бонус
+	GameState.coins = 0
+	var m2: Node2D = load(Nav.BREW).instantiate()
+	m2.level = _quick_level(2, 40.0, 0.3)
+	add_child(m2)
+	for i in 2:
+		var tries := 0
+		while m2._front().is_empty() and tries < 60:
+			await get_tree().create_timer(0.1).timeout
+			tries += 1
+		var order: Dictionary = m2._front()["order"]
+		var recipe: Dictionary = Data.drinks[order["drink"]]["recipe"]
+		m2._cup.add("base", recipe["base"])
+		if bool(recipe["milk"]):
+			m2._cup.add("milk", "milk")
+		m2._serve()
+		await get_tree().create_timer(1.2).timeout
+	await get_tree().create_timer(1.0).timeout
+	_check(m2._result != null and GameState.level_mask("t1") == 7, "идеальная смена даёт три звезды (маска %d)" % GameState.level_mask("t1"))
+	_check(GameState.coins >= 30, "за три новые звезды +30 монет (монет %d)" % GameState.coins)
+	m2._restart_run()
+	await get_tree().process_frame
+	_check(m2._result == null and not m2._run_over and int(m2._stats["served"]) == 0, "«Ещё раз» запускает смену заново")
+	m2.queue_free()
+	await get_tree().process_frame
+	# неверная подача: кот уходит злой, это ошибка точности
+	GameState.coins = 0
+	var m3: Node2D = load(Nav.BREW).instantiate()
+	m3.level = _quick_level(4, 40.0, 0.3)
+	add_child(m3)
+	await get_tree().create_timer(2.4).timeout
+	var front: Dictionary = m3._front()
+	m3._cup.add("base", "tea" if front["order"]["drink"] != "tea" else "coffee")
+	m3._serve()
+	_check(int(m3._stats["wrong"]) == 1 and GameState.coins == 0, "неверный заказ — ошибка, монет нет")
+	# подача любому коту из очереди: кот выбирается по месту под подносом
+	await get_tree().create_timer(1.5).timeout
+	var any := false
+	for e in m3._queue:
+		if e["state"] == "wait":
+			var c: Vector2 = (e["cat"] as CatCustomer).position
+			any = not m3._cat_at(c + Vector2(0, 20)).is_empty()
+	_check(any, "под подносом можно найти любого ждущего кота")
+	m3.queue_free()
+	await get_tree().process_frame
+	# смены нельзя начать до обучения
+	GameState.intro_stage = 2
+	var city := _new_city(true)
+	GameState.intro_stage = 2
+	await get_tree().process_frame
+	city.call("_start_shift")
+	_check(city.get("_shift_layer") == null and city.get("_levels_layer") == null, "до обучения смена не начинается")
+	GameState.intro_stage = GameState.INTRO_DONE
+	city.call("_start_shift")
+	_check(city.get("_levels_layer") != null, "после обучения открывается выбор смены")
+	var level_texts: Array[String] = []
+	_button_texts(city.get("_levels_layer"), level_texts)
+	city.call("_start_level", 1)   # второй уровень закрыт
+	_check(city.get("_shift_layer") == null, "закрытый уровень не запускается")
+	city.call("_start_level", 0)
+	_check(city.get("_shift_layer") != null and city.get("_shift_layer").get_child(0).level.get("id", "") == "l1", "первый уровень запускается со своими данными")
+	city.call("_end_shift", 0, 0)
+	city.queue_free()
+	await get_tree().process_frame
+
+
+## Интро: уборка изнутри (кот не бежит на улицу), коробки — преграда.
+func _test_intro_fixes() -> void:
+	var city := _intro_city(2)
+	await get_tree().process_frame
+	var intro: Intro = city._intro
+	var nav: WorldNav = city._nav
+	var room: CafeRoom = city._room
+	for d in Intro.OBJECTS:
+		var stand := intro._stand_for(d)
+		_check(nav.is_interior(WorldNav.cell_of_feet(stand)) and nav.is_walkable(WorldNav.cell_of_feet(stand)), "место уборки «%s» внутри зала на проходимой клетке: %s" % [d["id"], stand])
+		if String(d["kind"]) == "box":
+			_check(not nav.is_walkable(WorldNav.cell_at(room.to_global(d["pos"]))), "коробка %s не даёт пройти" % d["id"])
+	# тап по паутине в углу: кот идёт внутри здания
+	city._player.position = WorldNav.feet_at(nav.interior_cells().position + Vector2i(4, 4))
+	city._update_xray(10.0)
+	var web := Intro.OBJECTS[1]
+	var tapped := intro.on_tap(room.to_global(web["pos"]))
+	_check(tapped and city._player.is_moving(), "тап по паутине запускает уборку")
+	var inside := true
+	for pt in city._player._path:
+		if not nav.is_interior(WorldNav.cell_of_feet(pt)):
+			inside = false
+	_check(inside, "по пути к паутине кот не выходит на улицу")
+	city.queue_free()
+	await get_tree().process_frame
+
+	# город: снег — частицы в мире, свет из кафе на улицу
+	Weather.force(Weather.Kind.SNOW, 0.8)
+	var c2 := _new_city(false)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	_check(c2.get("_snow") != null and c2.get("_snow").get_parent() == c2.get("_world"), "снег — частицы в мировом слое")
+	var visible_flakes := 0
+	for ch in c2.get("_snow").get_children():
+		if ch is Sprite2D and ch.visible:
+			visible_flakes += 1
+	_check(visible_flakes > 20, "снежинки летят (%d)" % visible_flakes)
+	_check(c2.get("_door_beam") != null, "у двери есть луч света на улицу")
+	Weather.force(Weather.Kind.CLEAR)
+	Weather.set_mode(Weather.AUTO)
+	c2.queue_free()
 	await get_tree().process_frame

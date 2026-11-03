@@ -15,6 +15,7 @@ var _room_cell := Vector2i.ZERO   # клетка мира, где лежит л�
 var _room_rect := Rect2i()        # клетки пола зала в мире
 var _entrance: Array[Vector2i] = []   # клетки проёма входа (их можно закрыть ставнями)
 var _entrance_open := true
+var _extra_solid := {}   # клетки, закрытые временными преградами (коробки интро): Vector2i → true
 
 
 ## walk — зоны ходьбы, block_rects — запретные зоны, block_cells — клетки-предметы, room — интерьер (или null).
@@ -61,6 +62,17 @@ func set_interior_mask(mask: PackedByteArray, cafe: bool) -> void:
 	if cafe and not _entrance_open:
 		for c in _entrance:
 			_set_cell(c, true)
+	for c in _extra_solid:
+		_set_cell(c, true)
+
+
+## Временная преграда в клетке мира (коробка, которую ещё не открыли): кот её обходит.
+func set_extra_solid(cell: Vector2i, on: bool) -> void:
+	if on:
+		_extra_solid[cell] = true
+	else:
+		_extra_solid.erase(cell)
+	_set_cell(cell, on)
 
 
 func nearest_free_cell(c: Vector2i) -> Vector2i:

@@ -1,6 +1,7 @@
 extends Node2D
-## Смена за стойкой: кот-посетитель делает заказ, ты собираешь его на подносе перетаскиванием
-## (основа → молоко → выпечка) и подаёшь поднос коту. Всё нарисовано кодом (BrewArt, ServingTray),
+## Смена за стойкой — уровень со звёздами. Коты приходят и встают в очередь (до 3 у стойки), у каждого свой заказ и терпение:
+## ждущий кот нервничает, потом злится и уходит. Заказ собираешь на подносе перетаскиванием (основа → молоко → выпечка) и
+## подаёшь подносом любому коту из очереди. В конце — итог и три звезды: смена пройдена, точность, скорость (data/levels.json). Всё нарисовано кодом (BrewArt, ServingTray),
 ## события сопровождаются эффектами (Fx): пар, брызги, сердечки, монеты, конфетти.
 ##
 ## Режим обучения (tutorial = true): только заданные источники и заказы, без бонуса за скорость,
@@ -14,7 +15,9 @@ signal tutorial_finished(served: int, earned: int)
 const TRAY_HOME := Vector2(180, 304)
 const CAT_POS := Vector2(180, 244)
 const CAT_SPAWN_X := 460.0
-const NEXT_CAT_DELAY := 1.0
+const SLOT_X: Array[float] = [180.0, 284.0, 76.0]   # места в очереди у стойки (по порядку занятия)
+const BUBBLE_Y := 142.0
+const TUTORIAL_GAP := 1.0   # в обучении: пауза до следующего кота
 const PASTRY_CHANCE := 0.5
 const BIN_POS := Vector2(320, 360)
 const COIN_POS := Vector2(28, 26)
@@ -28,6 +31,7 @@ var embedded := false   # true — смена идёт поверх города
 var shift_served := 0
 var shift_earned := 0
 var streak := 0         # подряд верных заказов
+var level: Dictionary = {}   # данные уровня из data/levels.json; пусто — обучение или тест
 var tutorial := false
 var tutorial_orders: Array[Dictionary] = []   # {"cat": id кота, "drink": id, "pastry": id|""} — по порядку
 var tutorial_sources: Array[String] = []      # id источников, которые показаны (пусто — все)
@@ -35,10 +39,16 @@ var tutorial_sources: Array[String] = []      # id источников, кот�
 var _cup := CupState.new()
 var _sources: Array[Dictionary] = []   # {kind, id, rect, tex, icon, center}
 var _drag: Dictionary = {}
-var _cat: CatCustomer
-var _order: Dictionary = {}            # {"drink": id, "pastry": id|""}
-var _awaiting := false
-var _arrive_msec := 0
+var _cat: CatCustomer                  # первый ждущий кот (для подсказок обучения и тестов)
+var _order: Dictionary = {}            # его заказ {"drink": id, "pastry": id|""}
+var _awaiting := false                 # есть ли ждущий кот
+var _queue: Array[Dictionary] = []     # очередь: {"cat", "def", "order", "patience", "max", "slot", "state": walk|wait|done, "t0", "bubble", "bar", "mood", "tick"}
+var _spawned := 0
+var _spawn_in := 0.8
+var _run_over := false
+var _stats := {"served": 0, "wrong": 0, "left": 0, "times": []}
+var _result: Node2D
+var _tutorial_done_sent := false
 var _tutorial_index := 0
 var _idle_msec := 0
 var _shown_coins := 0.0
@@ -53,7 +63,6 @@ var _coach_label: Label
 var _coach_hand: TextureRect
 var _coach_glow: Sprite2D
 var _coach_base := Vector2.ZERO
-var _bubble: Node2D
 var _coin_icon: Sprite2D
 var _coins_label: Label
 var _served_label: Label
@@ -82,7 +91,7 @@ func _ready() -> void:
 	_coins_label.text = str(GameState.coins)
 	_served_label.text = tr("Подано: %d") % GameState.served_total
 	_refresh_cup()
-	_spawn_cat()
+	_begin_run()
 
 
 func _exit_tree() -> void:
@@ -222,93 +231,280 @@ func _build_coach() -> void:
 	add_child(_coach_hand)
 
 
-# ---------------------------------------------------------------- котики и заказы
+# ---------------------------------------------------------------- очередь котиков и заказы
 
-func _spawn_cat() -> void:
+func _total_customers() -> int:
+	return tutorial_orders.size() if tutorial else int(level.get("customers", 8))
+
+
+func _max_queue() -> int:
+	return 1 if tutorial else clampi(int(level.get("queue", 3)), 1, SLOT_X.size())
+
+
+## Начало (или перезапуск) смены: счётчики в ноль, коты пойдут по расписанию уровня.
+func _begin_run() -> void:
+	if level.is_empty() and not tutorial:
+		level = Data.levels[0].duplicate(true)
+	for e in _queue:
+		if is_instance_valid(e["cat"]):
+			(e["cat"] as CatCustomer).queue_free()
+		_free_bubble(e)
+	_queue.clear()
+	_spawned = 0
+	_spawn_in = 0.8
+	_run_over = false
+	_tutorial_index = 0
+	_tutorial_done_sent = false
+	_stats = {"served": 0, "wrong": 0, "left": 0, "times": []}
+	shift_served = 0
+	shift_earned = 0
+	streak = 0
+	_update_front()
+	_refresh_progress()
+
+
+func _active_count() -> int:
+	var n := 0
+	for e in _queue:
+		if e["state"] != "done":
+			n += 1
+	return n
+
+
+func _free_slot() -> int:
+	var taken := {}
+	for e in _queue:
+		taken[int(e["slot"])] = true
+	for i in SLOT_X.size():
+		if not taken.has(i):
+			return i
+	return -1
+
+
+## Первый ждущий кот в очереди (по порядку прихода) или пустой словарь.
+func _front() -> Dictionary:
+	for e in _queue:
+		if e["state"] == "wait":
+			return e
+	return {}
+
+
+## Обновляет «первого ждущего»: от него зависят подсказки обучения, ready-свечение и тесты (_cat, _order, _awaiting).
+func _update_front() -> void:
+	var f := _front()
+	_awaiting = not f.is_empty()
+	_cat = f["cat"] if _awaiting else null
+	_order = f["order"] if _awaiting else {}
+
+
+func _spawn_customer() -> void:
+	var slot := _free_slot()
+	if slot < 0:
+		return
 	var def: Dictionary = Data.cats.pick_random()
-	var drink_id: String = GameState.drink_ids().pick_random()
+	var drink_id := ""
 	var pastry_id := ""
 	if tutorial:
-		if _tutorial_index >= tutorial_orders.size():
-			tutorial_finished.emit(shift_served, shift_earned)
-			return
 		var o: Dictionary = tutorial_orders[_tutorial_index]
 		drink_id = String(o["drink"])
 		pastry_id = String(o.get("pastry", ""))
 		for c in Data.cats:
 			if String(c["id"]) == String(o.get("cat", "")):
 				def = c
-	elif GameState.pastries_unlocked() and randf() < PASTRY_CHANCE:
-		pastry_id = Data.pastries.keys().pick_random()
-	_order = {"drink": drink_id, "pastry": pastry_id}
-	_cat = CatCustomer.new()
-	_cat_layer.add_child(_cat)
-	_cat.setup(def)
-	_cat.position = Vector2(CAT_SPAWN_X, CAT_POS.y)
-	_cat.arrived.connect(_on_cat_arrived)
-	_cat.left.connect(_on_cat_left.bind(_cat))
-	_cat.enter(CAT_POS.x)
+	else:
+		var avail := GameState.drink_ids()
+		var pool: Array = level.get("pool", [])
+		if not pool.is_empty():
+			avail = avail.filter(func(id: String) -> bool: return id in pool)
+		drink_id = (avail if not avail.is_empty() else GameState.drink_ids()).pick_random()
+		if GameState.pastries_unlocked() and randf() < float(level.get("pastry", 0.0)):
+			pastry_id = Data.pastries.keys().pick_random()
+		var busy := _queue.map(func(e: Dictionary) -> String: return String(e["def"]["id"]))   # одинаковых котов подряд не пускаем
+		var others := Data.cats.filter(func(c: Dictionary) -> bool: return not (String(c["id"]) in busy))
+		if not others.is_empty():
+			def = others.pick_random()
+	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15)
+	var cat := CatCustomer.new()
+	_cat_layer.add_child(cat)
+	cat.setup(def)
+	cat.position = Vector2(CAT_SPAWN_X, CAT_POS.y)
+	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id}, "patience": patience, "max": patience, "slot": slot,
+		"state": "walk", "t0": 0, "bubble": null, "bar": null, "mood": 0, "tick": 0.0}
+	_queue.append(e)
+	cat.arrived.connect(_on_cat_arrived.bind(e))
+	cat.left.connect(_on_cat_left.bind(cat))
+	cat.enter(SLOT_X[slot])
+	_spawned += 1
+	_refresh_progress()
 
 
-func _on_cat_arrived() -> void:
-	_awaiting = true
-	_arrive_msec = Time.get_ticks_msec()
-	_idle_msec = _arrive_msec
-	_show_bubble()
-	Fx.burst(_fx, _cat.center() + Vector2(0, -44), "sparkle", Color("fff3b0"), 5, 90.0, 40.0, 0.6, 0.8)
+func _on_cat_arrived(e: Dictionary) -> void:
+	if e["state"] != "walk":
+		return
+	e["state"] = "wait"
+	e["t0"] = Time.get_ticks_msec()
+	_idle_msec = Time.get_ticks_msec()
+	_make_bubble(e)
+	Fx.burst(_fx, (e["cat"] as CatCustomer).center() + Vector2(0, -44), "sparkle", Color("fff3b0"), 5, 90.0, 40.0, 0.6, 0.8)
+	_update_front()
 	_refresh_cup()
 
 
 func _on_cat_left(cat: CatCustomer) -> void:
 	cat.queue_free()
-	# не await: если игрок вышел в меню, таймер не должен будить уже удалённую сцену
-	get_tree().create_timer(NEXT_CAT_DELAY).timeout.connect(_spawn_cat)
 
 
-## Заказ-«чек»: бумажка с напитком и выпечкой, выезжает над котом. Иконки в масштабе 2 (как рамка и шрифт интерфейса),
-## подпись целиком над нижней тенью рамки.
-func _show_bubble() -> void:
-	_hide_bubble()
-	_bubble = Node2D.new()
-	_bubble.position = Vector2(180, 146)
-	_bubble.z_index = 6
-	add_child(_bubble)
-	Ui.panel(Rect2(-120, -46, 240, 92), Ui.UI_CREAM, _bubble)
-	# хвостик чека к коту
-	for i in 3:
+## Чек над котом: иконки заказа и полоска терпения.
+func _make_bubble(e: Dictionary) -> void:
+	var b := Node2D.new()
+	b.position = Vector2(SLOT_X[int(e["slot"])], BUBBLE_Y)
+	b.z_index = 6
+	add_child(b)
+	Ui.panel(Rect2(-52, -36, 104, 72), Ui.UI_CREAM, b)
+	for i in 3:   # хвостик чека к коту
 		var w := 16.0 - i * 4.0
 		var tail := ColorRect.new()
-		tail.position = Vector2(-w / 2.0, 46 + i * 4)
+		tail.position = Vector2(-w / 2.0, 36 + i * 4)
 		tail.size = Vector2(w, 4)
 		tail.color = Color("fff0cd")
 		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_bubble.add_child(tail)
-	var drink: Dictionary = Data.drinks[_order["drink"]]
-	var title: String = drink["name"]
-	var pastry_id: String = _order["pastry"]
+		b.add_child(tail)
+	var order: Dictionary = e["order"]
 	var drink_x := 0.0
 	var icons: Array[Sprite2D] = []
-	if pastry_id != "":
-		drink_x = -32.0
-		title += " + " + String(Data.pastries[pastry_id]["name"]).to_lower()
-		icons.append(_sprite(_pastry_tex(pastry_id), Vector2(32, -14) - BrewArt.content_offset(_pastry_tex(pastry_id)) * 2.0, 2.0, _bubble))
-	icons.append(_sprite(_drink_tex(_order["drink"]), Vector2(drink_x, -14) - BrewArt.content_offset(_drink_tex(_order["drink"]), true) * 2.0, 2.0, _bubble))
-	_label(title, Rect2(-120, 2, 240, 28), INK, _bubble, true)
-	Fx.rise_in(_bubble, 24.0, 0.3, 2.0)
-	for i in icons.size():   # значки подпрыгивают друг за другом
+	if String(order["pastry"]) != "":
+		drink_x = -26.0
+		var pt := _pastry_tex(order["pastry"])
+		icons.append(_sprite(pt, Vector2(26, -12) - BrewArt.content_offset(pt) * 2.0, 2.0, b))
+	var dt := _drink_tex(order["drink"])
+	icons.append(_sprite(dt, Vector2(drink_x, -12) - BrewArt.content_offset(dt, true) * 2.0, 2.0, b))
+	if not is_inf(float(e["max"])):   # полоска терпения
+		var back := ColorRect.new()
+		back.position = Vector2(-42, 18)
+		back.size = Vector2(84, 10)
+		back.color = Ui.INK
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(back)
+		var fill := ColorRect.new()
+		fill.position = Vector2(-40, 20)
+		fill.size = Vector2(80, 6)
+		fill.color = Color("8dff7a")
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(fill)
+		e["bar"] = fill
+	e["bubble"] = b
+	Fx.rise_in(b, 24.0, 0.3, 2.0)
+	for i in icons.size():   # значки подпрыгивают друг за другом (твин живёт на самой иконке и умирает вместе с ней)
 		var icon := icons[i]
-		get_tree().create_timer(0.3 + i * 0.12).timeout.connect(func() -> void:
-			if is_instance_valid(icon):
-				Fx.hop(icon, 8.0, 0.3, 2.0))
+		var tw := icon.create_tween()
+		tw.tween_interval(0.3 + i * 0.12)
+		tw.tween_callback(Fx.hop.bind(icon, 8.0, 0.3, 2.0))
 
 
-func _hide_bubble() -> void:
-	if _bubble:
-		var b := _bubble
-		_bubble = null
+func _free_bubble(e: Dictionary) -> void:
+	var b: Node2D = e.get("bubble")
+	if b != null and is_instance_valid(b):
+		e["bubble"] = null
 		var t := b.create_tween()   # без масштаба: плашка просто гаснет
 		t.tween_property(b, "modulate:a", 0.0, 0.15)
 		t.tween_callback(b.queue_free)
+
+
+## Каждый кадр: терпение ждущих котов убывает, настроение и полоска меняются; по расписанию приходят новые коты; в конце — итог.
+func _tick_queue(delta: float) -> void:
+	for e in _queue.duplicate():
+		if e["state"] != "wait" or is_inf(float(e["max"])):
+			continue
+		e["patience"] = float(e["patience"]) - delta
+		var f := clampf(float(e["patience"]) / float(e["max"]), 0.0, 1.0)
+		var cat: CatCustomer = e["cat"]
+		var bar: ColorRect = e["bar"]
+		if bar != null:
+			bar.size.x = maxf(4.0, snappedf(80.0 * f, 4.0))
+			bar.color = Color("8dff7a") if f > 0.5 else (Color("ffd640") if f > 0.25 else (Color("ff5a4a") if int(Time.get_ticks_msec() / 250) % 2 == 0 else Color("ffb0a0")))
+		var mood := 0 if f > 0.5 else (1 if f > 0.25 else 2)
+		if mood != int(e["mood"]):
+			e["mood"] = mood
+			cat.set_mood(mood)
+		e["tick"] = float(e["tick"]) - delta
+		if mood > 0 and float(e["tick"]) <= 0.0:
+			e["tick"] = 2.6 if mood == 1 else 1.4
+			if mood == 1:
+				Fx.burst(_fx, cat.center() + Vector2(24, -50), "sweat", Color("8fd6ff"), 2, 60.0, 160.0, 0.7, 1.0, 40.0, Vector2(1, -0.4))
+			else:
+				Fx.burst(_fx, cat.center() + Vector2(20, -52), "anger", Color("ff5a4a"), 1, 20.0, 0.0, 0.6, 1.0, 20.0)
+				Fx.shake(cat, 6.0, 0.3, 6, Fx.PX_GRID)
+		if float(e["patience"]) <= 0.0:
+			_lose_patience(e)
+	if tutorial:
+		_tick_tutorial(delta)
+	else:
+		_tick_spawn(delta)
+	if not tutorial and not _run_over and _spawned >= _total_customers() and _queue.is_empty() and _tray.visible and _result == null:
+		_finish_run()
+
+
+func _tick_spawn(delta: float) -> void:
+	if _spawned >= _total_customers() or _active_count() >= _max_queue():
+		return
+	_spawn_in -= delta
+	if _spawn_in <= 0.0:
+		_spawn_customer()
+		var iv: Array = level.get("interval", [6.0, 9.0])
+		_spawn_in = randf_range(float(iv[0]), float(iv[1]))
+
+
+## Обучение: по одному коту по сценарию; когда все поданы — сообщаем.
+func _tick_tutorial(delta: float) -> void:
+	if not _queue.is_empty():
+		return
+	if _tutorial_index >= tutorial_orders.size():
+		if not _tutorial_done_sent:
+			_tutorial_done_sent = true
+			tutorial_finished.emit(shift_served, shift_earned)
+		return
+	_spawn_in -= delta
+	if _spawn_in <= 0.0:
+		_spawn_customer()
+		_spawn_in = TUTORIAL_GAP
+
+
+## Кот ушёл, потеряв терпение: счёт ошибок, серия сбита.
+func _lose_patience(e: Dictionary) -> void:
+	e["state"] = "done"
+	_stats["left"] = int(_stats["left"]) + 1
+	streak = 0
+	_free_bubble(e)
+	var cat: CatCustomer = e["cat"]
+	Fx.burst(_fx, cat.center() + Vector2(0, -40), "anger", Color("ff5a4a"), 3, 60.0, 0.0, 0.7, 1.0)
+	_toast("%s ушёл злой!" % String(e["def"].get("name", "Кот")), Vector2(180, 392))
+	_shake_screen(4.0)
+	cat.leave_angry()
+	_queue.erase(e)
+	_update_front()
+	_refresh_cup()
+	_refresh_progress()
+
+
+## Кот под подносом при отпускании (по ближайшему к нему); пустой словарь — никого.
+func _cat_at(p: Vector2) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for e in _queue:
+		if e["state"] != "wait" or not is_instance_valid(e["cat"]):
+			continue
+		var c: Vector2 = (e["cat"] as CatCustomer).position
+		if Rect2(c + Vector2(-56, -86), Vector2(112, 140)).has_point(p) and absf(c.x - p.x) < best_d:
+			best = e
+			best_d = absf(c.x - p.x)
+	return best
+
+
+func _refresh_progress() -> void:
+	if tutorial or level.is_empty():
+		return
+	var handled := int(_stats["served"]) + int(_stats["left"])
+	_served_label.text = tr("Коты: %d/%d") % [handled, _total_customers()]
 
 
 # ---------------------------------------------------------------- перетаскивание
@@ -375,8 +571,8 @@ func _drop_tray() -> void:
 	var drop := _tray.position
 	if drop.distance_to(BIN_POS) < 52.0:
 		_discard_cup()
-	elif _awaiting and Rect2(CAT_POS - Vector2(70, 80), Vector2(140, 130)).has_point(drop) and drop.distance_to(TRAY_HOME) > 40.0:
-		_serve()
+	elif drop.distance_to(TRAY_HOME) > 40.0 and not _cat_at(drop).is_empty():
+		_serve(_cat_at(drop))
 	else:
 		_return_tray()
 
@@ -421,51 +617,64 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 
 # ---------------------------------------------------------------- подача заказа
 
-## Подача подноса коту. Начисление наград — сразу (тесты и логика), анимация — поверх.
-func _serve() -> void:
-	var ok := _cup.matches(_order)
-	if tutorial and not ok:
-		_reject_in_tutorial()
+## Подача подноса коту e (пусто — первому ждущему). Начисление наград — сразу (тесты и логика), анимация — поверх.
+func _serve(e: Dictionary = {}) -> void:
+	if e.is_empty():
+		e = _front()
+	if e.is_empty() or e["state"] != "wait":
 		return
-	_awaiting = false
+	var order: Dictionary = e["order"]
+	var ok := _cup.matches(order)
+	if tutorial and not ok:
+		_reject_in_tutorial(e)
+		return
+	e["state"] = "done"
 	var total := 0
 	var tip := 0
 	var bonus := 0
+	var elapsed := (Time.get_ticks_msec() - int(e["t0"])) / 1000.0
 	if ok:
-		var drink_id: String = _order["drink"]
-		var pastry_id: String = _order["pastry"]
+		var drink_id: String = order["drink"]
+		var pastry_id: String = order["pastry"]
 		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
 		if pastry_id != "":
 			price += int(Data.pastries[pastry_id]["price"])
 		tip = maxi(1, int(round(price * 0.2)))
-		var elapsed := (Time.get_ticks_msec() - _arrive_msec) / 1000.0
-		bonus = 0 if tutorial else (5 if elapsed < 8.0 else (2 if elapsed < 15.0 else 0))
+		var target := float(level.get("speed", 10.0))
+		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
 		total = price + tip + bonus
 		GameState.register_served()
 		shift_served += 1
 		shift_earned += total
 		streak += 1
+		_stats["served"] = int(_stats["served"]) + 1
+		(_stats["times"] as Array).append(elapsed)
 		if tutorial:
 			_tutorial_index += 1
 		GameState.add_coins(total)
 	else:
 		streak = 0
+		_stats["wrong"] = int(_stats["wrong"]) + 1
 	_cup.clear()
-	_hide_bubble()
+	_free_bubble(e)
+	_update_front()
 	_set_coach(false)
-	_play_serve(ok, total, tip, bonus)
+	_refresh_progress()
+	_play_serve(e, ok, total, tip, bonus)
 
 
-func _play_serve(ok: bool, total: int, tip: int, bonus: int) -> void:
+func _play_serve(e: Dictionary, ok: bool, total: int, tip: int, bonus: int) -> void:
 	_tray.set_ready(false)
-	var cat := _cat
-	_glide(_tray, CAT_POS + Vector2(0, 40), 0.25, Tween.TRANS_BACK, Tween.EASE_IN).tween_callback(_on_tray_delivered.bind(cat, ok, total, tip, bonus))
+	var cat: CatCustomer = e["cat"]
+	_glide(_tray, cat.position + Vector2(0, 40), 0.25, Tween.TRANS_BACK, Tween.EASE_IN).tween_callback(_on_tray_delivered.bind(e, ok, total, tip, bonus))
 
 
-func _on_tray_delivered(cat: CatCustomer, ok: bool, total: int, tip: int, bonus: int) -> void:
+func _on_tray_delivered(e: Dictionary, ok: bool, total: int, tip: int, bonus: int) -> void:
 	_tray.set_contents(null, null)
 	_tray.visible = false
+	var cat: CatCustomer = e["cat"]
 	if not is_instance_valid(cat):
+		_queue.erase(e)
 		_reset_tray()
 		return
 	var c := cat.center()
@@ -486,16 +695,22 @@ func _on_tray_delivered(cat: CatCustomer, ok: bool, total: int, tip: int, bonus:
 				Fx.confetti(_fx, c + Vector2(0, -50), 22)
 	else:
 		cat.react_no()
-		Fx.burst(_fx, c + Vector2(30, -50), "sweat", Color("8fd6ff"), 3, 80.0, 200.0, 0.8, 1.0, 40.0, Vector2(1, -0.4))
+		Fx.burst(_fx, c + Vector2(30, -50), "anger", Color("ff5a4a"), 2, 60.0, 0.0, 0.8, 1.0)
 		_shake_screen(7.0)
 		_toast("Не то... кот ушёл", Vector2(180, 392))
-	get_tree().create_timer(0.45).timeout.connect(_finish_serve.bind(cat, ok))
+	get_tree().create_timer(0.45).timeout.connect(_finish_serve.bind(e, ok))
 
 
-func _finish_serve(cat: CatCustomer, ok: bool) -> void:
+func _finish_serve(e: Dictionary, ok: bool) -> void:
+	var cat: CatCustomer = e["cat"]
 	if is_instance_valid(cat):
-		cat.leave(ok)
+		if ok:
+			cat.leave(true)
+		else:
+			cat.leave_angry()
+	_queue.erase(e)
 	_reset_tray()
+	_refresh_progress()
 
 
 func _reset_tray() -> void:
@@ -506,16 +721,17 @@ func _reset_tray() -> void:
 
 
 ## Обучение: кот не уходит, а мягко просит нужное.
-func _reject_in_tutorial() -> void:
-	var drink: Dictionary = Data.drinks[_order["drink"]]
+func _reject_in_tutorial(e: Dictionary) -> void:
+	var drink: Dictionary = Data.drinks[e["order"]["drink"]]
+	var cat: CatCustomer = e["cat"]
 	_cup.clear()
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
 	Fx.shake(_tray, 8.0, 0.4, 6, Fx.PX_GRID)
-	if is_instance_valid(_cat):
-		_cat.react_no()
-		Fx.burst(_fx, _cat.center() + Vector2(30, -50), "sweat", Color("8fd6ff"), 3, 80.0, 200.0, 0.8, 1.0, 40.0, Vector2(1, -0.4))
-	_toast("%s просит: %s" % [String(_cat.def.get("name", "Кот")), String(drink["name"]).to_lower()], Vector2(180, 392))
+	if is_instance_valid(cat):
+		cat.react_no()
+		Fx.burst(_fx, cat.center() + Vector2(30, -50), "sweat", Color("8fd6ff"), 3, 80.0, 200.0, 0.8, 1.0, 40.0, Vector2(1, -0.4))
+		_toast("%s просит: %s" % [String(cat.def.get("name", "Кот")), String(drink["name"]).to_lower()], Vector2(180, 392))
 	get_tree().create_timer(0.35).timeout.connect(func() -> void:
 		if is_instance_valid(_tray):
 			_glide(_tray, TRAY_HOME, 0.25))
@@ -535,7 +751,78 @@ func _shake_screen(amp: float) -> void:
 	t.tween_property(self, "position", base, 0.04)
 
 
-## Конец смены: во встроенном режиме сообщаем городу (он закроет оверлей), отдельной сценой — возвращаемся в город.
+## Смена окончена: звёзды за итог (смена пройдена, точность, скорость), монеты за новые звёзды, экран итога.
+func _finish_run() -> void:
+	_run_over = true
+	var customers := _total_customers()
+	var served := int(_stats["served"])
+	var times: Array = _stats["times"]
+	var avg := 0.0
+	for t in times:
+		avg += float(t)
+	avg = avg / float(times.size()) if not times.is_empty() else 0.0
+	var accuracy := float(served) / float(maxi(1, customers))   # ошибки и ушедшие коты — потерянные заказы
+	var mask := 0
+	if served * 2 >= customers:
+		mask |= 1
+		if accuracy >= float(level.get("accuracy", 0.8)):
+			mask |= 2
+		if avg > 0.0 and avg <= float(level.get("speed", 10.0)) and served * 10 >= customers * 6:
+			mask |= 4
+	var new_stars := GameState.record_level(String(level.get("id", "l1")), mask)
+	var bonus := new_stars * 10
+	if bonus > 0:
+		GameState.add_coins(bonus)
+		shift_earned += bonus
+	_show_results(mask, bonus, accuracy, avg)
+
+
+func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
+	_result = Node2D.new()
+	_result.z_index = 150
+	add_child(_result)
+	var dim := ColorRect.new()
+	dim.size = Vector2(360, 640)
+	dim.color = Color(0, 0, 0, 0.55)
+	_result.add_child(dim)
+	Ui.panel(Rect2(24, 116, 312, 400), Ui.UI_WOOD, _result)
+	var done := mask & 1 != 0
+	Ui.label("Смена пройдена!" if done else "Смена не удалась", Rect2(24, 128, 312, 36), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.label(String(level.get("name", "")), Rect2(24, 158, 312, 28), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var captions := ["Смена", "Точность", "Скорость"]
+	var values := ["", "%d%%" % int(round(accuracy * 100.0)), "%.1f с" % avg]
+	for i in 3:
+		var x := 68.0 + i * 112.0
+		var star := _sprite(Fx.tex("bigstar"), Vector2(x, 232), 4.0, _result)
+		star.modulate = Color("5a4636") if (mask >> i) & 1 == 0 else Color("ffd640")
+		Ui.label(captions[i], Rect2(x - 52, 258, 104, 26), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+		Ui.label(values[i], Rect2(x - 52, 282, 104, 26), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+		if (mask >> i) & 1 == 1:
+			var delay := 0.25 + i * 0.3
+			star.visible = false
+			var tw := star.create_tween()
+			tw.tween_interval(delay)
+			tw.tween_callback(func() -> void:
+				star.visible = true
+				Fx.hop(star, 12.0, 0.3)
+				Fx.burst(_result, Vector2(x, 232), "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))
+	var need := "Цель: точность %d%%, до %d с" % [int(round(float(level.get("accuracy", 0.8)) * 100.0)), int(level.get("speed", 10.0))]
+	Ui.label(need, Rect2(30, 308, 300, 26), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var lines := "Подано: %d из %d\nОшибок: %d · Ушло злыми: %d" % [int(_stats["served"]), _total_customers(), int(_stats["wrong"]), int(_stats["left"])]
+	Ui.label(lines, Rect2(30, 336, 300, 56), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.label("Заработано: %d" % shift_earned + ("  (звёзды +%d)" % bonus if bonus > 0 else ""), Rect2(30, 392, 300, 30), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.button("Ещё раз", Rect2(54, 430, 252, 40), "play", _result).pressed.connect(_restart_run)
+	Ui.button("В кафе", Rect2(54, 474, 252, 40), "exit", _result).pressed.connect(_end_shift)
+
+
+func _restart_run() -> void:
+	if _result != null:
+		_result.queue_free()
+		_result = null
+	_begin_run()
+
+
+## Выход со смены: во встроенном режиме сообщаем городу (он закроет оверлей), отдельной сценой — возвращаемся в город.
 func _end_shift() -> void:
 	if embedded:
 		closed.emit(shift_served, shift_earned)
@@ -549,7 +836,10 @@ func _refresh_cup() -> void:
 	var did := _cup.drink_id()
 	_tray.set_contents(_drink_tex(did) if did != "" else null, _pastry_tex(_cup.pastry) if _cup.pastry != "" else null)
 	_cup_hint.visible = _cup.is_empty() and not tutorial
-	var ready := _awaiting and not _cup.is_empty() and _cup.matches(_order)
+	var ready := false
+	for q in _queue:   # поднос готов, если его заказ совпал с заказом хоть одного ждущего кота
+		if q["state"] == "wait" and not _cup.is_empty() and _cup.matches(q["order"]):
+			ready = true
 	if ready and not _tray.has_meta("was_ready"):
 		Fx.burst(_fx, _tray.position + Vector2(0, -50), "star", Color("ffe08a"), 8, 150.0, 120.0, 0.8, 1.0)
 	if ready:
@@ -575,7 +865,9 @@ func _toast(text: String, pos: Vector2) -> void:
 
 # ---------------------------------------------------------------- подсказки обучения
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if not _run_over and _result == null:
+		_tick_queue(delta)
 	if tutorial and _awaiting and Time.get_ticks_msec() - _idle_msec > 8000 and _drag.is_empty():
 		_update_coach()
 

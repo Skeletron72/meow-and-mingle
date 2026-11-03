@@ -1,9 +1,8 @@
-// Экранные погодные эффекты на сетке арта (180×320 клеток по 2 px): косые капли дождя, снежинки двух размеров, туман ступенями с дизерингом,
+// Экранные погодные эффекты на сетке арта (180×320 клеток по 2 px): косые капли дождя, туман ступенями с дизерингом,
 // знойное марево (сдвиг строк на целую клетку) и блик солнца. Всё считается по клеткам — никаких размытых пикселей.
 shader_type canvas_item;
 #include "res://assets/shaders/weather_surface.gdshaderinc"
 
-global uniform float weather_snowfall;
 global uniform float weather_fog;
 global uniform float weather_heat;
 
@@ -64,21 +63,6 @@ void fragment() {
 					float a = d < 1.0 ? 0.85 : 0.45 - 0.05 * fi;
 					o = over(o, vec4(0.78, 0.88, 1.0, a));
 				}
-			}
-		}
-	}
-
-	// снегопад: мелкие и крупные (2×2 клетки) снежинки с покачиванием
-	if (weather_snowfall > 0.01) {
-		for (int j = 0; j < 2; j++) {
-			float s = j == 0 ? 1.0 : 2.0;
-			vec2 c = floor(cell / s);
-			float spd = j == 0 ? 24.0 : 15.0;
-			float sway = floor(sin(TIME * 0.8 + c.y * 0.13 + float(j) * 2.0) * 2.0);
-			vec2 p = vec2(c.x + sway, c.y - floor(TIME * spd / s));
-			float dens = j == 0 ? 0.030 : 0.011;
-			if (w_hash(p + float(j) * 31.0) > 1.0 - weather_snowfall * dens) {
-				o = over(o, vec4(1.0, 1.0, 1.0, j == 0 ? 0.85 : 0.95));
 			}
 		}
 	}

@@ -9,8 +9,9 @@ func _fail(msg: String) -> void:
 
 func _ready() -> void:
 	var main: Node2D = load("res://main.tscn").instantiate()
+	main.level = {"id": "t", "name": "Тест", "customers": 4, "interval": [0.6, 0.8], "patience": 30.0, "queue": 2, "speed": 10.0, "accuracy": 0.8, "pool": [], "pastry": 0.0}
 	add_child(main)
-	await get_tree().create_timer(1.5).timeout
+	await get_tree().create_timer(2.4).timeout
 	if not main._awaiting:
 		_fail("кот не пришёл")
 		return
@@ -29,7 +30,7 @@ func _ready() -> void:
 	if not FileAccess.file_exists(GameState.SAVE_PATH):
 		_fail("нет файла сохранения")
 		return
-	await get_tree().create_timer(4.5).timeout
+	await get_tree().create_timer(2.5).timeout
 	if not main._awaiting:
 		_fail("второй кот не пришёл")
 		return

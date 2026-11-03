@@ -9,6 +9,7 @@ var furniture: Dictionary = {} # id -> Dictionary (режим украшения
 var default_layout: Array[Dictionary] = []  # расстановка кафе у игрока из старых сохранений
 var intro_layout: Array[Dictionary] = []    # расстановка нового игрока: только стол и пуфик
 var upgrades: Array[Dictionary] = []        # функциональные улучшения (data/upgrades.json), по порядку
+var levels: Array[Dictionary] = []          # уровни-смены (data/levels.json), по порядку
 var street: Dictionary = {}    # городские ассеты: размеры, окна фасадов, машины (data/street.json, делает tools/curate_street_assets.py)
 
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	default_layout = _read_array("res://data/default_layout.json")
 	intro_layout = _read_array("res://data/intro_layout.json")
 	upgrades = _read_array("res://data/upgrades.json")
+	levels = _read_array("res://data/levels.json")
 	var f := FileAccess.open("res://data/street.json", FileAccess.READ)
 	if f != null:
 		var parsed: Variant = JSON.parse_string(f.get_as_text())

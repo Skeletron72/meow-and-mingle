@@ -23,7 +23,7 @@ const OBJECTS := [
 	{"id": "curtain", "kind": "curtain", "pos": Vector2(192, 50), "radius": 36.0, "taps": 1, "line": "Лучи. И пыль в них. Красиво!"},
 	{"id": "box_0", "kind": "box", "pos": Vector2(56, 276), "radius": 28.0, "taps": 1, "line": "Ложек — как на свадьбу. И 20 монет!"},
 	{"id": "box_1", "kind": "box", "pos": Vector2(132, 252), "radius": 28.0, "taps": 1, "line": "«Папино, не трогать». Потрогаю. Чуть-чуть."},
-	{"id": "box_2", "kind": "box", "pos": Vector2(200, 170), "radius": 28.0, "taps": 1, "line": "«Мамино». Мам…"},
+	{"id": "box_2", "kind": "box", "pos": Vector2(112, 176), "radius": 28.0, "taps": 1, "line": "«Мамино». Мам…"},
 	{"id": "cover", "kind": "cover", "pos": Vector2(44, 84), "radius": 38.0, "taps": 1, "line": "Тут папа держал круассаны. И нервы."},
 	{"id": "machine", "kind": "machine", "pos": Vector2(80, 62), "radius": 24.0, "taps": 3, "line": "Жива!"},
 	{"id": "table", "kind": "table", "pos": Vector2(240, 240), "radius": 22.0, "taps": 2, "line": "Стол как новый. Почти."},
@@ -48,6 +48,7 @@ var _shutter_hint: Label
 var _nodes := {}              # id -> визуал объекта
 var _knocks := 0
 var _target := ""
+var _target_stand := Vector2.ZERO   # куда встаёт кот, чтобы убрать цель (клетка на полу зала)
 var _echo_said := false
 var _finished := false
 var _progress_panel: Control
@@ -217,6 +218,7 @@ func _build_object(def: Dictionary) -> void:
 				b.offset = Vector2(0, -float(b.texture.get_height()) / 2.0)
 				_grime.add_child(b)
 				_nodes[id] = b
+				city._nav.set_extra_solid(WorldNav.cell_at(_room.to_global(pos)), true)   # коробка — преграда, пока не открыта
 		"cover":
 			if left > 0:
 				var c := PixelArt.sprite(PixelArt.cover(48, 21), Vector2(2, 54), false)
@@ -287,8 +289,27 @@ func on_tap(world_p: Vector2) -> bool:
 	if best == "":
 		return false
 	_target = best
-	city._player.walk_to(_room.to_global((_def(best)["pos"] as Vector2)))
+	_target_stand = _stand_for(_def(best))
+	city._player.walk_to(_target_stand)
 	return true
+
+
+## Где коту встать, чтобы убрать объект: всегда на полу зала (паутина и штора висят на стене — до них «дотягиваются» от ближайшей клетки пола),
+## ближайшая проходимая клетка. Раньше цель на стене выше здания вела кота на улицу.
+func _stand_for(def: Dictionary) -> Vector2:
+	var pos: Vector2 = def["pos"]
+	var local := Vector2(clampf(pos.x, 16.0, 304.0), clampf(pos.y, CafeRoom.ORIGIN.y + 16.0, CafeRoom.ORIGIN.y + (CafeRoom.FRONT_ROW - 1) * 32.0 + 16.0))
+	var room_cell: Vector2i = city._nav.interior_cells().position
+	var want := Vector2i(floori(local.x / 32.0), floori((local.y - CafeRoom.ORIGIN.y) / 32.0))
+	var free := room_cell + want
+	var best_d := INF
+	for r in CafeRoom.FRONT_ROW:   # ближайшая проходимая клетка именно в зале (поиск по миру мог выбрать клетку за стеной)
+		for c in CafeRoom.COLS:
+			var cell := room_cell + Vector2i(c, r)
+			if city._nav.is_walkable(cell) and Vector2(cell - (room_cell + want)).length() < best_d:
+				best_d = Vector2(cell - (room_cell + want)).length()
+				free = cell
+	return WorldNav.feet_at(free)
 
 
 ## Кот дошёл до цели: действие над объектом.
@@ -298,8 +319,7 @@ func on_arrived() -> void:
 	var def := _def(_target)
 	var id := _target
 	_target = ""
-	var world: Vector2 = _room.to_global(def["pos"])
-	if world.distance_to(city._player.position) <= 96.0 and not _is_done(def):
+	if _target_stand.distance_to(city._player.position) <= 24.0 and not _is_done(def):
 		_act(id)
 
 
@@ -390,6 +410,7 @@ func _flash() -> void:
 
 
 func _open_box(id: String, node: Node, def: Dictionary) -> void:
+	city._nav.set_extra_solid(WorldNav.cell_at(_room.to_global(def["pos"])), false)
 	if node != null:
 		(node as Sprite2D).texture = load("res://assets/street/props/box_open.png") as Texture2D
 		Fx.pop(node as Node2D, 1.3, 0.4)

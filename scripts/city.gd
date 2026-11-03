@@ -62,8 +62,11 @@ var _add_mat: CanvasItemMaterial
 var _ground_mat: ShaderMaterial           # снег и лужи на земле
 var _prop_mats: Dictionary = {}            # режим → материал снега для зданий (1), деревьев (2) и предметов (0)
 var _weather_fx: WeatherFx
+var _snow: SnowField                       # снегопад частицами в мире
 var _door: AutoDoor                        # раздвижная дверь кафе
 var _glass: Array[WindowGlass] = []        # стёкла окон фасадов
+var _door_beam: Sprite2D                   # свет из открытой двери на тротуар
+var _lit := 0.0                            # насколько горит искусственный свет (ночь, пасмурно)
 var _space := SPACE_CAFE                   # где сейчас кот: зал кафе, коморка или жилая зона (все стоят в одном месте здания)
 var _spaces: Dictionary = {}               # SPACE_UP → InteriorSpace (жилая зона)
 var _pending_portal: Dictionary = {}       # дверь или лестница, к которой кот идёт
@@ -72,6 +75,7 @@ var _upper_rect := Rect2()                 # габарит второго эт�
 var _upper_hole_mat: ShaderMaterial        # вырез в фасаде второго этажа
 var _clip_mat_up: ShaderMaterial           # обрезка мебели второго этажа
 var _upper_sprite: Sprite2D                # фасад пристроенного второго этажа
+var _upper_glow_nodes: Array[CanvasItem] = []   # свет в окнах второго этажа
 var _floor_nav := FloorNav.new()           # сетка ходьбы второго этажа
 var _fading := false
 var _pending := ""                      # действие по прибытии: "shift"
@@ -88,6 +92,7 @@ var _shop_page: Control
 var _weather_btn: Button
 var _account_stats: Label
 var _shift_layer: CanvasLayer
+var _levels_layer: CanvasLayer             # выбор уровня-смены
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
 
 
@@ -123,6 +128,9 @@ func _ready() -> void:
 	_build_camera()
 	_weather_fx = WeatherFx.new()
 	add_child(_weather_fx)
+	_snow = SnowField.new()
+	_snow.camera = _camera
+	_world.add_child(_snow)
 	_build_ui()
 	_build_fade()
 	_build_menu()
@@ -283,6 +291,8 @@ func _build_spaces() -> void:
 func _refresh_upper() -> void:
 	var owned := GameState.has_upgrade("upstairs")
 	_upper_sprite.visible = owned
+	for g in _upper_glow_nodes:
+		g.visible = owned
 	(_spaces[SPACE_UP] as InteriorSpace).set_active(owned)
 	for ch in _actors.get_children():   # предметы двора, на которые наползает пристройка, убираем
 		if ch is StreetProp and ch.texture != null and ch != _upper_sprite:
@@ -303,6 +313,7 @@ func _build_upper_glows() -> void:
 		r.material = _add_mat
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_glow.add_child(r)
+		_upper_glow_nodes.append(r)
 		_glows.append({"node": r, "base": 0.5, "cafe": false, "upper": true})
 
 
@@ -321,6 +332,19 @@ func _build_storefront() -> void:
 		(m as ShaderMaterial).set_shader_parameter("glass0", rects[0])
 		(m as ShaderMaterial).set_shader_parameter("glass1", rects[2])
 		(m as ShaderMaterial).set_shader_parameter("door", rects[1])
+	# свет из кафе на улицу: широкое тёплое пятно перед витриной и луч из двери (когда она открыта)
+	var base := _cafe.world_rect()
+	var spill := Fx.pixel_light(Vector2(base.position.x + base.size.x / 2.0, base.end.y + 64.0), Vector2(base.size.x + 140.0, 190.0), Color(1.0, 0.78, 0.42, 0.0))
+	_glow.add_child(spill)
+	_glows.append({"node": spill, "base": 0.5, "cafe": false, "street": true})
+	_door_beam = Sprite2D.new()
+	_door_beam.texture = PixelArt.cone(44, 18)
+	_door_beam.rotation = PI / 2.0   # конус идёт вниз от двери
+	_door_beam.scale = Vector2(2, 2)
+	_door_beam.position = Vector2(rects[1].x + rects[1].z / 2.0, rects[1].y + rects[1].w + 44.0)
+	_door_beam.modulate = Color(1.0, 0.85, 0.5, 0.0)
+	_door_beam.material = _add_mat
+	_glow.add_child(_door_beam)
 	var d: Array = wins[3]
 	_door = AutoDoor.new()
 	_buildings.add_child(_door)
@@ -343,6 +367,8 @@ func _update_door() -> void:
 				open = true
 				break
 	_door.set_open(open)
+	if _door_beam != null:
+		_door_beam.modulate.a = _door.open_amount * _lit * 0.7 * (1.0 - (_xray if _space == SPACE_CAFE else 0.0))
 
 
 ## Свет в окнах фасада ночью: часть окон горит, у кафе — все витрины.
@@ -380,9 +406,9 @@ func _add_window_glows(b: StreetBuilding) -> void:
 		_glows.append({"node": spill, "base": 0.30, "cafe": b.is_cafe})
 		var wall_bottom := b.world_rect().end.y
 		if center.y > wall_bottom - 90.0:   # окно первого этажа бросает пятно света на тротуар
-			var pool := Fx.pixel_light(Vector2(center.x, wall_bottom + 24.0), Vector2(r.size.x + 70.0, 52.0), Color(1.0, 0.75, 0.35, 0.0))
+			var pool := Fx.pixel_light(Vector2(center.x, wall_bottom + 30.0), Vector2(r.size.x + 110.0, 90.0), Color(1.0, 0.75, 0.35, 0.0))
 			_glow.add_child(pool)
-			_glows.append({"node": pool, "base": 0.26, "cafe": b.is_cafe})
+			_glows.append({"node": pool, "base": 0.4, "cafe": b.is_cafe, "street": true})
 
 
 ## Пиксельное свечение (additive): size — множитель диаметра 128 px, flatten < 1 сплющивает в эллипс (пятно на земле).
@@ -710,7 +736,7 @@ func _process(delta: float) -> void:
 	if dir != Vector2.ZERO:
 		_pending = ""
 		_player.nudge(dir, delta)
-	_btn_shift.visible = _in_counter_zone()
+	_btn_shift.visible = _in_counter_zone() and GameState.intro_stage >= GameState.INTRO_DONE
 
 
 ## Насколько глубоко в здание зашли лапки: 0 — снаружи (у фасада и дальше), 1 — полностью внутри.
@@ -765,6 +791,9 @@ func _update_weather_mask() -> void:
 	var a := xf * rect.position
 	var b := xf * rect.end
 	_weather_fx.set_mask(Rect2(a, b - a), _xray)
+	if _snow != null:
+		_snow.mask = rect
+		_snow.mask_amount = _xray
 
 
 func _farthest_corner(from: Vector2, rect: Rect2) -> float:
@@ -778,7 +807,7 @@ func _farthest_corner(from: Vector2, rect: Rect2) -> float:
 func is_revealed(p: Vector2) -> bool:
 	if _depth(p) < 0.05:
 		return true
-	return _floor_rect().has_point(p) and p.distance_to(_player.position) < _iris_r   # только свой этаж
+	return _space == SPACE_CAFE and _interior_rect.has_point(p) and p.distance_to(_player.position) < _iris_r   # гости зала — только когда кот на первом этаже
 
 
 ## Мебель и гости внутри здания рисуются поверх фасада, поэтому им нужен материал обрезки по кругу.
@@ -799,7 +828,8 @@ func _apply_daylight() -> void:
 	if _intro != null:
 		ind *= _intro.light()   # пока зал не расчищен, в нём темно
 	var night := TimeOfDay.night()
-	var lit := clampf(night + Weather.overcast() * 0.3, 0.0, 1.0)   # в пасмурную погоду окна и фонари зажигаются раньше
+	var lit := clampf(night + Weather.overcast() * 0.3, 0.0, 1.0)
+	_lit = lit   # в пасмурную погоду окна и фонари зажигаются раньше
 	_ground.modulate = amb
 	_buildings.modulate = amb
 	_room.visible = true   # зал виден сквозь прозрачные окна и дверь
@@ -820,6 +850,8 @@ func _apply_daylight() -> void:
 			f = 1.0 - (_xray if _space == SPACE_CAFE else 0.0)
 		elif g.has("upper"):
 			f = 1.0 - (_xray if _space == SPACE_UP else 0.0)
+		if g.has("street"):   # свет на снегу не выжигаем добела
+			f *= 1.0 - Weather.snow_cover * 0.6
 		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * lit * f
 	for car in _traffic.cars():
 		if car.halo != null:
@@ -1075,7 +1107,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_F3:
 		_toggle_zones()
 		return
-	if _shift_layer != null or get_tree().paused or _fading:
+	if _shift_layer != null or _levels_layer != null or get_tree().paused or _fading:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -1103,7 +1135,7 @@ func _on_press(p: Vector2) -> void:
 		if not b.is_cafe and b.world_rect().has_point(p):
 			_toast("Здесь закрыто", p)
 			return
-	if _space == SPACE_UP and _upper_rect.has_point(p) and is_revealed(p):
+	if _space == SPACE_UP and _upper_rect.has_point(p) and p.distance_to(_player.position) < _iris_r:
 		var d := (_spaces[_space] as InteriorSpace).portal_at(p - _upper_rect.position)
 		if not d.is_empty():
 			_tap_portal(d, p)
@@ -1151,7 +1183,62 @@ func _toggle_zones() -> void:
 # ---------------------------------------------------------------- смена (готовка поверх города)
 
 func _start_shift() -> void:
-	_open_shift(false)
+	if GameState.intro_stage < GameState.INTRO_DONE:   # до обучения смену не начать
+		Ui.toast(_ui, "Сначала расчистим кафе и пройдём обучение", Vector2(180, 150))
+		return
+	_open_levels()
+
+
+## Выбор смены: уровни со звёздами (смена пройдена, точность, скорость); следующий открывается после первой звезды.
+func _open_levels() -> void:
+	if _levels_layer != null or _shift_layer != null:
+		return
+	_player.stop()
+	_levels_layer = CanvasLayer.new()
+	_levels_layer.layer = 7
+	add_child(_levels_layer)
+	var dim := ColorRect.new()
+	dim.size = Vector2(360, 640)
+	dim.color = Color(0, 0, 0, 0.55)
+	_levels_layer.add_child(dim)
+	var n := Data.levels.size()
+	var h := 54.0 + n * 66.0 + 62.0
+	var top := 320.0 - h / 2.0
+	Ui.panel(Rect2(24, top, 312, h), Ui.UI_WOOD, _levels_layer)
+	Ui.label("Смены", Rect2(24, top + 12, 312, 36), Ui.FONT_SIZE, Ui.INK, _levels_layer, HORIZONTAL_ALIGNMENT_CENTER)
+	for i in n:
+		var lv: Dictionary = Data.levels[i]
+		var y := top + 52.0 + i * 66.0
+		var open := GameState.level_unlocked(i)
+		var b := Ui.button("", Rect2(40, y, 280, 60), "", _levels_layer)
+		b.disabled = not open
+		b.modulate = Color.WHITE if open else Color(0.6, 0.6, 0.6)
+		b.pressed.connect(_start_level.bind(i))
+		Ui.label(String(lv["name"]), Rect2(52, y + 2, 180, 28), Ui.FONT_SIZE, Ui.CREAM, _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var sub := "Нужна звезда на прошлой" if not open else "%d котов, очередь %d" % [int(lv["customers"]), int(lv["queue"])]
+		Ui.label(sub, Rect2(52, y + 30, 190, 26), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var mask := GameState.level_mask(String(lv["id"]))
+		for k in 3:   # три звезды: пройдено, точность, скорость
+			var star := Sprite2D.new()
+			star.texture = Fx.tex("bigstar")
+			star.scale = Vector2(2, 2)
+			star.position = Vector2(262 + k * 22.0, y + 30)
+			star.modulate = Color("ffd640") if (mask >> k) & 1 == 1 else Color("3d2c1c")
+			_levels_layer.add_child(star)
+	Ui.button("Назад", Rect2(54, top + h - 56.0, 252, 44), "undo", _levels_layer).pressed.connect(_close_levels)
+
+
+func _close_levels() -> void:
+	if _levels_layer != null:
+		_levels_layer.queue_free()
+		_levels_layer = null
+
+
+func _start_level(index: int) -> void:
+	if not GameState.level_unlocked(index):
+		return
+	_close_levels()
+	_open_shift(false, Data.levels[index])
 
 
 ## Обучающая смена интро: только кофе и чай, пять заказов по сценарию, кнопки выхода нет.
@@ -1159,7 +1246,7 @@ func _start_tutorial() -> void:
 	_open_shift(true)
 
 
-func _open_shift(tutorial: bool) -> void:
+func _open_shift(tutorial: bool, level := {}) -> void:
 	if _shift_layer != null:
 		return
 	_player.stop()
@@ -1170,6 +1257,7 @@ func _open_shift(tutorial: bool) -> void:
 	add_child(_shift_layer)
 	var shift: Node2D = load(Nav.BREW).instantiate()
 	shift.embedded = true
+	shift.level = level
 	shift.modulate = TimeOfDay.indoor()
 	if tutorial:
 		shift.tutorial = true

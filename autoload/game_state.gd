@@ -17,6 +17,7 @@ var layout: Array[Dictionary] = [] # расставленная мебель: {"
 var intro_stage := INTRO_DONE
 var intro_cleaned: Dictionary = {}  # id объекта расчистки -> сколько тапов сделано
 var tutorial_served := 0
+var level_stars := {}              # id уровня → маска звёзд: 1 пройден, 2 точность, 4 скорость
 var upgrades: Array[String] = []    # купленные функциональные улучшения (id из data/upgrades.json)
 var keepsakes: Array[String] = []   # найденные в коробках памятные вещи
 
@@ -39,6 +40,7 @@ func new_game() -> void:
 	tutorial_served = 0
 	upgrades = []
 	keepsakes = []
+	level_stars = {}
 	TimeOfDay.hour = 9.0
 	Weather.force(Weather.Kind.CLEAR)
 	Weather.set_mode(Weather.AUTO)
@@ -51,6 +53,40 @@ func reset_progress() -> void:
 	new_game()
 	coins_changed.emit(coins)
 	save_game()
+
+
+# ---------------------------------------------------------------- уровни и звёзды
+
+func _sanitize_stars(raw: Variant) -> Dictionary:
+	var out := {}
+	if raw is Dictionary:
+		for k in raw:
+			out[String(k)] = clampi(int(raw[k]), 0, 7)
+	return out
+
+
+func level_mask(id: String) -> int:
+	return int(level_stars.get(id, 0))
+
+
+## Сколько звёзд (0..3) у уровня.
+func level_star_count(id: String) -> int:
+	var m := level_mask(id)
+	return (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1)
+
+
+## Уровень открыт: первый всегда, дальше — после хотя бы одной звезды на предыдущем.
+func level_unlocked(index: int) -> bool:
+	return index <= 0 or (index < Data.levels.size() and level_star_count(String(Data.levels[index - 1]["id"])) >= 1)
+
+
+## Записывает результат: объединяет маски звёзд, возвращает число НОВЫХ звёзд.
+func record_level(id: String, mask: int) -> int:
+	var before := level_mask(id)
+	level_stars[id] = before | mask
+	var new_bits := mask & ~before
+	save_game()
+	return (new_bits & 1) + ((new_bits >> 1) & 1) + ((new_bits >> 2) & 1)
 
 
 # ---------------------------------------------------------------- улучшения
@@ -137,6 +173,7 @@ func save_game() -> void:
 		"tutorial_served": tutorial_served,
 		"upgrades": upgrades,
 		"keepsakes": keepsakes,
+		"level_stars": level_stars,
 		"weather_mode": Weather.mode,
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -168,6 +205,7 @@ func load_game() -> void:
 	tutorial_served = int(data.get("tutorial_served", 0))
 	upgrades = _string_array(data.get("upgrades", []))
 	keepsakes = _string_array(data.get("keepsakes", []))
+	level_stars = _sanitize_stars(data.get("level_stars", {}))
 	Weather.set_mode(clampi(int(data.get("weather_mode", Weather.AUTO)), Weather.AUTO, Weather.Kind.SNOW))
 
 

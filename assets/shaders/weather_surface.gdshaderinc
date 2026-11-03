@@ -29,6 +29,17 @@ vec3 w_snow_color(vec2 cell) {
 	return w_hash(cell * 1.7 + 11.0) < 0.2 ? vec3(0.80, 0.87, 0.97) : (w_hash(cell + 3.0) < 0.5 ? vec3(0.95, 0.97, 1.0) : vec3(0.90, 0.94, 0.99));
 }
 
+float w_snow_height(vec2 cell) {
+	return w_vnoise(cell * 0.20 + 9.0) * 0.7 + w_vnoise(cell * 0.55) * 0.3;
+}
+
+// Лежит ли на клетке снег при покрове snow (дорога заметается слабее и клочьями).
+bool w_snow_covers(vec2 cell, bool road, float snow) {
+	float n = road ? w_vnoise(cell * 0.12) * 0.80 + w_bayer(cell) * 0.20 : w_vnoise(cell * 0.15) * 0.45 + w_hash(cell) * 0.25 + w_bayer(cell) * 0.30;
+	float thr = snow * (road ? 0.85 : 1.12);
+	return n < thr;
+}
+
 // Земля: тайлы тротуара, травы и дороги. Дорога (тёмная, серая) мокнет сильнее и заметается слабее.
 vec4 weather_ground(vec4 col, vec2 cell, float t) {
 	float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
@@ -59,10 +70,23 @@ vec4 weather_ground(vec4 col, vec2 cell, float t) {
 		}
 	}
 	if (snow > 0.01) {
-		float n = road ? w_vnoise(cell * 0.12) * 0.80 + w_bayer(cell) * 0.20 : w_vnoise(cell * 0.15) * 0.45 + w_hash(cell) * 0.25 + w_bayer(cell) * 0.30;
-		float thr = snow * (road ? 0.85 : 1.12);
-		if (n < thr) {
-			col.rgb = w_snow_color(cell);
+		if (w_snow_covers(cell, road, snow)) {
+			// рельеф сугробов: высота шумом, свет слева-сверху — склоны по свету светлые, по тени синие; край покрова — тень-толщина
+			float h0 = w_snow_height(cell);
+			float slope = (h0 - w_snow_height(cell + vec2(1.0, 1.0))) * 7.0 + (w_bayer(cell) - 0.5) * 0.18;
+			vec3 c = vec3(0.89, 0.93, 0.99);                 // основной тон
+			if (slope > 0.16) {
+				c = vec3(0.99, 0.995, 1.0);                   // освещённый склон
+			} else if (slope < -0.16) {
+				c = vec3(0.70, 0.79, 0.93);                   // тень сугроба
+			}
+			if (!w_snow_covers(cell + vec2(0.0, 1.0), road, snow) || !w_snow_covers(cell + vec2(1.0, 0.0), road, snow)) {
+				c = vec3(0.64, 0.74, 0.90);                   // нижний и правый край пятна: тень от толщины снега
+			}
+			if (w_hash(cell * 2.3 + 5.0) < 0.05) {
+				c = vec3(0.80, 0.88, 0.98);                   // редкие искры-вмятины
+			}
+			col.rgb = c;
 		}
 	}
 	return col;
@@ -70,7 +94,7 @@ vec4 weather_ground(vec4 col, vec2 cell, float t) {
 
 // Предметы и здания. exposed — пиксель с «открытым небом» сверху (верхний край силуэта: снег ложится на него).
 // mode: 0 — только верхний край, 1 — крыша здания (верхние roof долей спрайта), 2 — крона дерева/куст.
-vec4 weather_prop(vec4 col, vec2 cell, float uy, bool exposed, int mode, float roof) {
+vec4 weather_prop(vec4 col, vec2 cell, float uy, bool exposed, bool below_open, int mode, float roof) {
 	if (col.a < 0.05) {
 		return col;
 	}
@@ -88,7 +112,17 @@ vec4 weather_prop(vec4 col, vec2 cell, float uy, bool exposed, int mode, float r
 		cover = true;
 	}
 	if (cover) {
-		col.rgb = w_snow_color(cell);
+		vec3 c = w_snow_color(cell);
+		if (exposed) {
+			c = vec3(0.99, 0.995, 1.0);            // верхний край: свет
+		} else if (below_open) {
+			c = vec3(0.66, 0.76, 0.91);            // нижний край: тень-толщина
+		} else if (mode == 1 && uy > roof * 0.82) {
+			c = vec3(0.74, 0.82, 0.94);            // у свеса крыши снег в тени
+		} else if (mode == 2 && uy > 0.45) {
+			c = mix(c, vec3(0.72, 0.8, 0.93), 0.6); // под кроной темнее
+		}
+		col.rgb = c;
 	}
 	return col;
 }

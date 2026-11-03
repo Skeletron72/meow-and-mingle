@@ -1,0 +1,8 @@
+[
+	{"id": "l1", "name": "Первая смена", "customers": 6, "interval": [8.0, 11.0], "patience": 42.0, "queue": 2, "speed": 11.0, "accuracy": 0.8, "pool": ["espresso", "tea"], "pastry": 0.0},
+	{"id": "l2", "name": "Утренний поток", "customers": 8, "interval": [6.0, 9.0], "patience": 38.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": ["espresso", "tea"], "pastry": 0.0},
+	{"id": "l3", "name": "Молочная пенка", "customers": 8, "interval": [6.0, 8.0], "patience": 36.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": [], "pastry": 0.0},
+	{"id": "l4", "name": "Сладкий час", "customers": 10, "interval": [5.0, 8.0], "patience": 34.0, "queue": 3, "speed": 10.0, "accuracy": 0.85, "pool": [], "pastry": 0.6},
+	{"id": "l5", "name": "Час пик", "customers": 12, "interval": [4.0, 6.0], "patience": 30.0, "queue": 3, "speed": 9.0, "accuracy": 0.85, "pool": [], "pastry": 0.5},
+	{"id": "l6", "name": "Вечерний аврал", "customers": 14, "interval": [3.5, 5.5], "patience": 28.0, "queue": 3, "speed": 8.5, "accuracy": 0.85, "pool": [], "pastry": 0.5}
+]

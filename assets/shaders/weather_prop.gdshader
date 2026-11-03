@@ -25,5 +25,6 @@ void fragment() {
 			break;
 		}
 	}
-	COLOR = weather_prop(COLOR, cell, UV.y, exposed, mode, roof_frac);
+	bool below_open = texture(TEXTURE, vec2(UV.x, UV.y + TEXTURE_PIXEL_SIZE.y)).a < 0.5;
+	COLOR = weather_prop(COLOR, cell, UV.y, exposed, below_open, mode, roof_frac);
 }

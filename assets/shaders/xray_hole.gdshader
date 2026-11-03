@@ -58,5 +58,6 @@ void fragment() {
 			break;
 		}
 	}
-	COLOR = weather_prop(COLOR, floor(world / 2.0), UV.y, exposed, 1, roof_frac);
+	bool below_open = texture(TEXTURE, vec2(UV.x, UV.y + TEXTURE_PIXEL_SIZE.y)).a < 0.5;
+	COLOR = weather_prop(COLOR, floor(world / 2.0), UV.y, exposed, below_open, 1, roof_frac);
 }
