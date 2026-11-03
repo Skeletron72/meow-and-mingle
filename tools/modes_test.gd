@@ -1273,7 +1273,7 @@ func _test_spaces() -> void:
 	_check(city.get("_space") == 2, "по лестнице кот поднялся в жилую зону")
 	var up_rect: Rect2 = city.get("_upper_rect")
 	var floor_nav: FloorNav = city.get("_floor_nav")
-	_check(up_rect.position.y < croom.position.y and up_rect.end.y <= croom.position.y + 320.0, "второй этаж стоит в мире выше первого: %s" % up_rect)
+	_check(up_rect.position == croom.position and up_rect.size.y == 224.0, "второй этаж — верх фасада кафе (крыша и стена с окнами), а не пристройка: %s" % up_rect)
 	_check(up_rect.has_point(player.position) and player.nav == floor_nav, "кот наверху: на втором этаже и со своей сеткой ходьбы")
 	_check(not floor_nav.is_walkable(Vector2i(3, 0)) and not floor_nav.is_walkable(Vector2i(4, 1)), "кровать занимает клетки")
 	_check(not floor_nav.find_path(player.position, floor_nav.feet_at(InteriorSpace.BED_STAND[0])).is_empty(), "до кровати можно дойти")
@@ -1283,7 +1283,9 @@ func _test_spaces() -> void:
 		_check(up_rect.has_point(pt), "кот наверху не выходит за стены этажа: %s" % pt)
 	city.call("_apply_daylight")
 	city.call("_update_xray", 5.0)
-	_check(city.get("_upper_hole_mat").get_shader_parameter("radius") > 1.0 and is_zero_approx(float(city.get("_hole_mat").get_shader_parameter("radius"))), "рентген открыт у второго этажа, первый закрыт")
+	var hole_region: Vector4 = city.get("_hole_mat").get_shader_parameter("region")
+	_check(float(city.get("_hole_mat").get_shader_parameter("radius")) > 1.0 and is_equal_approx(hole_region.w, 224.0), "вырез в фасаде открыт только в верхней части (область %s)" % hole_region)
+	_check(is_zero_approx(float(city.get("_clip_mat").get_shader_parameter("radius"))), "мебель первого этажа закрыта, пока кот наверху")
 	for n in city.get("_npcs"):   # гости зала остаются внизу и наверху не видны
 		var cat: CatWalker = n["cat"]
 		_check(not city.call("is_revealed", cat.position) or city.call("_depth", cat.position) < 0.05, "гость первого этажа не виден, пока кот на втором")

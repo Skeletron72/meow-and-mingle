@@ -11,9 +11,9 @@ enum Kind { UP }
 
 const T := 32
 const COLS := 10
-const ROWS := 7
+const ROWS := 4   # у второго этажа 4 клетки пола: он занимает верх фасада (крыша и стена с окнами)
 const ORIGIN := Vector2(0, 96)
-const ROOM_SIZE := Vector2(320, 320)
+const ROOM_SIZE := Vector2(320, 224)
 const FEET_DY := 10.0
 
 const STAIRS_STAND: Array[Vector2i] = [Vector2i(7, 2), Vector2i(8, 2), Vector2i(9, 2)]   # перед лестницей вниз
@@ -60,7 +60,7 @@ func _build_up() -> void:
 	for d in [
 		{"k": "bookshelf", "c": 0, "r": 0, "w": 2}, {"k": "lamp", "c": 2, "r": 0},
 		{"k": "bed", "c": 3, "r": 0, "w": 2, "h": 2}, {"k": "wardrobe", "c": 5, "r": 0},
-		{"k": "sofa", "c": 1, "r": 3, "w": 2}, {"k": "sheet:table_small", "c": 1, "r": 5}, {"k": "sheet:plant", "c": 9, "r": 3},
+		{"k": "sofa", "c": 1, "r": 2, "w": 2}, {"k": "sheet:table_small", "c": 1, "r": 3}, {"k": "sheet:plant", "c": 9, "r": 3},
 	]:
 		_add(d)
 	_stairs = _add({"k": "stairs_down", "c": 7, "r": 0, "w": 3, "h": 2})
@@ -117,7 +117,7 @@ func set_lighting(day: float, night: float) -> void:
 func walk_mask() -> PackedByteArray:
 	var m := PackedByteArray()
 	m.resize(COLS * ROWS)
-	for r in ROWS - 1:
+	for r in ROWS:
 		for c in COLS:
 			m[r * COLS + c] = 1
 	for p in props:
@@ -157,15 +157,12 @@ func _draw() -> void:
 			draw_rect(Rect2(c * T, ORIGIN.y + r * T, T, T), a)
 			draw_rect(Rect2(c * T, ORIGIN.y + r * T, T, 2), a.darkened(0.18))   # стыки досок
 			draw_rect(Rect2(((c + r * 3) % 4) * 8 + c * T, ORIGIN.y + r * T, 2, T), a.darkened(0.12))
-	for c in COLS:   # передний ряд — стена здания
-		var edge := Color("5b3d27")
-		draw_rect(Rect2(c * T, ORIGIN.y + 6 * T, T, T), edge)
-		draw_rect(Rect2(c * T, ORIGIN.y + 6 * T, T, 4), edge.lightened(0.2))
 	# ковёр у дивана
-	draw_rect(Rect2(0, ORIGIN.y + 3 * T, 4 * T, 3 * T), Color("2b2230"))
-	draw_rect(Rect2(4, ORIGIN.y + 3 * T + 4, 4 * T - 8, 3 * T - 8), Color("b2556a"))
-	draw_rect(Rect2(12, ORIGIN.y + 3 * T + 12, 4 * T - 24, 3 * T - 24), Color("d97a8c"))
-	draw_rect(Rect2(12, ORIGIN.y + 3 * T + 12, 4 * T - 24, 3 * T - 24), Color("f0b4be"), false, 2.0)
+	draw_rect(Rect2(0, ORIGIN.y + 2 * T, 4 * T, 2 * T), Color("2b2230"))
+	draw_rect(Rect2(4, ORIGIN.y + 2 * T + 4, 4 * T - 8, 2 * T - 8), Color("b2556a"))
+	draw_rect(Rect2(12, ORIGIN.y + 2 * T + 10, 4 * T - 24, 2 * T - 20), Color("d97a8c"))
+	draw_rect(Rect2(12, ORIGIN.y + 2 * T + 10, 4 * T - 24, 2 * T - 20), Color("f0b4be"), false, 2.0)
+	draw_rect(Rect2(0, ROOM_SIZE.y - 8, ROOM_SIZE.x, 8), Color("5b3d27"))   # плинтус у передней стены дома
 	# рамка с фото мамы на стене
 	draw_rect(Rect2(138, 30, 24, 30), Color("2b2230"))
 	draw_rect(Rect2(142, 34, 16, 22), Color("f4ecd8"))
@@ -179,6 +176,6 @@ func _draw_shading() -> void:
 	# объём: затенение под стеной, под потолком и у боковых стен — дизеринг
 	draw_texture_rect(PixelArt.dither_gradient(160, 12, false, false), Rect2(0, ORIGIN.y, 320, 24), false, Color(0, 0, 0, 0.40))
 	draw_texture_rect(PixelArt.dither_gradient(160, 8, false, false), Rect2(0, 0, 320, 16), false, Color(0, 0, 0, 0.32))
-	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, false), Rect2(0, 0, 20, 320), false, Color(0, 0, 0, 0.28))
-	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, true), Rect2(300, 0, 20, 320), false, Color(0, 0, 0, 0.28))
+	draw_texture_rect(PixelArt.dither_gradient(10, 112, true, false), Rect2(0, 0, 20, 224), false, Color(0, 0, 0, 0.28))
+	draw_texture_rect(PixelArt.dither_gradient(10, 112, true, true), Rect2(300, 0, 20, 224), false, Color(0, 0, 0, 0.28))
 	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), Color("5b3d27"), false, 4.0)

@@ -14,8 +14,10 @@ extends Node2D
 
 const STREET_SCENE := "res://scenes/street.tscn"
 const SPACE_CAFE := 0
-const SPACE_UP := 2   # второй этаж стоит в мире выше первого (UPPER_DY); служебка — часть зала (CafeRoom)
-const UPPER_DY := 192.0   # на сколько второй этаж выше первого
+const SPACE_UP := 2   # второй этаж — верхняя часть самого фасада; служебка — часть зала (CafeRoom)
+## Второй этаж берётся из спрайта дома: крыша (верх 69 px арта) и стена со вторым рядом окон до карниза (до 116) — это 224 px мира,
+## то есть 3 клетки стены и 4 клетки пола; нижняя часть фасада (навес и витрина) принадлежит первому этажу и остаётся целой.
+const UPPER_SIZE := Vector2(320, 224)
 const PX := 2
 const T := 32
 const WAITER_DEF := {"sprite": "cat-waiter-front.png", "tint": "#ffffff"}
@@ -72,10 +74,7 @@ var _spaces: Dictionary = {}               # SPACE_UP → InteriorSpace (жил�
 var _pending_portal: Dictionary = {}       # дверь или лестница, к которой кот идёт
 var _fade: ColorRect                       # затемнение (сон)
 var _upper_rect := Rect2()                 # габарит второго этажа в мире
-var _upper_hole_mat: ShaderMaterial        # вырез в фасаде второго этажа
 var _clip_mat_up: ShaderMaterial           # обрезка мебели второго этажа
-var _upper_sprite: Sprite2D                # фасад пристроенного второго этажа
-var _upper_glow_nodes: Array[CanvasItem] = []   # свет в окнах второго этажа
 var _floor_nav := FloorNav.new()           # сетка ходьбы второго этажа
 var _fading := false
 var _pending := ""                      # действие по прибытии: "shift"
@@ -106,9 +105,6 @@ func _ready() -> void:
 	_hole_mat.shader = HOLE_SHADER
 	_clip_mat = ShaderMaterial.new()
 	_clip_mat.shader = CLIP_SHADER
-	_upper_hole_mat = ShaderMaterial.new()
-	_upper_hole_mat.shader = HOLE_SHADER
-	_upper_hole_mat.set_shader_parameter("roof_frac", 0.25)
 	_clip_mat_up = ShaderMaterial.new()
 	_clip_mat_up.shader = CLIP_SHADER
 	_ground_mat = ShaderMaterial.new()
@@ -120,7 +116,6 @@ func _ready() -> void:
 		_prop_mats[mode] = pm
 	_build_sky()
 	_build_world()
-	_refresh_upper()   # предметы двора уже в слое — убираем те, на которые наползает пристройка
 	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
@@ -207,7 +202,6 @@ func _build_world() -> void:
 	_room.external_actors = _actors
 	_room.set_layout(GameState.layout)
 	_build_spaces()
-	_build_upper_glows()
 
 	var block_cells: Array[Vector2i] = []
 	for node in _level.get_node("Props").get_children():
@@ -262,59 +256,26 @@ func _build_world() -> void:
 	t.tween_property(cup, "position:y", 28.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
-## Второй этаж — пристройка над кафе: свой фасад (крыша, окна) и своя комната 10×7, стоящая в мире выше первого этажа.
-## Поднявшись по лестнице, кот попадает туда по-настоящему: камера плывёт вверх, у него своя сетка ходьбы (FloorNav),
-## а первый этаж остаётся закрытым фасадом. Пока «Второй этаж» не куплен, пристройки нет.
+## Второй этаж — верхняя часть того же дома (у спрайта кафе уже есть второй этаж: крыша и стена с окнами над навесом).
+## Его комната занимает верх фасада (3 клетки стены + 4 клетки пола), нижняя часть фасада остаётся целой. Поднявшись по лестнице,
+## кот попадает туда без перехода в другое место: круг рентгена вырезает верх фасада, у кота своя сетка ходьбы (FloorNav),
+## гости первого этажа остаются внизу.
 func _build_spaces() -> void:
-	_upper_rect = Rect2(_room.position.x, _room.position.y - UPPER_DY, 320, 320)
+	_upper_rect = Rect2(_room.position, UPPER_SIZE)
 	var sp := InteriorSpace.new()
-	sp.position = _upper_rect.position
+	sp.position = _room.position
 	_world.add_child(sp)
-	_world.move_child(sp, _room.get_index() + 1)   # под зданиями, как и зал
+	_world.move_child(sp, _room.get_index() + 1)   # над залом, под фасадом
 	sp.setup(InteriorSpace.Kind.UP, _actors)
 	_spaces[SPACE_UP] = sp
-	_floor_nav.setup(_upper_rect.position + InteriorSpace.ORIGIN, sp.walk_mask())
-	_upper_sprite = Sprite2D.new()   # фасад в слое актёров: сортируется по низу и закрывает двор, пока не вырезан кругом
-	_upper_sprite.texture = PixelArt.upper_story(160, 160)
-	_upper_sprite.centered = false
-	_upper_sprite.scale = Vector2(2, 2)
-	_upper_sprite.offset = Vector2(0, -160)
-	_upper_sprite.position = Vector2(_upper_rect.position.x, _upper_rect.end.y)
-	_upper_sprite.material = _upper_hole_mat
-	_actors.add_child(_upper_sprite)
-	_upper_sprite.set_meta("upper_facade", true)
+	_floor_nav.setup(_room.position + InteriorSpace.ORIGIN, sp.walk_mask())
 	_room.refresh_staff()
 	_refresh_upper()
 
 
-## Второй этаж виден, только когда куплен: надстройка появляется, двор под ней освобождается (предметы убираются).
+## Второй этаж доступен, когда куплен: комната и мебель наверху видны только через вырез в фасаде.
 func _refresh_upper() -> void:
-	var owned := GameState.has_upgrade("upstairs")
-	_upper_sprite.visible = owned
-	for g in _upper_glow_nodes:
-		g.visible = owned
-	(_spaces[SPACE_UP] as InteriorSpace).set_active(owned)
-	for ch in _actors.get_children():   # предметы двора, на которые наползает пристройка, убираем
-		if ch is StreetProp and ch.texture != null and ch != _upper_sprite:
-			var w: float = ch.texture.get_width() * 2.0
-			var h: float = ch.texture.get_height() * 2.0
-			var rect := Rect2(ch.position.x - w / 2.0, ch.position.y - h, w, h)
-			if rect.intersects(_upper_rect) and ch.position.y < _upper_rect.end.y:
-				ch.visible = not owned
-
-
-## Светится ли второй этаж ночью: окна фасада.
-func _build_upper_glows() -> void:
-	for wx in [18, 98]:
-		var r := ColorRect.new()
-		r.position = _upper_rect.position + Vector2(wx + 3, 40 + 22 + 3) * PX
-		r.size = Vector2(38, 40) * PX
-		r.color = Color(1.0, 0.78, 0.36)
-		r.material = _add_mat
-		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_glow.add_child(r)
-		_upper_glow_nodes.append(r)
-		_glows.append({"node": r, "base": 0.5, "cafe": false, "upper": true})
+	(_spaces[SPACE_UP] as InteriorSpace).set_active(GameState.has_upgrade("upstairs"))
 
 
 ## Витрина кафе: боковые окна прозрачны (сквозь них виден зал), в проёме — раздвижная стеклянная дверь.
@@ -358,7 +319,9 @@ func _update_door() -> void:
 	var open := false
 	if _nav.is_entrance_open():
 		var c := _door.rect.get_center()
-		var cats: Array[Node2D] = [_player]
+		var cats: Array[Node2D] = []
+		if _space == SPACE_CAFE:   # наверху кот дверь не открывает
+			cats.append(_player)
 		for n in _npcs:
 			cats.append(n["cat"])
 		for cat in cats:
@@ -399,11 +362,12 @@ func _add_window_glows(b: StreetBuilding) -> void:
 		r.material = _add_mat
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_glow.add_child(r)
-		_glows.append({"node": r, "base": 0.55, "cafe": b.is_cafe})
+		var upper_window := b.is_cafe and float(w[1]) < 117.0   # у кафе окна выше навеса — второй этаж
+		_glows.append({"node": r, "base": 0.55, "cafe": b.is_cafe, "upper": upper_window} if upper_window else {"node": r, "base": 0.55, "cafe": b.is_cafe})
 		var center := r.position + r.size / 2.0
 		var spill := Fx.pixel_light(center, r.size * 2.0 + Vector2(36, 36), Color(1.0, 0.75, 0.35, 0.0))   # свет вокруг окна
 		_glow.add_child(spill)
-		_glows.append({"node": spill, "base": 0.30, "cafe": b.is_cafe})
+		_glows.append({"node": spill, "base": 0.30, "cafe": b.is_cafe, "upper": true} if upper_window else {"node": spill, "base": 0.30, "cafe": b.is_cafe})
 		var wall_bottom := b.world_rect().end.y
 		if center.y > wall_bottom - 90.0:   # окно первого этажа бросает пятно света на тротуар
 			var pool := Fx.pixel_light(Vector2(center.x, wall_bottom + 30.0), Vector2(r.size.x + 110.0, 90.0), Color(1.0, 0.75, 0.35, 0.0))
@@ -760,25 +724,22 @@ func _update_xray(delta: float) -> void:
 	_iris_r = minf(_iris_r, _iris_max)
 	_xray = clampf(_iris_r / _iris_max, 0.0, 1.0)
 	var lower := _space == SPACE_CAFE
-	var hole := Vector4(_interior_rect.position.x, _interior_rect.position.y, _interior_rect.size.x, _interior_rect.size.y)
-	var inner := Vector4(hole.x, hole.y, hole.z, hole.w - T)   # без переднего ряда (витрины): гости на тротуаре не режутся
+	var hole := Vector4(rect.position.x, rect.position.y, rect.size.x, rect.size.y)   # вырез в фасаде — в области этажа кота
+	var lower_hole := Vector4(_interior_rect.position.x, _interior_rect.position.y, _interior_rect.size.x, _interior_rect.size.y)
+	var inner := Vector4(lower_hole.x, lower_hole.y, lower_hole.z, lower_hole.w - T)   # без переднего ряда (витрины): гости на тротуаре не режутся
 	var r_low := _iris_r if lower else 0.0
 	_hole_mat.set_shader_parameter("center", center)
-	_hole_mat.set_shader_parameter("radius", r_low)
+	_hole_mat.set_shader_parameter("radius", _iris_r)
 	_hole_mat.set_shader_parameter("region", hole)
 	if _door != null:
-		_door.set_iris(center, r_low, hole)
+		_door.set_iris(center, r_low, lower_hole)
 	_clip_mat.set_shader_parameter("center", center)
 	_clip_mat.set_shader_parameter("radius", r_low)
 	_clip_mat.set_shader_parameter("region", inner)
-	var up_hole := Vector4(_upper_rect.position.x, _upper_rect.position.y, _upper_rect.size.x, _upper_rect.size.y)
 	var r_up := 0.0 if lower else _iris_r
-	_upper_hole_mat.set_shader_parameter("center", center)
-	_upper_hole_mat.set_shader_parameter("radius", r_up)
-	_upper_hole_mat.set_shader_parameter("region", up_hole)
 	_clip_mat_up.set_shader_parameter("center", center)
 	_clip_mat_up.set_shader_parameter("radius", r_up)
-	_clip_mat_up.set_shader_parameter("region", up_hole)
+	_clip_mat_up.set_shader_parameter("region", hole)
 	_update_weather_mask()
 
 
@@ -846,10 +807,10 @@ func _apply_daylight() -> void:
 			ch.modulate = amb
 	for g in _glows:
 		var f := 1.0
-		if g["cafe"]:
-			f = 1.0 - (_xray if _space == SPACE_CAFE else 0.0)
-		elif g.has("upper"):
+		if g.has("upper"):   # окна второго этажа гаснут, когда фасад вырезан наверху
 			f = 1.0 - (_xray if _space == SPACE_UP else 0.0)
+		elif g["cafe"]:
+			f = 1.0 - (_xray if _space == SPACE_CAFE else 0.0)
 		if g.has("street"):   # свет на снегу не выжигаем добела
 			f *= 1.0 - Weather.snow_cover * 0.6
 		(g["node"] as CanvasItem).modulate.a = float(g["base"]) * lit * f
