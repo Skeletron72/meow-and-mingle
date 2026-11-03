@@ -20,6 +20,10 @@ config/icon="res://icon.svg"
 Data="*res://autoload/data.gd"
 GameState="*res://autoload/game_state.gd"
 
+[gui]
+
+theme/custom="res://assets/ui/theme.tres"
+
 [display]
 
 window/size/viewport_width=360

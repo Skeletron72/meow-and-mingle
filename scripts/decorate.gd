@@ -1,10 +1,11 @@
 extends Node2D
-## Режим украшения: каталог мебели за монеты, перетаскивание по залу, отражение и продажа.
+## Режим украшения: каталог мебели за монеты, перетаскивание по клеткам сетки 16×16, отражение и продажа.
 ## Расстановка хранится в GameState.layout и сохраняется после каждого изменения.
 
 const MAX_ITEMS := 40
-const PANEL_Y := 548.0
-const CARD_W := 72.0
+const PANEL_Y := 520.0
+const CARD_W := 96.0
+const CARD_H := 100.0
 const SEL_COLOR := Color("fff1d6")
 const BAD_COLOR := Color(1.0, 0.55, 0.5)
 
@@ -12,16 +13,15 @@ var _room: CafeRoom
 var _ui: CanvasLayer
 var _sel_box: Node2D
 var _toolbar: Control
-var _remove_btn: Button
+var _hint: Control
 var _coins_label: Label
-var _hint: Panel
 var _cards: Array[Dictionary] = []   # {"btn": Button, "id": String}
 
 var _sel := -1
 var _dragging := false
-var _drag_off := Vector2.ZERO
-var _drag_start := Vector2.ZERO
-var _drag_pos := Vector2.ZERO
+var _drag_off := Vector2i.ZERO       # клетка предмета минус клетка под пальцем в момент нажатия
+var _drag_start := Vector2i.ZERO
+var _drag_cell := Vector2i.ZERO
 var _drag_err := ""
 
 
@@ -49,16 +49,18 @@ func _build_ui() -> void:
 
 
 func _build_top() -> void:
-	Ui.panel(Rect2(8, 8, 88, 28), Ui.UI_CREAM, 5, _ui)
+	Ui.panel(Rect2(8, 8, 104, 40), Ui.UI_CREAM, _ui)
 	var coin := Sprite2D.new()
 	coin.texture = Ui.icon("coin")
-	coin.position = Vector2(24, 22)
+	coin.position = Vector2(28, 28)
 	coin.scale = Vector2(2, 2)
 	_ui.add_child(coin)
-	_coins_label = Ui.label("0", Rect2(38, 10, 54, 24), 16, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
-	_hint = Ui.panel(Rect2(100, 8, 196, 28), Ui.UI_CREAM, 5, _ui)
-	Ui.label("Перетащи мебель", Rect2(0, 0, 196, 28), 11, Ui.INK, _hint)
-	var back := Ui.button("", Rect2(302, 6, 50, 32), "home", _ui)
+	_coins_label = Ui.label("0", Rect2(44, 10, 64, 36), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
+	_hint = Control.new()
+	_ui.add_child(_hint)
+	Ui.panel(Rect2(116, 8, 176, 40), Ui.UI_CREAM, _hint)
+	Ui.label("Тяни мебель", Rect2(116, 10, 176, 36), Ui.FONT_SIZE, Ui.INK, _hint, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var back := Ui.button("", Rect2(300, 8, 52, 40), "home", _ui)
 	back.pressed.connect(Nav.go.bind(self, Nav.MENU))
 
 
@@ -66,20 +68,21 @@ func _build_toolbar() -> void:
 	_toolbar = Control.new()
 	_toolbar.visible = false
 	_ui.add_child(_toolbar)
-	var flip := Ui.button("Зеркало", Rect2(8, 0, 100, 40), "undo", _toolbar, 12)
+	var flip := Ui.button("Зеркало", Rect2(6, 0, 116, 56), "undo", _toolbar, true)
 	flip.pressed.connect(_flip_selected)
-	_remove_btn = Ui.button("Убрать", Rect2(112, 0, 132, 40), "trash", _toolbar, 12)
-	_remove_btn.pressed.connect(_remove_selected)
-	var done := Ui.button("Готово", Rect2(248, 0, 104, 40), "check", _toolbar, 12)
+	var remove := Ui.button("Убрать", Rect2(126, 0, 108, 56), "trash", _toolbar, true)
+	remove.pressed.connect(_remove_selected)
+	var done := Ui.button("Готово", Rect2(238, 0, 116, 56), "check", _toolbar, true)
 	done.pressed.connect(_deselect)
 
 
 func _build_catalog() -> void:
-	Ui.panel(Rect2(0, PANEL_Y, 360, 92), Ui.UI_WOOD, 7, _ui)
+	Ui.panel(Rect2(0, PANEL_Y, 360, 120), Ui.UI_WOOD, _ui)
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(8, PANEL_Y + 6)
-	scroll.size = Vector2(344, 80)
+	scroll.position = Vector2(10, PANEL_Y + 8)
+	scroll.size = Vector2(340, CARD_H)
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER  # листается пальцем или колесом мыши
 	_ui.add_child(scroll)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
@@ -90,33 +93,32 @@ func _build_catalog() -> void:
 
 func _add_card(row: Container, id: String) -> void:
 	var def := CafeRoom.item_def(id)
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(CARD_W, 66)
-	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_stylebox_override("normal", Ui.stylebox(Ui.UI_CREAM, 5))
-	b.add_theme_stylebox_override("hover", Ui.stylebox(Ui.UI_CREAM, 5, Color(1.06, 1.06, 1.06)))
-	b.add_theme_stylebox_override("pressed", Ui.stylebox(Ui.UI_CREAM, 5, Color(0.85, 0.85, 0.85)))
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(CARD_W, CARD_H)
+	row.add_child(holder)
+	var b := Ui.button("", Rect2(0, 0, CARD_W, CARD_H), "", holder, false, Ui.UI_CREAM)
 	b.pressed.connect(_buy.bind(id))
-	row.add_child(b)
+	# миниатюра: в масштабе 2, если помещается, иначе 1
 	var r: Array = def["rect"]
+	var size := Vector2(float(r[2]), float(r[3]))
+	var k := 2.0 if size.x * 2.0 <= 80.0 and size.y * 2.0 <= 40.0 else 1.0
 	var tex := TextureRect.new()
-	tex.texture = Ui.atlas(CafeRoom.FURN_TEX, Rect2(float(r[0]), float(r[1]), float(r[2]), float(r[3])))
-	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tex.position = Vector2(8, 4)
-	tex.size = Vector2(CARD_W - 16.0, 32)
+	tex.texture = Ui.atlas(CafeRoom.FURN_TEX, Rect2(float(r[0]), float(r[1]), size.x, size.y))
+	tex.stretch_mode = TextureRect.STRETCH_SCALE
+	tex.size = size * k
+	tex.position = Vector2(roundf((CARD_W - tex.size.x) / 4.0) * 2.0, roundf((40.0 - tex.size.y) / 4.0) * 2.0 + 2.0)
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(tex)
-	Ui.label(String(def["name"]), Rect2(0, 35, CARD_W, 14), 9, Ui.INK, b)
-	var price := Ui.label(str(int(def["price"])), Rect2(0, 49, CARD_W - 14.0, 14), 11, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
+	Ui.label(String(def["name"]), Rect2(0, 40, CARD_W, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.label(str(int(def["price"])), Rect2(0, 68, CARD_W - 30.0, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
 	var coin := TextureRect.new()
 	coin.texture = Ui.icon("coin")
-	coin.position = Vector2(CARD_W - 12.0, 49)
-	coin.size = Vector2(8, 11)
 	coin.stretch_mode = TextureRect.STRETCH_SCALE
+	coin.size = Vector2(22, 28)
+	coin.position = Vector2(CARD_W - 30.0, 70)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(coin)
-	_cards.append({"btn": b, "id": id, "price": price})
+	_cards.append({"btn": b, "id": id})
 
 
 func _on_coins_changed(value: int) -> void:
@@ -142,6 +144,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_drag_to((make_input_local(event) as InputEventMouse).position)
 
 
+func _pointer_cell(id: String, p: Vector2) -> Vector2i:
+	return CafeRoom.wall_cell_at(p) if CafeRoom.is_wall(id) else CafeRoom.cell_at(p)
+
+
 func _on_press(p: Vector2) -> void:
 	if p.y >= PANEL_Y:
 		return
@@ -153,23 +159,21 @@ func _on_press(p: Vector2) -> void:
 		return
 	_select(i)
 	var item := GameState.layout[i]
-	_drag_start = Vector2(float(item["x"]), float(item["y"]))
-	_drag_pos = _drag_start
-	_drag_off = _drag_start - p
+	_drag_start = Vector2i(int(item["c"]), int(item["r"]))
+	_drag_cell = _drag_start
+	_drag_off = _drag_start - _pointer_cell(String(item["id"]), p)
 	_drag_err = ""
 	_dragging = true
 
 
 func _select(i: int) -> void:
 	_sel = i
-	var id := String(GameState.layout[i]["id"])
-	var price := int(CafeRoom.item_def(id)["price"])
-	_remove_btn.text = "Убрать +%d" % price
 	_hint.visible = false
 	_toolbar.visible = true
-	# панель инструментов уходит от выбранного предмета: вверх или вниз
-	var y := float(GameState.layout[i]["y"])
-	_toolbar.position = Vector2(0, 500.0 if y < 300.0 else 44.0)
+	# панель инструментов уходит от выбранного предмета: вниз или вверх
+	var item := GameState.layout[i]
+	var top := CafeRoom.is_wall(String(item["id"])) or int(item["r"]) < 4
+	_toolbar.position = Vector2(0, 452.0 if top else 56.0)
 	_sel_box.queue_redraw()
 
 
@@ -183,14 +187,11 @@ func _deselect() -> void:
 
 func _drag_to(p: Vector2) -> void:
 	var id := String(GameState.layout[_sel]["id"])
-	var pos := CafeRoom.snap(p + _drag_off)
-	pos.x = clampf(pos.x, 0.0, float(CafeRoom.ROOM_W))
-	pos.y = clampf(pos.y, 0.0 if CafeRoom.is_wall(id) else CafeRoom.FLOOR.position.y, CafeRoom.WALL_ZONE.end.y if CafeRoom.is_wall(id) else CafeRoom.FLOOR.end.y)
-	_drag_pos = pos
-	_drag_err = _room.check_place(id, pos, _sel)
-	var n := _room.node_for(_sel)
-	n.position = pos
-	n.modulate = BAD_COLOR if _drag_err != "" else Color.WHITE
+	var cell := _pointer_cell(id, p) + _drag_off
+	_drag_cell = cell
+	_drag_err = _room.check_place(id, cell.x, cell.y, _sel)
+	_room.preview_move(_sel, cell.x, cell.y)
+	_room.node_for(_sel).modulate = BAD_COLOR if _drag_err != "" else Color.WHITE
 	_sel_box.queue_redraw()
 
 
@@ -199,27 +200,30 @@ func _drop() -> void:
 	var n := _room.node_for(_sel)
 	n.modulate = Color.WHITE
 	if _drag_err != "":
-		n.position = _drag_start
-		_toast(_drag_err, _drag_pos + Vector2(0, -60))
-	elif _drag_pos != _drag_start:
-		GameState.layout[_sel]["x"] = _drag_pos.x
-		GameState.layout[_sel]["y"] = _drag_pos.y
-		_room.rebuild_nav()
+		_room.preview_move(_sel, _drag_start.x, _drag_start.y)
+		_toast(_drag_err, n.position + Vector2(0, -60))
+	elif _drag_cell != _drag_start:
+		GameState.layout[_sel]["c"] = _drag_cell.x
+		GameState.layout[_sel]["r"] = _drag_cell.y
+		_room.rebuild()  # переносит и спрайт (его смещение зависит от клетки), и сетку путей
 		GameState.save_game()
 	_drag_err = ""
 	_sel_box.queue_redraw()
 
 
+## Клетки предмета (подсвечиваются) и рамка вокруг его спрайта. Во время перетаскивания — по текущей клетке.
 func _draw_selection() -> void:
 	if _sel < 0 or _sel >= GameState.layout.size():
 		return
-	var id := String(GameState.layout[_sel]["id"])
-	var pos := _room.node_for(_sel).position
-	var r := CafeRoom.sprite_rect(id, pos).grow(3)
+	var item := GameState.layout[_sel]
+	var id := String(item["id"])
+	var cell := _drag_cell if _dragging else Vector2i(int(item["c"]), int(item["r"]))
 	var col := BAD_COLOR if _drag_err != "" else SEL_COLOR
-	_sel_box.draw_rect(r, col, false, 2.0)
-	if not CafeRoom.is_wall(id):
-		_sel_box.draw_rect(CafeRoom.foot_rect(id, pos), Color(col, 0.28), true)
+	var area := CafeRoom.cells(id, cell.x, cell.y)
+	var top := CafeRoom.cell_pos(cell.x, cell.y, CafeRoom.is_wall(id))
+	var footprint := Rect2(top, Vector2(area.size) * CafeRoom.T)
+	_sel_box.draw_rect(footprint, Color(col, 0.25), true)
+	_sel_box.draw_rect(CafeRoom.sprite_rect(id, cell.x, cell.y).grow(2).merge(footprint), col, false, 2.0)
 
 
 # ---------------------------------------------------------------- покупка, отражение, продажа
@@ -233,10 +237,10 @@ func _buy(id: String) -> void:
 		_toast("Не хватает монет", Vector2(180, 480))
 		return
 	var spot := _room.find_free_spot(id)
-	if spot == Vector2.INF:
+	if spot.x < 0:
 		_toast("Нет свободного места", Vector2(180, 480))
 		return
-	GameState.layout.append({"id": id, "x": spot.x, "y": spot.y, "flip": false})
+	GameState.layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
 	_room.rebuild()
 	GameState.spend_coins(price)  # сохраняет и расстановку
 	_select(GameState.layout.size() - 1)
@@ -254,11 +258,11 @@ func _flip_selected() -> void:
 func _remove_selected() -> void:
 	if _sel < 0:
 		return
-	var id := String(GameState.layout[_sel]["id"])
-	var price := int(CafeRoom.item_def(id)["price"])
-	var pos := Vector2(float(GameState.layout[_sel]["x"]), float(GameState.layout[_sel]["y"]))
+	var item := GameState.layout[_sel]
+	var price := int(CafeRoom.item_def(String(item["id"]))["price"])
+	var at := _room.node_for(_sel).position
 	GameState.layout.remove_at(_sel)
 	_room.rebuild()
 	_deselect()
 	GameState.add_coins(price)  # возврат полной цены; заодно сохраняет расстановку
-	_toast("+%d" % price, pos + Vector2(0, -50))
+	_toast("+%d" % price, at + Vector2(0, -50))

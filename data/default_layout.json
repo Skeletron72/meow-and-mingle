@@ -1,9 +1,9 @@
 [
-	{"id": "window", "x": 276, "y": 120, "flip": false},
-	{"id": "board", "x": 108, "y": 100, "flip": false},
-	{"id": "table_big", "x": 264, "y": 340, "flip": false},
-	{"id": "stool", "x": 204, "y": 364, "flip": false},
-	{"id": "plant", "x": 324, "y": 252, "flip": false},
-	{"id": "rug", "x": 96, "y": 440, "flip": false},
-	{"id": "bowl", "x": 48, "y": 330, "flip": false}
+	{"id": "window", "c": 7, "r": 3, "flip": false},
+	{"id": "board", "c": 3, "r": 2, "flip": false},
+	{"id": "table_big", "c": 7, "r": 4, "flip": false},
+	{"id": "stool", "c": 6, "r": 5, "flip": false},
+	{"id": "plant", "c": 9, "r": 1, "flip": false},
+	{"id": "rug", "c": 1, "r": 6, "flip": false},
+	{"id": "bowl", "c": 0, "r": 4, "flip": false}
 ]

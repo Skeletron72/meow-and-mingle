@@ -5,13 +5,13 @@ extends Node
 signal coins_changed(value: int)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 
 var coins: int = 0
 var served_total: int = 0
 var cat_progress: Dictionary = {}  # cat_id -> {"chapter": int, "likes": int} (этап 2)
 var last_visit_unix: int = 0       # для чаевой банки (этап 3)
-var layout: Array[Dictionary] = [] # расставленная мебель: {"id", "x", "y", "flip"} (режим украшения)
+var layout: Array[Dictionary] = [] # расставленная мебель: {"id", "c", "r", "flip"} — клетки сетки (режим украшения)
 
 
 func _ready() -> void:
@@ -76,25 +76,47 @@ func load_game() -> void:
 
 func _migrate(data: Dictionary) -> Dictionary:
 	var v := int(data.get("version", 0))
-	if v < 2:
-		data["layout"] = Data.default_layout.duplicate(true)  # v2: добавлен режим украшения
-		v = 2
+	if v < 3:
+		# v2 хранил мебель в пикселях и до сетки 16×16 — переводить нечего. Расстановка по умолчанию,
+		# а за всё, что игрок докупил сверх неё, возвращаем монеты (v1 мебели не знал).
+		var refund := 0
+		var free_left := {"window": 1, "board": 1, "table_big": 1, "stool": 1, "plant": 1, "rug": 1, "bowl": 1}
+		var old: Variant = data.get("layout", null)
+		if v == 2 and old is Array:
+			for item in old:
+				if not (item is Dictionary) or not Data.furniture.has(String(item.get("id", ""))):
+					continue
+				var id := String(item["id"])
+				if int(free_left.get(id, 0)) > 0:
+					free_left[id] = int(free_left[id]) - 1
+				else:
+					refund += int(Data.furniture[id]["price"])
+		data["coins"] = int(data.get("coins", 0)) + refund
+		data["layout"] = Data.default_layout.duplicate(true)
+		v = 3
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data
 
 
-## Отбрасывает записи с неизвестной мебелью и приводит типы; не массив -> расстановка по умолчанию.
+## Оставляет только корректную мебель: известные id, клетки внутри зала, без наложений и без перекрытия прохода.
+## Не массив -> расстановка по умолчанию.
 func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
 	if not (raw is Array):
 		return Data.default_layout.duplicate(true)
+	var room := CafeRoom.new()  # только для проверки размещения, в дерево не добавляется
+	var out: Array[Dictionary] = []
+	room.layout = out
 	for item in raw:
-		if item is Dictionary and Data.furniture.has(String(item.get("id", ""))):
-			out.append({
-				"id": String(item["id"]),
-				"x": float(item.get("x", 0.0)),
-				"y": float(item.get("y", 0.0)),
-				"flip": bool(item.get("flip", false)),
-			})
+		if not (item is Dictionary) or not Data.furniture.has(String(item.get("id", ""))):
+			continue
+		var fixed := {
+			"id": String(item["id"]),
+			"c": int(item.get("c", -1)),
+			"r": int(item.get("r", -1)),
+			"flip": bool(item.get("flip", false)),
+		}
+		if room.check_place(fixed["id"], fixed["c"], fixed["r"]) == "":
+			out.append(fixed)
+	room.free()
 	return out

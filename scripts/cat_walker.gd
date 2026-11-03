@@ -1,12 +1,12 @@
 class_name CatWalker
 extends Node2D
 ## Кот, который ходит по комнате кафе: игрок (официант) или гуляющий посетитель.
-## Начало координат — «ноги». Путь берётся у CafeRoom.find_path.
+## Начало координат — «ноги». Кот — одна клетка 16×16 и ходит по центрам клеток (путь — CafeRoom.find_path).
 
 signal arrived
 
 const SHEET_DIR := "res://assets/cats/"
-const SPEED := 84.0
+const SPEED := 96.0   # 3 клетки в секунду
 const WALK_FPS := 7.0
 const FRAME := 16
 
@@ -80,7 +80,7 @@ func hop() -> void:
 	if _hop:
 		_hop.kill()
 	_hop = create_tween()
-	_hop.tween_property(_sprite, "position:y", _sprite.position.y - 10.0, 0.1)
+	_hop.tween_property(_sprite, "position:y", _sprite.position.y - 8.0, 0.1)
 	_hop.tween_property(_sprite, "position:y", -FRAME * CafeRoom.S + 2.0, 0.1)
 
 
@@ -116,7 +116,7 @@ func step(delta: float) -> void:
 func _animate(dir: Vector2, delta: float) -> void:
 	_anim_t += delta * WALK_FPS
 	_set_frame(int(_anim_t) % 4)
-	_sprite.position.y = -FRAME * CafeRoom.S + 2.0 - absf(sin(_anim_t * PI / 2.0)) * 3.0
+	_sprite.position.y = -FRAME * CafeRoom.S + 2.0 - absf(sin(_anim_t * PI / 2.0)) * float(Ui.PX)
 	if absf(dir.x) > 0.1:
 		_sprite.flip_h = dir.x < 0.0
 
@@ -132,5 +132,5 @@ func _draw() -> void:
 	var pts := PackedVector2Array()
 	for k in 16:
 		var a := TAU * k / 16.0
-		pts.append(Vector2(cos(a) * 15.0, sin(a) * 5.0))
+		pts.append(Vector2(roundf(cos(a) * 11.0), roundf(sin(a) * 4.0)))
 	draw_colored_polygon(pts, Color(0, 0, 0, 0.22))
