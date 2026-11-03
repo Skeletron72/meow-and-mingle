@@ -420,7 +420,7 @@ func _open_box(id: String, node: Node, def: Dictionary) -> void:
 			"box_0":
 				GameState.add_coins(20)
 				var from: Vector2 = city._world.get_global_transform_with_canvas() * world
-				Fx.coins_fly(city._ui, from, Vector2(28, 22), 6, func() -> void: pass)
+				Fx.coins_fly(city._ui, from, Vector2(28, 28), 6, func() -> void: pass)
 				_say(String(def["line"]))
 			"box_1":
 				GameState.keepsakes.append("recipe_latte")
@@ -502,20 +502,20 @@ func _say(text: String) -> void:
 func _build_progress_ui() -> void:
 	_progress_panel = Control.new()
 	city._ui.add_child(_progress_panel)
-	Ui.panel(Rect2(40, 56, 280, 40), Ui.UI_CREAM, _progress_panel)
+	Ui.panel(Rect2(40, 56, 280, 70), Ui.UI_CREAM, _progress_panel)   # внутри 46 px: строка 28 + воздух + полоска 10
 	var back := ColorRect.new()
-	back.position = Vector2(52, 78)
+	back.position = Vector2(52, 100)
 	back.size = Vector2(256, 10)
 	back.color = Color("b98c5a")
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_progress_panel.add_child(back)
 	_progress_fill = ColorRect.new()
-	_progress_fill.position = Vector2(52, 78)
+	_progress_fill.position = Vector2(52, 100)
 	_progress_fill.size = Vector2(0, 10)
 	_progress_fill.color = Color("5bc26a")
 	_progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_progress_panel.add_child(_progress_fill)
-	_progress_label = Ui.label("", Rect2(40, 56, 280, 28), Ui.FONT_SIZE, Ui.INK, _progress_panel, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_progress_label = Ui.label("", Rect2(52, 68, 256, 28), Ui.FONT_SIZE, Ui.INK, _progress_panel, HORIZONTAL_ALIGNMENT_CENTER, true)
 
 
 func _update_progress() -> void:

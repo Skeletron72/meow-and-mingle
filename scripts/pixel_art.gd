@@ -315,3 +315,51 @@ static func sprite(tex: Texture2D, pos: Vector2, centered := true, px := 2.0) ->
 	s.centered = centered
 	s.position = Vector2(roundf(pos.x / px) * px, roundf(pos.y / px) * px)
 	return s
+
+
+## Вывеска кафе: название «ТЁПЛАЯ ЛАПКА» собственным пиксельным шрифтом 5×7 (кириллица, только нужные буквы) и лапки по бокам.
+## Размер 104×8 — ровно серая доска на фасаде (building4.png: x 33..136, y 101..108); текст стоит на рядах 0..6.
+const SIGN_GLYPHS := {
+	"Т": ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+	"Ё": [".#.#.", "#####", "#....", "####.", "#....", "#....", "#####"],
+	"П": ["#####", "#...#", "#...#", "#...#", "#...#", "#...#", "#...#"],
+	"Л": ["..###", ".#..#", ".#..#", ".#..#", "#...#", "#...#", "#...#"],
+	"А": [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+	"Я": [".####", "#...#", "#...#", ".####", "..#.#", ".#..#", "#...#"],
+	"К": ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
+	" ": ["...", "...", "...", "...", "...", "...", "..."],
+}
+const SIGN_PAW := ["..#.#..", ".......", "#.....#", "..###..", ".#####.", ".#####.", "..###.."]
+
+
+static func sign_texture(text: String, w := 104, h := 8) -> ImageTexture:
+	var key := "sign_%s_%d_%d" % [text, w, h]
+	if _cache.has(key):
+		return _cache[key]
+	var img := image(w, h)
+	var ink := Color("202e37")
+	var total := 0
+	for ch in text:
+		total += (SIGN_GLYPHS[ch][0] as String).length() + 1
+	total -= 1
+	var paw_w := 7
+	var span := paw_w + 3 + total + 3 + paw_w
+	var x := (w - span) / 2
+	_draw_pattern(img, SIGN_PAW, x, 0, Color("c9573a"))
+	x += paw_w + 3
+	for ch in text:
+		var g: Array = SIGN_GLYPHS[ch]
+		_draw_pattern(img, g, x, 0, ink)
+		x += (g[0] as String).length() + 1
+	x += 2
+	_draw_pattern(img, SIGN_PAW, x, 0, Color("c9573a"))
+	_cache[key] = texture(img)
+	return _cache[key]
+
+
+static func _draw_pattern(img: Image, rows: Array, ox: int, oy: int, c: Color) -> void:
+	for y in rows.size():
+		var row: String = rows[y]
+		for x in row.length():
+			if row[x] == "#":
+				put(img, ox + x, oy + y, c)

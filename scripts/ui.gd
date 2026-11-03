@@ -19,10 +19,31 @@ const UI_CREAM: Texture2D = preload("res://assets/ui/SimpleColorContainer1_cream
 const FONT_NARROW: Font = preload("res://assets/fonts/Galmuri11-Condensed.ttf")
 const FONT_MAIN: Font = preload("res://assets/fonts/Galmuri11.ttf")
 
-## Сколько снизу у рамок занимает «тень/бортик» (px): текст и кнопки внутри рамки держим выше него.
-const SHADOW_CREAM := 12.0
-const SHADOW_WOOD := 22.0
-const SHADOW_BUTTON := 14.0
+## Замеры по пикселям (скриншот 720×1280, 1 px логики = 2 px экрана):
+## - кремовая плашка и кнопка: тёмный контур сверху 2 px, внизу «бортик» 8 px (с контуром); по бокам контур 2 px;
+## - деревянная рамка: контур и орнамент сверху и по бокам 8 px, снизу 14 px.
+## Текст и кнопки внутри рамок держим по центру свободной области, с одинаковым воздухом (PAGE_AIR) со всех сторон.
+const EDGE := 2.0                 # контур кремовой плашки и кнопки сверху и по бокам
+const SHADOW_CREAM := 8.0         # низ кремовой плашки
+const SHADOW_BUTTON := 8.0        # низ кнопки
+const WOOD_EDGE := 8.0            # деревянная рамка: сверху и по бокам
+const WOOD_BOTTOM := 14.0         # деревянная рамка: снизу
+const PAGE_AIR := 16.0            # воздух от свободной области рамки до содержимого
+
+## Раскладка страниц на деревянной рамке: содержимое отступает от края рамки на WOOD_EDGE + PAGE_AIR со всех сторон (снизу — WOOD_BOTTOM + PAGE_AIR),
+## между заголовком, кнопками и низом — ровные промежутки.
+const PAGE_PAD_TOP := 20.0        # метка заголовка: её цифры/заглавные начинаются на 4 px ниже верха строки, итого 8 + 16 до глифа
+const PAGE_PAD_BOTTOM := 30.0     # 14 + 16
+const PAGE_PAD_X := 24.0          # 8 + 16
+const PAGE_TITLE_H := 28.0        # строка шрифта 28 px (глиф ~22–26)
+const PAGE_GAP := 12.0
+const BTN_H := 48.0
+const BTN_GAP := 8.0
+
+## Шрифт 24: строка 28 px, пиксели глифов — со 2-го по 27-й ряд (кириллица с «Ё»/«й» и хвостами «р, у, д»).
+const LINE_H := 28.0
+const GLYPH_TOP := 2.0
+const GLYPH_BOTTOM := 28.0   # с хвостами; у цифр и заглавных без выносных — до 24
 const FONT_SIZE := 24   # 12 px шрифта × PX
 const FONT_SIZE_BIG := 48
 
@@ -82,6 +103,12 @@ static func panel(r: Rect2, tex: Texture2D, parent: Node) -> NinePatchRect:
 	n.scale = Vector2(PX, PX)
 	n.position = r.position
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	n.set_meta("outer", Rect2(r.position, (r.size / float(PX)).floor() * float(PX)))
+	var sz := (r.size / float(PX)).floor() * float(PX)
+	if tex == UI_WOOD:
+		n.set_meta("inner", Rect2(r.position + Vector2(WOOD_EDGE, WOOD_EDGE), sz - Vector2(WOOD_EDGE * 2.0, WOOD_EDGE + WOOD_BOTTOM)))
+	else:
+		n.set_meta("inner", Rect2(r.position + Vector2(EDGE, EDGE), sz - Vector2(EDGE * 2.0, EDGE + SHADOW_CREAM)))
 	parent.add_child(n)
 	return n
 
@@ -121,40 +148,60 @@ static func _text_width(font: Font, lines: PackedStringArray, font_size: int) ->
 
 
 ## Область рамки без нижней тени: сюда ставим текст и кнопки.
+static func page_height(content_h: float) -> float:
+	return PAGE_PAD_TOP + PAGE_TITLE_H + PAGE_GAP + content_h + PAGE_PAD_BOTTOM
+
+
+static func column_h(n: int) -> float:
+	return n * BTN_H + maxi(0, n - 1) * BTN_GAP
+
+
 static func inner(r: Rect2, shadow: float) -> Rect2:
 	return Rect2(r.position, Vector2(r.size.x, r.size.y - shadow))
 
 
 ## Меняет подпись кнопки с проверкой «влезает»: длинная — узким шрифтом (иконка слева учитывается).
+static func set_button_icon(b: Button, tex: Texture2D) -> void:
+	var tr_: TextureRect = b.get_meta("icon_node", null)
+	if tr_ == null:
+		return
+	tr_.texture = tex
+	tr_.size = tex.get_size() * PX
+	var x := 8.0
+	tr_.position = Vector2(x, EDGE + floorf((b.size.y - EDGE - SHADOW_BUTTON - tr_.size.y) / (2.0 * PX)) * PX)
+
+
 static func set_button_text(b: Button, text: String) -> void:
-	b.text = text
 	var pad := 4.0 + (b.get_meta("icon_pad", 0.0) as float)
 	var wide := FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + PX * 2.0 + pad + 4.0 > b.size.x - 8.0
 	if wide:
 		b.add_theme_font_override("font", FONT_NARROW)
 	else:
 		b.remove_theme_font_override("font")
+	var keep := b.size
+	b.text = text
+	b.size = keep
 
 
 ## Кнопка на nine-patch. Без текста — кнопка-иконка. Размер округляется до чётного.
 static func button(text: String, r: Rect2, icon_name: String, parent: Node, narrow := false, tex: Texture2D = null, danger := false) -> Button:
 	var b := Button.new()
-	b.text = text
+	var target := (r.size / float(PX)).floor() * float(PX)
 	b.position = r.position
-	b.size = (r.size / float(PX)).floor() * float(PX)
 	b.focus_mode = Control.FOCUS_NONE
 	b.clip_text = true
 	# у кнопки с иконкой и текстом слева остаётся место под иконку
 	var pad := 0.0
 	if icon_name != "" and text != "":
 		pad = (ICON_RECTS[icon_name] as Rect2).size.x * PX + 8.0
-	if not narrow and text != "" and FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 8.0 + PX * 2.0 + pad > b.size.x - 8.0:
+	if not narrow and text != "" and FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 8.0 + PX * 2.0 + pad > target.x - 8.0:
 		narrow = true   # длинная подпись на кнопке — узкий шрифт
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var sb := StyleBoxEmpty.new()
 		sb.content_margin_left = 4.0 + pad
 		sb.content_margin_right = 4.0
-		sb.content_margin_bottom = SHADOW_BUTTON   # текст по центру области над нижним бортиком кнопки
+		sb.content_margin_top = EDGE
+		sb.content_margin_bottom = SHADOW_BUTTON   # текст по центру грани кнопки: между верхним контуром и нижним бортиком
 		b.add_theme_stylebox_override(state, sb)
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, CREAM)
@@ -164,6 +211,8 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 	if narrow:
 		b.add_theme_font_override("font", FONT_NARROW)
 	b.set_meta("icon_pad", pad)
+	b.text = text   # текст — после шрифта: иначе кнопка успевает раздуться под широкий шрифт
+	b.size = target
 	var skin := panel(Rect2(Vector2.ZERO, b.size), tex if tex else UI_BTN, b)
 	skin.show_behind_parent = true
 	if danger:
@@ -180,9 +229,10 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 		tr_.stretch_mode = TextureRect.STRETCH_SCALE
 		tr_.size = region.size * PX
 		var x := 8.0 if text != "" else floorf((b.size.x - tr_.size.x) / (2.0 * PX)) * PX
-		tr_.position = Vector2(x, floorf((b.size.y - SHADOW_BUTTON - tr_.size.y) / (2.0 * PX)) * PX)
+		tr_.position = Vector2(x, EDGE + floorf((b.size.y - EDGE - SHADOW_BUTTON - tr_.size.y) / (2.0 * PX)) * PX)
 		tr_.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(tr_)
+		b.set_meta("icon_node", tr_)
 	return b
 
 

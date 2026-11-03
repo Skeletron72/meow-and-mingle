@@ -20,7 +20,7 @@ const BUBBLE_Y := 142.0
 const TUTORIAL_GAP := 1.0   # в обучении: пауза до следующего кота
 const PASTRY_CHANCE := 0.5
 const BIN_POS := Vector2(320, 360)
-const COIN_POS := Vector2(28, 20)   # по центру области плашки над нижней тенью
+const COIN_POS := Vector2(28, 26)   # центр области плашки (6..54) над нижней тенью
 const INK := Ui.INK
 
 const COFFEE_SHEET: Texture2D = preload("res://assets/cafe/drinks-and-pastries.png")  # сетка 16x16, 5 колонок
@@ -196,18 +196,18 @@ func _lay_row(items: Array[Dictionary], y: float) -> void:
 
 
 func _build_hud() -> void:
-	Ui.panel(Rect2(8, 6, 108, 40), Ui.UI_CREAM, self).z_index = 80
+	Ui.panel(Rect2(8, 6, 108, 48), Ui.UI_CREAM, self).z_index = 80
 	_coin_icon = _sprite(_atlas(ICONS, Rect2(210, 209, 11, 14)), COIN_POS, 2.0)
 	_coin_icon.z_index = 81
-	_coins_label = _label("0", Rect2(44, 6, 68, 28), INK)
+	_coins_label = _label("0", Rect2(44, 12, 68, 32), INK)
 	_coins_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_coins_label.z_index = 81
-	_served_label = _label("", Rect2(124, 8, 166, 32), Color("fff1d6"), null, true)
+	_served_label = _label("", Rect2(124, 10, 166, 32), Color("fff1d6"), null, true)
 	_served_label.add_theme_color_override("font_outline_color", INK)
 	_served_label.add_theme_constant_override("outline_size", Ui.PX * 2)
 	_served_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_served_label.z_index = 81
-	var end_btn := Ui.button("", Rect2(300, 4, 52, 40), "exit", self)
+	var end_btn := Ui.button("", Rect2(296, 6, 56, 48), "exit", self)
 	end_btn.z_index = 82
 	end_btn.visible = not tutorial   # обучающую смену нельзя бросить
 	end_btn.pressed.connect(_end_shift)
@@ -785,34 +785,48 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	dim.size = Vector2(360, 640)
 	dim.color = Color(0, 0, 0, 0.55)
 	_result.add_child(dim)
-	Ui.panel(Rect2(24, 108, 312, 436), Ui.UI_WOOD, _result)
+	# рамка 336 px: орнаменты 20 px по углам, бортик 22 px снизу; содержимое — в колонке 268 px по центру
+	var x := 12.0
+	var w := 336.0
+	var cx := x + Ui.PAGE_PAD_X
+	var cw := w - 2.0 * Ui.PAGE_PAD_X
+	var top := 96.0
+	var h := 466.0
+	Ui.panel(Rect2(x, top, w, h), Ui.UI_WOOD, _result)
 	var done := mask & 1 != 0
-	Ui.label("Смена пройдена!" if done else "Смена не удалась", Rect2(24, 128, 312, 36), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	Ui.label(String(level.get("name", "")), Rect2(24, 158, 312, 28), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var y := top + Ui.PAGE_PAD_TOP
+	Ui.label("Смена пройдена!" if done else "Смена не удалась", Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER)
+	y += Ui.LINE_H
+	Ui.label(String(level.get("name", "")), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _result, HORIZONTAL_ALIGNMENT_CENTER)
+	y += Ui.LINE_H + 12.0
 	var captions := ["Смена", "Точность", "Скорость"]
 	var values := ["", "%d%%" % int(round(accuracy * 100.0)), "%.1f с" % avg]
+	var star_y := y + 18.0
 	for i in 3:
-		var x := 68.0 + i * 112.0
-		var star := _sprite(Fx.tex("bigstar"), Vector2(x, 232), 4.0, _result)
+		var sx := cx + cw / 6.0 + i * cw / 3.0   # центры трёх колонок
+		var star := _sprite(Fx.tex("bigstar"), Vector2(sx, star_y), 4.0, _result)
 		star.modulate = Color("5a4636") if (mask >> i) & 1 == 0 else Color("ffd640")
-		Ui.label(captions[i], Rect2(x - 52, 258, 104, 26), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-		Ui.label(values[i], Rect2(x - 52, 282, 104, 26), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+		Ui.label(captions[i], Rect2(sx - cw / 6.0, y + 44.0, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+		Ui.label(values[i], Rect2(sx - cw / 6.0, y + 44.0 + Ui.LINE_H, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 		if (mask >> i) & 1 == 1:
-			var delay := 0.25 + i * 0.3
 			star.visible = false
 			var tw := star.create_tween()
-			tw.tween_interval(delay)
+			tw.tween_interval(0.25 + i * 0.3)
 			tw.tween_callback(func() -> void:
 				star.visible = true
 				Fx.hop(star, 12.0, 0.3)
-				Fx.burst(_result, Vector2(x, 232), "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))
+				Fx.burst(_result, Vector2(sx, star_y), "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))
+	y += 44.0 + Ui.LINE_H * 2.0 + 8.0
 	var need := "Цель: точность %d%%, до %d с" % [int(round(float(level.get("accuracy", 0.8)) * 100.0)), int(level.get("speed", 10.0))]
-	Ui.label(need, Rect2(30, 308, 300, 26), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var lines := "Подано: %d из %d\nОшибок: %d · Ушло злыми: %d" % [int(_stats["served"]), _total_customers(), int(_stats["wrong"]), int(_stats["left"])]
-	Ui.label(lines, Rect2(30, 336, 300, 56), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	Ui.label("Заработано: %d" % shift_earned + ("  (звёзды +%d)" % bonus if bonus > 0 else ""), Rect2(30, 392, 300, 30), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	Ui.button("Ещё раз", Rect2(54, 430, 252, 40), "play", _result).pressed.connect(_restart_run)
-	Ui.button("В кафе", Rect2(54, 474, 252, 40), "exit", _result).pressed.connect(_end_shift)
+	Ui.label(need, Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	y += Ui.LINE_H + 6.0
+	var lines := "Подано: %d из %d\nОшибок: %d, ушло злыми: %d" % [int(_stats["served"]), _total_customers(), int(_stats["wrong"]), int(_stats["left"])]
+	Ui.label(lines, Rect2(cx, y, cw, Ui.LINE_H * 2.0), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	y += Ui.LINE_H * 2.0 + 4.0
+	Ui.label("Заработано: %d" % shift_earned + ("  (звёзды +%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
+	Ui.button("Ещё раз", Rect2(cx, by - Ui.BTN_H - Ui.BTN_GAP, cw, Ui.BTN_H), "play", _result).pressed.connect(_restart_run)
+	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_end_shift)
 
 
 func _restart_run() -> void:

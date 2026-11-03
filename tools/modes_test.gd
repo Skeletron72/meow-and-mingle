@@ -41,6 +41,7 @@ func _ready() -> void:
 	await _test_spaces()
 	await _test_levels()
 	await _test_text_and_hops()
+	await _test_ui_layout()
 	await _test_intro_fixes()
 	if _failed:
 		get_tree().quit(1)
@@ -1304,10 +1305,12 @@ func _test_spaces() -> void:
 	_check(CafeRoom.STAFF_INNER.has_point(back_cell) and player.nav == nav, "кот спустился в служебку и снова ходит по городской сетке: %s" % back_cell)
 	# магазин показывает все шесть улучшений
 	GameState.upgrades = []
+	city._shop_idx = 0
 	city.call("_open_shop")
+	city.call("_shop_turn")   # вторая страница магазина: дом
 	var texts: Array[String] = []
 	_button_texts(city.get("_shop_page"), texts)
-	_check("150" in texts and "300" in texts, "в магазине видны коморка и второй этаж (%s)" % [texts])
+	_check("150" in texts and "300" in texts, "на второй странице магазина — коморка и второй этаж (%s)" % [texts])
 	city.call("_close_menu")
 	city.queue_free()
 	await get_tree().process_frame
@@ -1512,4 +1515,129 @@ func _test_text_and_hops() -> void:
 	_check(is_equal_approx(m._coin_icon.position.y, rest), "иконка монет при серии начислений остаётся на месте: %s -> %s" % [rest, m._coin_icon.position.y])
 	m.queue_free()
 	holder.queue_free()
+	await get_tree().process_frame
+
+
+## Проверка вёрстки по замерам: подписи внутри плашек (с воздухом сверху и снизу), текст влезает в свою рамку, кнопки не раздуваются.
+func _audit_labels(root: Node, what: String) -> int:
+	var checked := 0
+	var panels: Array[NinePatchRect] = []
+	var labels: Array[Label] = []
+	_collect_ui(root, panels, labels)
+	for l in labels:
+		if l.text == "" or not l.is_visible_in_tree():
+			continue
+		var c := l.position + l.size / 2.0
+		var host: NinePatchRect = null
+		for p in panels:
+			var o: Rect2 = p.get_meta("outer")
+			if o.has_point(c) and p.get_parent() == l.get_parent() or (o.has_point(c) and p.get_parent().get_parent() == l.get_parent()):
+				if host == null or (o.size.x * o.size.y < (host.get_meta("outer") as Rect2).size.x * (host.get_meta("outer") as Rect2).size.y):
+					host = p
+		if host == null:
+			continue
+		var inner: Rect2 = host.get_meta("inner")
+		checked += 1
+		var font: Font = l.get_theme_font("font")
+		var lines := l.text.split("\n")
+		var wide := 0.0
+		for line in lines:
+			wide = maxf(wide, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x)
+		_check(wide <= l.size.x, "%s: «%s» шире своей рамки (%d > %d)" % [what, l.text.replace("\n", "|"), wide, l.size.x])
+		var top := l.position.y + Ui.GLYPH_TOP
+		var bottom := l.position.y + Ui.LINE_H * lines.size()
+		_check(top >= inner.position.y + 2.0 and bottom <= inner.end.y + 2.0, "%s: «%s» вплотную к краю или в тени плашки (текст %d..%d, свободно %d..%d)" % [what, l.text.replace("\n", "|"), top, bottom, inner.position.y, inner.end.y])
+	return checked
+
+
+func _collect_ui(n: Node, panels: Array[NinePatchRect], labels: Array[Label]) -> void:
+	if n is NinePatchRect and n.has_meta("inner"):
+		panels.append(n)
+	elif n is Label:
+		labels.append(n)
+	for ch in n.get_children():
+		_collect_ui(ch, panels, labels)
+
+
+func _test_ui_layout() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.coins = 1234
+	GameState.layout = Data.default_layout.duplicate(true)
+	var b := Ui.button("Сбросить прогресс", Rect2(54, 300, 252, 48), "trash", self, false, null, true)
+	await get_tree().process_frame
+	_check(b.size == Vector2(252, 48), "кнопка с длинной подписью не раздувается: %s" % b.size)
+	b.queue_free()
+	var city := _new_city(true)
+	await get_tree().process_frame
+	_check(_audit_labels(city._ui, "HUD города") >= 1, "в HUD города есть что проверять")
+	city._open_menu()
+	var n := 0
+	for page in city._menu_pages:
+		city._menu_page(page)
+		n += _audit_labels(city._menu, "меню/" + page)
+		var content: Rect2 = (city._menu_pages[page] as Control).get_meta("content")
+		var panel_inner: Rect2
+		for ch in (city._menu_pages[page] as Control).get_children():
+			if ch is NinePatchRect:
+				panel_inner = ch.get_meta("inner")
+		_check(absf((content.position.x - panel_inner.position.x) - Ui.PAGE_AIR) <= 0.5 and absf((panel_inner.end.x - content.end.x) - Ui.PAGE_AIR) <= 0.5, "меню/%s: слева и справа воздух %d" % [page, Ui.PAGE_AIR])
+		_check(absf((panel_inner.end.y - content.end.y) - Ui.PAGE_AIR) <= 0.5, "меню/%s: снизу воздух %d (сейчас %d)" % [page, Ui.PAGE_AIR, panel_inner.end.y - content.end.y])
+	GameState.upgrades = []
+	for i in 2:
+		city._shop_idx = i
+		city.call("_open_shop")
+		n += _audit_labels(city._menu, "магазин/%d" % i)
+	_check(n > 10, "проверено подписей в меню и магазине: %d" % n)
+	city._close_menu()
+	GameState.level_stars = {"l1": 7}
+	for i in 2:
+		city._levels_idx = i
+		city.call("_open_levels")
+		await get_tree().process_frame
+		var lv: CanvasLayer = city.get("_levels_layer")
+		for ch in lv.get_children():
+			if ch is Label and (ch as Label).text != "":
+				var l := ch as Label
+				var font: Font = l.get_theme_font("font")
+				_check(font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x <= l.size.x, "уровни/%d: «%s» не влезает" % [i, l.text])
+		city.call("_close_levels")
+	city.queue_free()
+	await get_tree().process_frame
+	# смена: HUD и итог
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = _quick_level(2, 30.0, 0.3)
+	add_child(m)
+	await get_tree().process_frame
+	_check(_audit_labels(m, "HUD смены") >= 1, "HUD смены проверен")
+	m._finish_run()
+	await get_tree().process_frame
+	_check(_audit_labels(m._result, "итог смены") >= 0, "итог смены проверен")
+	var lbls: Array[Label] = []
+	var pans: Array[NinePatchRect] = []
+	_collect_ui(m._result, pans, lbls)
+	for l in lbls:
+		var font: Font = l.get_theme_font("font")
+		_check(l.text == "" or font.get_string_size(l.text.split("\n")[0], HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x <= l.size.x, "итог: «%s» не влезает" % l.text)
+	m.queue_free()
+	# режим украшения
+	var d: Node2D = load(Nav.DECORATE).instantiate()
+	add_child(d)
+	await get_tree().process_frame
+	_check(_audit_labels(d, "режим украшения") >= 1, "режим украшения проверен")
+	d.queue_free()
+	# вывеска кафе
+	var tex := PixelArt.sign_texture("ТЁПЛАЯ ЛАПКА")
+	_check(tex.get_size() == Vector2(104, 8), "вывеска — ровно серая доска фасада 104×8")
+	var img := tex.get_image()
+	var used := img.get_used_rect()
+	_check(used.position.x >= 4 and 104 - used.end.x >= 4 and used.size.y >= 7, "название на вывеске по центру доски с полями (%s)" % used)
+	var c2 := _new_city(false)
+	await get_tree().process_frame
+	var has_sign := false
+	for ch in c2.get("_cafe").get_children():
+		if ch is Sprite2D and (ch as Sprite2D).texture == tex:
+			has_sign = true
+	_check(has_sign, "на фасаде кафе висит вывеска с названием")
+	c2.queue_free()
 	await get_tree().process_frame

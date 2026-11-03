@@ -3,11 +3,11 @@ extends Node2D
 ## Расстановка хранится в GameState.layout и сохраняется после каждого изменения.
 
 const MAX_ITEMS := 40
-const PANEL_Y := 520.0
+const PANEL_Y := 494.0
 const ROOM_POS := Vector2(20, 64)     # где на экране стоит комната (её размер 320×320)
 const TOOLBAR_Y := 400.0
 const CARD_W := 96.0
-const CARD_H := 100.0
+const CARD_H := 116.0   # свободно 106 px (контур 2, бортик 8): превью 40 + название 28 + цена 28 + воздух
 const SEL_COLOR := Color("fff1d6")
 const BAD_COLOR := Color(1.0, 0.55, 0.5)
 
@@ -57,18 +57,18 @@ func _build_ui() -> void:
 
 
 func _build_top() -> void:
-	Ui.panel(Rect2(8, 8, 104, 40), Ui.UI_CREAM, _ui)
+	Ui.panel(Rect2(8, 8, 108, 48), Ui.UI_CREAM, _ui)
 	var coin := Sprite2D.new()
 	coin.texture = Ui.icon("coin")
-	coin.position = Vector2(28, 22)
+	coin.position = Vector2(28, 28)
 	coin.scale = Vector2(2, 2)
 	_ui.add_child(coin)
-	_coins_label = Ui.label("0", Rect2(44, 8, 64, 28), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
+	_coins_label = Ui.label("0", Rect2(44, 12, 68, 32), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
 	_hint = Control.new()
 	_ui.add_child(_hint)
-	Ui.panel(Rect2(116, 8, 176, 40), Ui.UI_CREAM, _hint)
-	Ui.label("Тяни мебель", Rect2(116, 8, 176, 28), Ui.FONT_SIZE, Ui.INK, _hint, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var back := Ui.button("", Rect2(300, 8, 52, 40), "home", _ui)
+	Ui.panel(Rect2(124, 8, 164, 48), Ui.UI_CREAM, _hint)
+	Ui.label("Тяни мебель", Rect2(124, 12, 164, 32), Ui.FONT_SIZE, Ui.INK, _hint, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var back := Ui.button("", Rect2(296, 8, 56, 48), "home", _ui)
 	back.pressed.connect(_back)
 
 
@@ -85,10 +85,10 @@ func _build_toolbar() -> void:
 
 
 func _build_catalog() -> void:
-	Ui.panel(Rect2(0, PANEL_Y, 360, 120), Ui.UI_WOOD, _ui)
+	Ui.panel(Rect2(0, PANEL_Y, 360, 146), Ui.UI_WOOD, _ui)   # деревянная рамка: 8 сверху, 14 снизу, карточки между ними
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(10, PANEL_Y + 8)
-	scroll.size = Vector2(340, CARD_H)
+	scroll.position = Vector2(14, PANEL_Y + Ui.WOOD_EDGE)
+	scroll.size = Vector2(332, CARD_H)
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER  # листается пальцем или колесом мыши
 	_ui.add_child(scroll)
@@ -114,16 +114,16 @@ func _add_card(row: Container, id: String) -> void:
 	tex.texture = Ui.atlas(CafeRoom.FURN_TEX, Rect2(float(r[0]), float(r[1]), size.x, size.y))
 	tex.stretch_mode = TextureRect.STRETCH_SCALE
 	tex.size = size * k
-	tex.position = Vector2(roundf((CARD_W - tex.size.x) / 4.0) * 2.0, roundf((40.0 - tex.size.y) / 4.0) * 2.0 + 2.0)
+	tex.position = Vector2(roundf((CARD_W - tex.size.x) / 4.0) * 2.0, roundf((40.0 - tex.size.y) / 4.0) * 2.0 + 4.0)
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(tex)
-	Ui.label(String(def["name"]), Rect2(0, 40, CARD_W, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_CENTER, true)
-	Ui.label(str(int(def["price"])), Rect2(0, 68, CARD_W - 30.0, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
+	Ui.label(String(def["name"]), Rect2(0, 46, CARD_W, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.label(str(int(def["price"])), Rect2(0, 74, CARD_W - 30.0, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
 	var coin := TextureRect.new()
 	coin.texture = Ui.icon("coin")
 	coin.stretch_mode = TextureRect.STRETCH_SCALE
 	coin.size = Vector2(22, 28)
-	coin.position = Vector2(CARD_W - 30.0, 70)
+	coin.position = Vector2(CARD_W - 28.0, 74)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(coin)
 	_cards.append({"btn": b, "id": id})
