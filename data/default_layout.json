@@ -1,0 +1,9 @@
+[
+	{"id": "window", "x": 276, "y": 120, "flip": false},
+	{"id": "board", "x": 108, "y": 100, "flip": false},
+	{"id": "table_big", "x": 264, "y": 340, "flip": false},
+	{"id": "stool", "x": 204, "y": 364, "flip": false},
+	{"id": "plant", "x": 324, "y": 252, "flip": false},
+	{"id": "rug", "x": 96, "y": 440, "flip": false},
+	{"id": "bowl", "x": 48, "y": 330, "flip": false}
+]

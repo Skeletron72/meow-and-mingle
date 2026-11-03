@@ -5,6 +5,8 @@ extends Node
 var cats: Array[Dictionary] = []
 var drinks: Dictionary = {}    # id -> Dictionary
 var pastries: Dictionary = {}  # id -> Dictionary
+var furniture: Dictionary = {} # id -> Dictionary (режим украшения, см. data/furniture.json)
+var default_layout: Array[Dictionary] = []  # расстановка кафе у нового игрока
 
 
 func _ready() -> void:
@@ -13,6 +15,9 @@ func _ready() -> void:
 		drinks[d["id"]] = d
 	for p in _read_array("res://data/pastries.json"):
 		pastries[p["id"]] = p
+	for f in _read_array("res://data/furniture.json"):
+		furniture[f["id"]] = f
+	default_layout = _read_array("res://data/default_layout.json")
 
 
 func _read_array(path: String) -> Array[Dictionary]:

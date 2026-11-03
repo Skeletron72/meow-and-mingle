@@ -90,9 +90,12 @@ func _build_hud() -> void:
 	_coins_label = _label("0", Rect2(40, 11, 120, 22), 16, INK)
 	_coins_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_coins_label.z_index = 5
-	_served_label = _label("", Rect2(200, 14, 150, 18), 11, INK)
+	_served_label = _label("", Rect2(120, 14, 180, 18), 11, INK)
 	_served_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_served_label.z_index = 5
+	var menu_btn := Ui.button("", Rect2(306, 6, 46, 32), "home", self)
+	menu_btn.z_index = 5
+	menu_btn.pressed.connect(Nav.go.bind(self, Nav.MENU))
 
 
 func _add_source(kind: String, id: String, title: String, tex: Texture2D, center: Vector2) -> void:
@@ -138,8 +141,8 @@ func _on_cat_arrived() -> void:
 
 func _on_cat_left(cat: CatCustomer) -> void:
 	cat.queue_free()
-	await get_tree().create_timer(NEXT_CAT_DELAY).timeout
-	_spawn_cat()
+	# не await: если игрок вышел в меню, таймер не должен будить уже удалённую сцену
+	get_tree().create_timer(NEXT_CAT_DELAY).timeout.connect(_spawn_cat)
 
 
 func _show_bubble() -> void:
