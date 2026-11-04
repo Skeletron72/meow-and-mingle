@@ -48,7 +48,8 @@ def main():
                 errors.append(f"задача {r['id']}: стиль {e['key']} или его варианты не описаны в styles.json")
             elif k == "unlock":
                 kind, _, name = e["key"].partition(":")
-                ok = {"cat": cats, "drink": drinks, "pastry": pastries, "source": {"syrup"}}.get(kind)
+                terrace = {t["id"] for t in load("terrace.json")}
+                ok = {"cat": cats, "drink": drinks, "pastry": pastries, "source": {"syrup"}, "style": {"loft", "japan", "winter"}, "terrace": terrace}.get(kind)
                 if ok is None or name not in ok:
                     errors.append(f"задача {r['id']}: неизвестное открытие {e['key']}")
     for lv in levels:
@@ -99,6 +100,19 @@ def main():
     for t in season["tiers"]:
         check_reward(f"сезон, ступень {t['tier']} (бесплатно)", t["free"])
         check_reward(f"сезон, ступень {t['tier']} (пасс)", t["premium"])
+    for ev in load("events.json"):
+        if len(ev["tasks"]) != 10 or len(ev["tiers"]) != 3:
+            errors.append(f"событие {ev['id']}: нужно 10 заданий и 3 ступени")
+        for t in ev["tasks"]:
+            if not (t["kind"] in kinds or (t["kind"].startswith("drink:") and t["kind"][6:] in drinks)):
+                errors.append(f"событие {ev['id']}: неизвестный вид задания {t['kind']}")
+        for tier in ev["tiers"]:
+            check_reward(f"событие {ev['id']} (бесплатно)", tier["free"])
+            check_reward(f"событие {ev['id']} (пасс)", tier["premium"])
+            if tier["need"] > 10:
+                errors.append(f"событие {ev['id']}: ступень требует больше 10 заданий")
+    seasons = [f for f in os.listdir(os.path.join(ROOT, "data")) if f.startswith("season_")]
+    print(f"сезонов: {len(seasons)}, событий: {len(load('events.json'))}")
     skus = [p["sku"] for p in shop["fish_packs"]] + [shop["starter"]["sku"], shop["no_ads"]["sku"], shop["season_pass"]["sku"]]
     if len(skus) != len(set(skus)):
         errors.append("повторяющиеся SKU в shop.json")

@@ -39,6 +39,11 @@ func _ready() -> void:
 	await _test_boosters_in_shift()
 	await _test_city_meta()
 	await _test_repair_ad_card()
+	await _test_decor_styles()
+	await _test_terrace_sign()
+	await _test_new_types()
+	_test_events()
+	_test_season_rollover()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -181,7 +186,7 @@ func _test_save() -> void:
 
 func _test_repairs() -> void:
 	GameState.new_game()
-	_check(Data.repairs.size() == 30, "в data/repairs.json 30 задач ремонта (%d)" % Data.repairs.size())
+	_check(Data.repairs.size() == 60, "в data/repairs.json 60 задач ремонта (%d)" % Data.repairs.size())
 	_check(GameState.repair_def("shutters")["cost"] == 1 and GameState.repair_def("cleanup")["cost"] == 2, "ставни 1★, расчистка 2★")
 	# граф задач: у каждого требования есть задача, цикла нет, у глав по 10 задач
 	var ids := {}
@@ -192,7 +197,7 @@ func _test_repairs() -> void:
 		per_chapter[int(r["chapter"])] = int(per_chapter.get(int(r["chapter"]), 0)) + 1
 		for q in r["requires"]:
 			_check(ids.has(String(q)), "задача «%s»: требование «%s» существует" % [r["id"], q])
-	_check(per_chapter == {1: 10, 2: 10, 3: 10}, "по 10 задач в главах 1–3 (%s)" % [per_chapter])
+	_check(per_chapter == {1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10}, "по 10 задач в шести главах (%s)" % [per_chapter])
 	var order := []   # порядок списка = порядок выполнения: требования всегда раньше
 	for r in Data.repairs:
 		for q in r["requires"]:
@@ -201,7 +206,7 @@ func _test_repairs() -> void:
 	var total := 0
 	for r in Data.repairs:
 		total += int(r["cost"])
-	_check(total == 55, "всего 55★ на ремонт (%d)" % total)
+	_check(total == 116, "всего 116★ на ремонт (%d)" % total)
 	_check(not GameState.do_repair("shutters"), "без звёзд ремонт не оплатить")
 	GameState.stars_bonus = 100
 	_check(not GameState.do_repair("wall_paint"), "закрытая задача (нет требований) не выполняется")
@@ -364,7 +369,7 @@ func _test_s2() -> void:
 ## S3: напитки, выпечка, рецепты с сиропом, меню дня, типы посетителей, 30 уровней.
 func _test_content() -> void:
 	GameState.new_game()
-	_check(Data.drinks.size() == 7 and Data.pastries.size() == 5, "7 напитков и 5 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
+	_check(Data.drinks.size() == 10 and Data.pastries.size() == 8, "10 напитков и 8 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
 	# рецепты не совпадают друг с другом
 	var seen := {}
 	for id in Data.drinks:
@@ -403,7 +408,7 @@ func _test_content() -> void:
 	var starters := GameState.cats_available().size()
 	_check(starters == 3, "в начале приходят трое котов (%d)" % starters)
 	# 30 уровней
-	_check(Data.levels.size() == 30, "30 уровней (%d)" % Data.levels.size())
+	_check(Data.levels.size() == 60, "60 уровней (%d)" % Data.levels.size())
 	var per_chapter := {}
 	var last_speed := 0.0
 	for lv in Data.levels:
@@ -417,9 +422,9 @@ func _test_content() -> void:
 		_check(float(types["rushed"]) + float(types["gourmet"]) <= 0.8, "уровень %s: типов посетителей не больше 80%%" % lv["id"])
 		_check(int(lv["queue"]) >= 1 and int(lv["queue"]) <= 3 and int(lv["customers"]) >= 6 and float(lv["speed"]) >= 4.0 and float(lv["accuracy"]) >= 0.6 and float(lv["accuracy"]) <= 0.98, "уровень %s: параметры в допустимых пределах" % lv["id"])
 		last_speed = float(lv["speed"])
-	_check(per_chapter == {1: 10, 2: 10, 3: 10}, "по 10 уровней в главах 1–3")
-	_check(Data.chapters.size() == 3, "три главы в data/chapters.json")
-	# звёзд хватает на весь ремонт: максимум 90 против 55
+	_check(per_chapter == {1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10}, "по 10 уровней в шести главах")
+	_check(Data.chapters.size() == 6, "шесть глав в data/chapters.json")
+	# звёзд хватает на весь ремонт: максимум 180 против 116
 	var max_stars := Data.levels.size() * 3
 	var cost := 0
 	for r in Data.repairs:
@@ -442,14 +447,14 @@ func _same_set(a: Array, b: Array) -> bool:
 ## S3: коты, симпатия и записи, сюжетные сцены, доска ремонта и книга котов (интерфейс).
 func _test_cats_story() -> void:
 	GameState.new_game()
-	_check(Data.cats.size() == 9, "в кафе 9 котов (%d)" % Data.cats.size())
+	_check(Data.cats.size() == 16, "в кафе 16 котов (%d)" % Data.cats.size())
 	var ids := {}
 	for c in Data.cats:
 		_check(not ids.has(String(c["id"])), "кот «%s»: id не повторяется" % c["id"])
 		ids[String(c["id"])] = true
 		_check(Data.drinks.has(String(c["fav_drink"])), "кот «%s»: любимый напиток существует" % c["id"])
 		_check(ResourceLoader.exists("res://assets/cats/%s" % String(c["sprite"])), "кот «%s»: лист спрайтов есть" % c["id"])
-		_check((c["lines"] as Array).size() == 3 and String(c["role"]) in ["normal", "rushed", "gourmet"], "кот «%s»: три записи и роль" % c["id"])
+		_check((c["lines"] as Array).size() == 3 and String(c["role"]) in ["normal", "rushed", "gourmet", "courier", "critic"], "кот «%s»: три записи и роль" % c["id"])
 	# каждого не-стартового кота открывает ровно одна задача ремонта
 	for c in Data.cats:
 		if bool(c["starter"]):
@@ -479,7 +484,7 @@ func _test_cats_story() -> void:
 	_check(GameState.cat_likes("tucha") == likes, "симпатии сохраняются")
 	# сюжет
 	GameState.new_game()
-	_check(Data.story.size() == 9, "9 сюжетных сцен: по три на главу")
+	_check(Data.story.size() == 18, "18 сюжетных сцен: по три на главу")
 	var repair_ids := {}
 	for r in Data.repairs:
 		repair_ids[String(r["id"])] = true
@@ -518,7 +523,7 @@ func _test_ui_screens() -> void:
 	var board: RepairBoard = city._repair_board
 	_check(board != null, "доска ремонта открылась")
 	var rows := board.rows()
-	_check(rows.size() == 28 and String(rows[0]["id"]) in ["wall_paint", "floor", "plant_hall"], "на доске 28 невыполненных задач, открытые первыми (%d)" % rows.size())
+	_check(rows.size() == 58 and String(rows[0]["id"]) in ["wall_paint", "floor", "plant_hall"], "на доске 58 невыполненных задач, открытые первыми (%d)" % rows.size())
 	var first_locked := -1
 	for i in rows.size():
 		if GameState.repair_state(String(rows[i]["id"])) == "locked" and first_locked < 0:
@@ -526,7 +531,7 @@ func _test_ui_screens() -> void:
 	for i in rows.size():
 		if GameState.repair_state(String(rows[i]["id"])) == "open":
 			_check(first_locked < 0 or i < first_locked, "открытые задачи идут раньше закрытых")
-	_check(board.page_count() == 7, "7 страниц по 4 карточки (%d)" % board.page_count())
+	_check(board.page_count() == 15, "15 страниц по 4 карточки (%d)" % board.page_count())
 	# выбор варианта и покупка
 	var stars0 := GameState.stars_free()
 	board._pick("wall_paint")
@@ -549,7 +554,7 @@ func _test_ui_screens() -> void:
 	var book := CatBook.new()
 	add_child(book)
 	await get_tree().process_frame
-	_check(book.page_count() == 3, "книга котов: 9 котов — 3 страницы")
+	_check(book.page_count() == 4, "книга котов: 16 котов — 4 страницы")
 	var known := 0
 	for c in Data.cats:
 		if book.is_known(c):
@@ -1110,4 +1115,223 @@ func _test_repair_ad_card() -> void:
 	_check(not board.ad_card_wanted(), "дневной лимит рекламы исчерпан — карточки нет")
 	board._close()
 	await get_tree().process_frame
+	GameState.new_game()
+
+
+## S5: стили мебели, терраса, вывеска, типы посетителей (курьер, критик), события.
+func _test_decor_styles() -> void:
+	GameState.new_game()
+	var base := 0
+	var variants := 0
+	for id in Data.furniture:
+		var d: Dictionary = Data.furniture[id]
+		if d.has("base"):
+			variants += 1
+			var b: Dictionary = Data.furniture[String(d["base"])]
+			_check(d["rect"] == b["rect"] and d["tiles"] == b["tiles"] and d["slot"] == b["slot"] and String(d["tint"]).begins_with("#"), "вариант «%s»: тот же спрайт, размер и слот, что у базового, есть оттенок" % id)
+			_check(int(d["price"]) >= int(b["price"]), "вариант «%s» не дешевле базового" % id)
+		else:
+			base += 1
+	_check(base == 15 and variants == 45, "15 базовых предметов и 45 раскрасок (%d/%d)" % [base, variants])
+	# раскрашенный предмет ставится в зал и красится
+	var room := CafeRoom.new()
+	add_child(room)
+	var items1: Array[Dictionary] = [{"id": "plant_loft", "c": 2, "r": 3, "flip": false}]
+	room.set_layout(items1)
+	await get_tree().process_frame
+	var tinted := false
+	for sp in room.find_children("*", "Sprite2D", true, false):
+		if (sp as Sprite2D).modulate != Color.WHITE and (sp as Sprite2D).region_enabled and (sp as Sprite2D).modulate.a > 0.9:
+			tinted = true
+	_check(tinted, "раскраска «лофт» красит спрайт в зале")
+	var win := CafeRoom.new()
+	add_child(win)
+	var items2: Array[Dictionary] = [{"id": "window_japan", "c": 2, "r": 1, "flip": false}]
+	win.set_layout(items2)
+	_check(win._windows.size() == 1, "окно в другом стиле тоже светится по времени суток")
+	room.queue_free()
+	win.queue_free()
+	# каталог украшения: только открытые стили
+	var d: Node2D = load(Nav.DECORATE).instantiate()
+	add_child(d)
+	await get_tree().process_frame
+	_check(d.available_styles().size() == 1 and d.available_styles()[0] == "cozy", "в начале в каталоге только «Уют»")
+	var visible_cards := 0
+	for c in d._cards:
+		if (c["holder"] as Control).visible:
+			visible_cards += 1
+	_check(visible_cards == 15, "в каталоге 15 предметов стиля «Уют» (%d)" % visible_cards)
+	GameState.unlocks = ["style:loft", "style:japan"]
+	_check(d.available_styles().size() == 3, "после ремонта открыты «Лофт» и «Японский»")
+	d._cycle_style()
+	visible_cards = 0
+	for c in d._cards:
+		if (c["holder"] as Control).visible:
+			visible_cards += 1
+	_check(d._style == "loft" and visible_cards == 15, "переключили на «Лофт»: 15 раскрасок")
+	d.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+func _test_terrace_sign() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.suppress_popups = true
+	var city: Node2D = load(Nav.CITY).instantiate()
+	add_child(city)
+	await get_tree().process_frame
+	_check(city._terrace.is_empty(), "без ремонта террасы нет")
+	GameState.unlocks = ["terrace:t_table_l", "terrace:t_chair_l", "terrace:t_plant_r"]
+	city._refresh_terrace()
+	_check(city._terrace.size() == 3, "после задачи на улице три предмета террасы (%d)" % city._terrace.size())
+	var slots := {}
+	for t in Data.terrace:
+		slots[String(t["id"])] = true
+		_check(ResourceLoader.exists("res://assets/street/props/%s.png" % String(t["prop"])), "терраса: спрайт «%s» есть" % t["prop"])
+	_check(slots.size() == 11, "11 мест террасы")
+	# вывеска красится по варианту
+	var tex_before: Texture2D = city._sign_sprite.texture
+	GameState.style["sign"] = "navy"
+	city._refresh_sign()
+	_check(city._sign_sprite.texture != tex_before, "новый вариант вывески — другая текстура")
+	city.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+func _test_new_types() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.upgrades = ["milk_pitcher", "display_case"]
+	GameState.unlocks = ["cat:kefir", "cat:baron", "source:syrup"]
+	var m: Node2D = load(Nav.BREW).instantiate()
+	var lv: Dictionary = Data.levels[40].duplicate(true)   # Терраса открыта
+	lv["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 1.0, "critic": 0.0}
+	lv["pastry"] = 1.0
+	m.level = lv
+	add_child(m)
+	await get_tree().process_frame
+	var kefir: Dictionary = {}
+	for c in Data.cats:
+		if String(c["id"]) == "kefir":
+			kefir = c
+	_check(String(kefir["role"]) == "courier", "Кефир — курьер")
+	var courier_seen := false
+	for i in 12:
+		m._queue.clear()
+		m._spawn_customer()
+		if m._queue.is_empty():
+			continue
+		var e: Dictionary = m._queue[0]
+		if String(e["type"]) == "courier":
+			courier_seen = true
+			_check(String(e["order"]["pastry"]) == "" and float(e["max"]) <= float(lv["patience"]) * 1.15 * 0.8 * 1.0001, "курьер: без выпечки, терпение ×0,8")
+	_check(courier_seen, "курьеры появляются на уровне 41")
+	# критик: один за смену, всегда с выпечкой
+	var lv2: Dictionary = Data.levels[36].duplicate(true)
+	lv2["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 0.0, "critic": 2.0}
+	m.level = lv2
+	m._begin_run()
+	var critics := 0
+	for i in 8:
+		m._queue.clear()
+		m._spawn_customer()
+		if not m._queue.is_empty() and String(m._queue[0]["type"]) == "critic":
+			critics += 1
+			_check(String(m._queue[0]["order"]["pastry"]) != "", "критик заказывает выпечку")
+	_check(critics == 1, "критик приходит ровно один раз за смену (%d)" % critics)
+	m.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+func _set_date(year: int, month: int, day: int) -> void:
+	var u := Time.get_unix_time_from_datetime_dict({"year": year, "month": month, "day": day, "hour": 12, "minute": 0, "second": 0}) - Daily.tz_offset()
+	_set_time(u)
+
+
+func _test_events() -> void:
+	_fresh_meta()
+	GameState.intro_stage = GameState.INTRO_DONE
+	_check(Data.events.size() == 2, "два события: осень и зима")
+	for ev in Data.events:
+		_check((ev["tasks"] as Array).size() == 10 and (ev["tiers"] as Array).size() == 3, "событие «%s»: 10 заданий и 3 ступени" % ev["id"])
+		for t in ev["tasks"]:
+			var k := String(t["kind"])
+			_check(k in ["serve", "pastry", "fast", "level", "stars", "perfect", "coins", "tips"] or (k.begins_with("drink:") and Data.drinks.has(k.substr(6))), "событие «%s»: задание «%s» известного вида" % [ev["id"], k])
+	# календарь
+	_set_date(2026, 5, 10)
+	_check(Events.active().is_empty() and Events.next_event()["id"] == "autumn", "в мае событий нет, ближайшее — осень")
+	_set_date(2026, 9, 20)
+	_check(Events.active()["id"] == "autumn" and Events.days_left() == 42, "20 сентября идёт «Золотая осень», до конца 42 дня (%d)" % Events.days_left())
+	_set_date(2026, 12, 20)
+	_check(Events.active()["id"] == "winter", "20 декабря — «Снежный вечер»")
+	_set_date(2027, 1, 5)
+	_check(Events.active()["id"] == "winter" and Events.run_key(Events.active()) == "winter_2026", "5 января — тот же запуск (ключ 2026)")
+	_check(Events.days_left() == 6, "до 10 января 6 дней (%d)" % Events.days_left())
+	_set_date(2027, 1, 20)
+	_check(Events.active().is_empty(), "20 января событий нет")
+	# прогресс и награды
+	_set_date(2026, 9, 20)
+	Events.report("serve", 4)
+	Events.report("drink:sea_tea", 2)
+	var ts := Events.tasks()
+	_check(int(ts[0]["progress"]) == 4 and int(ts[1]["progress"]) == 2 and Events.done_count() == 0, "прогресс заданий события растёт")
+	Events.report("serve", 100)
+	_check(bool(Events.tasks()[0]["done"]) and int(Events.tasks()[0]["progress"]) == 10, "прогресс не выше цели")
+	_check(not Events.tier_open(0) and Events.claim(0, false) == "", "награда закрыта, пока не выполнено 3 задания")
+	for k in ["level", "fast", "stars"]:
+		var need := 100
+		Events.report(k, need)
+	_check(Events.done_count() == 4 and Events.tier_open(0), "четыре задания выполнено — первая ступень открыта")
+	var c0 := GameState.coins
+	_check(Events.claim(0, false) != "" and GameState.coins == c0 + 150 and Events.claim(0, false) == "", "награда бесплатной линии выдана один раз")
+	_check(Events.claim(0, true) == "", "платная линия — только с пассом")
+	GameState.meta["season"]["pass"] = true
+	var fish0 := Economy.fish()
+	_check(Events.claim(0, true) != "" and Economy.fish() == fish0 + 5, "с пассом — платная линия")
+	# ежедневные задания двигают и событие
+	GameState.shifts_played = 5
+	var before := int(Events.tasks()[3]["progress"])
+	Daily.report("pastry", 2)
+	_check(int(Events.tasks()[3]["progress"]) == before + 2, "Daily.report двигает и задания события")
+	# новый год — новый запуск, прогресс обнуляется
+	_set_date(2027, 9, 20)
+	_check(Events.done_count() == 0 and String(GameState.meta["event"]["key"]) == "autumn_2027", "в следующем году событие начинается заново")
+	# награда-открытие стиля (зима, ступень 2)
+	_set_date(2026, 12, 20)
+	for t in Events.tasks():
+		Events.report(String(Data.events[1]["tasks"][0]["kind"]), 0)
+	for t in Data.events[1]["tasks"]:
+		Events.report(String(t["kind"]), int(t["target"]))
+	_check(Events.done_count() == 10, "все 10 заданий зимнего события выполнены (%d)" % Events.done_count())
+	Events.claim(1, false)
+	_check(GameState.has_unlock("style:winter"), "награда зимнего события открывает «Зимний» стиль мебели")
+	# экран
+	var holder := Node.new()
+	add_child(holder)
+	var rows := MetaScreens.event_rows(holder)
+	_check(rows.size() == 1 + 6 + 10, "в списке события: заголовок, 6 наград (3 ступени × 2 линии) и 10 заданий (%d)" % rows.size())
+	_set_date(2026, 5, 10)
+	_check(MetaScreens.event_rows(holder).size() == 1, "вне события — одна карточка «нет событий»")
+	holder.queue_free()
+	GameState.new_game()
+
+
+func _test_season_rollover() -> void:
+	_fresh_meta()
+	_check(Data.load_season(2) and Data.season["id"] == "s2" and Data.load_season(1) and Data.season["id"] == "s1", "сезоны s1 и s2 загружаются")
+	_check(not Data.load_season(99), "несуществующий сезон не загружается")
+	Shop.add_season_xp(900, "t")
+	GameState.meta["season"]["pass"] = true
+	_check(not Shop.check_rollover(), "пока сезон идёт, следующий не начинается")
+	Daily.time_override += 28 * 86400
+	_check(not Shop.check_rollover() and Shop.season_tier() == 10, "в первые 3 дня после конца награды ещё можно забрать")
+	Daily.time_override += 3 * 86400
+	_check(Shop.check_rollover(), "через 3 дня после конца начинается сезон 2")
+	_check(Data.season["id"] == "s2" and Shop.season_xp() == 0 and not Shop.has_pass() and int(GameState.meta["season"]["no"]) == 2, "сезон 2: очки и пропуск обнулены")
+	Daily.time_override += 100 * 86400
+	_check(not Shop.check_rollover() or int(GameState.meta["season"]["no"]) == 2, "сезона 3 нет — остаёмся на втором")
+	Data.load_season(1)
 	GameState.new_game()

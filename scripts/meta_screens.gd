@@ -108,6 +108,44 @@ static func quest_rows(s: Node) -> Array:
 	return rows
 
 
+# ---------------------------------------------------------------- события
+
+static func open_events(parent: Node) -> ListScreen:
+	var s := ListScreen.new()
+	s.title = "События"
+	s.header_provider = func() -> String: return _t("дней: %d") % Events.days_left() if not Events.active().is_empty() else ""
+	s.provider = func() -> Array: return event_rows(s)
+	parent.add_child(s)
+	return s
+
+
+static func event_rows(s: Node) -> Array:
+	var rows: Array = []
+	var ev := Events.active()
+	if ev.is_empty():
+		var nxt := Events.next_event()
+		rows.append({"title": _t("Сейчас нет событий"), "sub": (_t("Скоро: %s") % _t(String(nxt["name"]))) if not nxt.is_empty() else "", "right": "", "enabled": false})
+		return rows
+	rows.append({"title": _t(String(ev["name"])), "sub": _t(String(ev["blurb"])) + " · " + _t("%d/10") % Events.done_count(), "right": "", "enabled": false, "tint": Color(1.1, 1.05, 0.8)})
+	var tiers := Events.tiers()
+	for i in tiers.size():
+		var tier: Dictionary = tiers[i]
+		var open := Events.tier_open(i)
+		for premium in [false, true]:
+			var ok: bool = open and not Events.tier_claimed(i, premium) and (not premium or Shop.has_pass())
+			var line: String = "premium" if premium else "free"
+			var title := _t("За %d заданий") % int(tier["need"]) + (" · " + _t("Пасс") if premium else "")
+			rows.append({"title": title, "sub": Economy.describe(tier[line]), "right": _t("Забрать") if ok else (_t("Взято") if Events.tier_claimed(i, premium) else ""), "enabled": ok,
+				"press": func() -> void:
+					var txt := Events.claim(i, premium)
+					if txt != "":
+						Audio.sfx("star", 0.0)
+						_msg(s, txt)})
+	for t in Events.tasks():
+		rows.append({"title": _t(String(t["name"])), "sub": "%d/%d" % [int(t["progress"]), int(t["target"])], "right": _t("Готово") if bool(t["done"]) else "", "enabled": false})
+	return rows
+
+
 # ---------------------------------------------------------------- Мурлык-пасс
 
 static func open_season(parent: Node) -> ListScreen:

@@ -8,6 +8,25 @@ signal purchased(sku: String)
 signal season_changed
 
 const SEASON_TIERS := 30
+const SEASON_GRACE_DAYS := 3   # после конца сезона награды можно забрать ещё 3 дня, потом начинается следующий (если есть файл)
+
+
+func _ready() -> void:
+	Data.load_season(int((GameState.meta["season"] as Dictionary)["no"]))
+
+
+## Конец сезона + льготные дни → следующий сезон (data/season_<n+1>.json), очки и награды обнуляются, пропуск нужно покупать заново.
+func check_rollover() -> bool:
+	var s: Dictionary = GameState.meta["season"]
+	if int(s["start_day"]) < 0 or Daily.today() < int(s["start_day"]) + int(Data.season["days"]) + SEASON_GRACE_DAYS:
+		return false
+	var next_no := int(s["no"]) + 1
+	if not Data.load_season(next_no):
+		return false
+	GameState.meta["season"] = {"no": next_no, "id": String(Data.season["id"]), "start_day": -1, "xp": 0, "free": [], "premium": [], "pass": false}
+	Platform.track("season_start", {"no": next_no})
+	season_changed.emit()
+	return true
 
 
 # ---------------------------------------------------------------- покупки

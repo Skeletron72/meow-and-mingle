@@ -110,5 +110,58 @@
 			"source:syrup",
 			"drink:raf"
 		]
+	},
+	{
+		"id": "hot_choc",
+		"name": "Горячий шоколад",
+		"price": 15,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "cocoa",
+			"milk": true,
+			"syrup": false
+		},
+		"col": 3,
+		"row": 1,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"drink:cocoa",
+			"drink:hot_choc"
+		]
+	},
+	{
+		"id": "caramel",
+		"name": "Эспрессо-карамель",
+		"price": 13,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": false,
+			"syrup": true
+		},
+		"col": 3,
+		"row": 0,
+		"needs": [
+			"source:syrup",
+			"drink:caramel"
+		]
+	},
+	{
+		"id": "sbiten",
+		"name": "Сбитень",
+		"price": 17,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": true,
+			"syrup": true
+		},
+		"col": 1,
+		"row": 1,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"drink:sbiten"
+		]
 	}
 ]

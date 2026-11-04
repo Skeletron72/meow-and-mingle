@@ -126,7 +126,18 @@ func grant(reward: Dictionary, source: String) -> String:
 		GameState.place_free(String(reward["furniture"]))
 		GameState.save_game()
 		parts.append(tr(String(Data.furniture.get(String(reward["furniture"]), {}).get("name", "?"))))
+	for key in reward.get("unlock", []):
+		if not (String(key) in GameState.unlocks):
+			GameState.unlocks.append(String(key))
+		GameState.save_game()
+		parts.append(_unlock_text(String(key)))
 	return ", ".join(parts)
+
+
+func _unlock_text(key: String) -> String:
+	if key.begins_with("style:"):
+		return tr("Стиль «%s»") % tr(String(Data.styles["decor"].get(key.substr(6), {}).get("name", key)))
+	return key
 
 
 ## Короткое описание награды без выдачи (для карточек): «50 монет, Автосборка ×1».
@@ -140,4 +151,6 @@ func describe(reward: Dictionary) -> String:
 		parts.append("%s ×%d" % [tr(String(booster_def(String(id)).get("name", id))), int(reward["boosters"][id])])
 	if reward.has("furniture"):
 		parts.append(tr(String(Data.furniture.get(String(reward["furniture"]), {}).get("name", "?"))))
+	for key in reward.get("unlock", []):
+		parts.append(_unlock_text(String(key)))
 	return ", ".join(parts)

@@ -15,9 +15,11 @@ var boosters: Array[Dictionary] = []       # бустеры (data/boosters.json)
 var deals: Array[Dictionary] = []          # предложения дня (data/deals.json)
 var daily_gifts: Array[Dictionary] = []    # лента ежедневных подарков, 7 дней (data/daily.json)
 var quest_pool: Array[Dictionary] = []     # шаблоны ежедневных заданий (data/quests.json)
+var terrace: Array[Dictionary] = []         # места уличной террасы перед кафе (data/terrace.json)
 var legal: Dictionary = {}                 # ссылки на политику, соглашение и поддержку (data/legal.json)
 var shop: Dictionary = {}                  # каталог магазина (data/shop.json)
-var season: Dictionary = {}                # текущий сезон «Мурлык-пасс» (data/season_1.json)
+var season: Dictionary = {}                # текущий сезон «Мурлык-пасс» (data/season_<n>.json)
+var events: Array[Dictionary] = []         # события (data/events.json)                # текущий сезон «Мурлык-пасс» (data/season_1.json)
 var story: Array[Dictionary] = []           # сюжетные сцены (data/story.json)
 var chapters: Array[Dictionary] = []        # главы кампании (data/chapters.json)
 var styles: Dictionary = {}                 # палитры стен, пола и плинтусов (data/styles.json)
@@ -46,7 +48,9 @@ func _ready() -> void:
 	quest_pool = _read_array("res://data/quests.json")
 	shop = _read_dict("res://data/shop.json")
 	legal = _read_dict("res://data/legal.json")
+	terrace = _read_array("res://data/terrace.json")
 	season = _read_dict("res://data/season_1.json")
+	events = _read_array("res://data/events.json")
 	var sf := FileAccess.open("res://data/styles.json", FileAccess.READ)
 	if sf != null:
 		var sp: Variant = JSON.parse_string(sf.get_as_text())
@@ -63,6 +67,15 @@ func _ready() -> void:
 		var parsed: Variant = JSON.parse_string(f.get_as_text())
 		if parsed is Dictionary:
 			street = parsed
+
+
+## Подгружает сезон по номеру (data/season_<n>.json); false — такого файла нет.
+func load_season(n: int) -> bool:
+	var path := "res://data/season_%d.json" % n
+	if not FileAccess.file_exists(path):
+		return false
+	season = _read_dict(path)
+	return true
 
 
 func _read_dict(path: String) -> Dictionary:

@@ -53,6 +53,7 @@ func start_session() -> void:
 	var away := GameState.away_seconds
 	GameState.away_seconds = 0
 	m["last_open_day"] = today()
+	Shop.check_rollover()
 	check_offline(away)
 	Platform.track("daily_open", {"day": today(), "sessions": m["sessions"], "away": away, "streak": int(m["daily"]["streak"])})
 	GameState.save_game()
@@ -223,6 +224,8 @@ func _quest_reward(t: Dictionary) -> Dictionary:
 
 ## Событие игры: kind из data/quests.json (serve, pastry, fast, level, stars, perfect, coins, tips), n — на сколько продвинулось.
 func report(kind: String, n := 1) -> void:
+	if n > 0:
+		Events.report(kind, n)   # те же события двигают и задания события
 	if not quests_unlocked() or n <= 0:
 		return
 	ensure_quests()

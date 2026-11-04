@@ -34,6 +34,8 @@ var streak := 0         # подряд верных заказов
 var level: Dictionary = {}   # данные уровня из data/levels.json; пусто — обучение или тест
 var tutorial := false
 const RUSHED_PATIENCE := 0.65
+const COURIER_PATIENCE := 0.8
+var _critic_seen := false   # критик приходит раз за смену
 var tutorial_orders: Array[Dictionary] = []   # {"cat": id кота, "drink": id, "pastry": id|""} — по порядку
 var tutorial_sources: Array[String] = []      # id источников, которые показаны (пусто — все)
 
@@ -309,6 +311,7 @@ func _begin_run() -> void:
 	_stats = {"served": 0, "wrong": 0, "left": 0, "times": []}
 	_run_started_msec = Time.get_ticks_msec()
 	Audio.music("shift")
+	_critic_seen = false
 	_auto_left = 3 if ("auto" in boosters and not tutorial) else 0
 	_forgive_left = 1 if ("cat_help" in boosters and not tutorial) else 0
 	if not tutorial:
@@ -403,15 +406,24 @@ func _spawn_customer() -> void:
 		var menu := _pastry_menu()
 		var tp: Dictionary = level.get("types", {})
 		var roll := randf()
-		if String(def.get("role", "normal")) in ["rushed", "gourmet"]:
-			type = String(def["role"])   # у некоторых котов характер: Сухарик всегда спешит, Баюн и Усов — гурманы
+		var role := String(def.get("role", "normal"))
+		if role == "critic" and (_critic_seen or menu.is_empty()):
+			role = "normal"   # критик приходит один раз за смену и только к выпечке
+		if role in ["rushed", "gourmet", "courier", "critic"]:
+			type = role   # у некоторых котов характер: Сухарик всегда спешит, Баюн и Усов — гурманы, Кефир — курьер, Барон — критик
+		elif not _critic_seen and not menu.is_empty() and randf() < float(tp.get("critic", 0.0)) * 0.5:
+			type = "critic"
 		elif roll < float(tp.get("rushed", 0.0)):
 			type = "rushed"
 		elif roll < float(tp.get("rushed", 0.0)) + float(tp.get("gourmet", 0.0)):
 			type = "gourmet"
-		if not menu.is_empty() and (type == "gourmet" or randf() < float(level.get("pastry", 0.0))):
+		elif roll < float(tp.get("rushed", 0.0)) + float(tp.get("gourmet", 0.0)) + float(tp.get("courier", 0.0)):
+			type = "courier"
+		if type == "critic":
+			_critic_seen = true
+		if not menu.is_empty() and type != "courier" and (type in ["gourmet", "critic"] or randf() < float(level.get("pastry", 0.0))):
 			pastry_id = menu.pick_random()
-	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else 1.0) * (1.3 if "patience" in boosters else 1.0)
+	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else (COURIER_PATIENCE if type == "courier" else 1.0)) * (1.3 if "patience" in boosters else 1.0)
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
 	cat.setup(def)
@@ -500,8 +512,10 @@ func _make_bubble(e: Dictionary) -> void:
 		e["bar"] = fill
 	e["bubble"] = b
 	var kind := String(e.get("type", "normal"))
-	if kind != "normal":   # метка типа в углу чека: «!» — спешит, «x2» — гурман
-		var mark := Ui.label("!" if kind == "rushed" else "x2", Rect2(14, -40, 44, 28), Ui.FONT_SIZE, Color("e0432f") if kind == "rushed" else Color("c2891a"), b, HORIZONTAL_ALIGNMENT_RIGHT)
+	if kind != "normal":   # метка типа в углу чека: «!» — спешит, «x2» — гурман, «»» — курьер, «★» — критик
+		var marks := {"rushed": "!", "gourmet": "x2", "courier": "»", "critic": "★"}
+		var colors := {"rushed": Color("e0432f"), "gourmet": Color("c2891a"), "courier": Color("3a7fd0"), "critic": Color("9a3fb0")}
+		var mark := Ui.label(String(marks[kind]), Rect2(14, -40, 44, 28), Ui.FONT_SIZE, colors[kind], b, HORIZONTAL_ALIGNMENT_RIGHT)
 		mark.add_theme_color_override("font_outline_color", Ui.CREAM)
 		mark.add_theme_constant_override("outline_size", Ui.PX * 2)
 	Fx.rise_in(b, 24.0, 0.3, 2.0)
@@ -583,7 +597,7 @@ func _tick_tutorial(delta: float) -> void:
 ## Кот ушёл, потеряв терпение: счёт ошибок, серия сбита.
 func _lose_patience(e: Dictionary) -> void:
 	e["state"] = "done"
-	_stats["left"] = int(_stats["left"]) + 1
+	_stats["left"] = int(_stats["left"]) + (2 if String(e.get("type", "normal")) == "critic" else 1)   # уход критика стоит двух заказов
 	streak = 0
 	_free_bubble(e)
 	var cat: CatCustomer = e["cat"]
@@ -763,13 +777,20 @@ func _serve(e: Dictionary = {}) -> void:
 			price += int(Data.pastries[pastry_id]["price"])
 		if String(e.get("type", "normal")) == "gourmet":
 			price *= 2   # гурман платит вдвое
+		elif String(e.get("type", "normal")) == "critic":
+			price = int(round(price * 1.5))
 		tip = maxi(1, int(round(price * 0.2)))
 		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
 			tip *= 2   # спешащий щедро благодарит за быструю подачу
+		if String(e.get("type", "normal")) == "courier":
+			tip = int(round(tip * 1.5))   # курьер берёт на вынос и щедр на чаевые
 		if "double_tips" in boosters:
 			tip *= 2
 		var target := float(level.get("speed", 10.0))
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
+		if String(e.get("type", "normal")) == "critic" and elapsed <= float(e["max"]) * 0.5:
+			bonus += 30   # критик в восторге от скорости
+			_toast(tr("Критик в восторге! +30"), Vector2(180, 470))
 		total = price + tip + bonus
 		Daily.report("coins", total)
 		Daily.report("tips", tip)
@@ -777,6 +798,7 @@ func _serve(e: Dictionary = {}) -> void:
 			Daily.report("fast")
 		GameState.register_served()
 		Daily.report("serve")
+		Events.report("drink:" + drink_id)
 		if pastry_id != "":
 			Daily.report("pastry")
 		var entry := -1 if tutorial else GameState.add_like(String(e["def"]["id"]))

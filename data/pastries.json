@@ -42,5 +42,35 @@
 		"needs": [
 			"pastry:eclair"
 		]
+	},
+	{
+		"id": "pirozhok",
+		"name": "Пирожок",
+		"price": 7,
+		"col": 2,
+		"row": 5,
+		"needs": [
+			"pastry:pirozhok"
+		]
+	},
+	{
+		"id": "medovik",
+		"name": "Медовик",
+		"price": 11,
+		"col": 1,
+		"row": 5,
+		"needs": [
+			"pastry:medovik"
+		]
+	},
+	{
+		"id": "keks",
+		"name": "Кекс",
+		"price": 8,
+		"col": 4,
+		"row": 6,
+		"needs": [
+			"pastry:keks"
+		]
 	}
 ]

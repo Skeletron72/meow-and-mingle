@@ -1,0 +1,218 @@
+[
+ {
+  "id": "autumn",
+  "name": "Золотая осень",
+  "blurb": "Облепиха, сбитень и шоколад",
+  "start": "09-01",
+  "end": "10-31",
+  "tasks": [
+   {
+    "id": "a1",
+    "kind": "serve",
+    "target": 10,
+    "name": "Подай 10 заказов"
+   },
+   {
+    "id": "a2",
+    "kind": "drink:sea_tea",
+    "target": 4,
+    "name": "4 облепиховых чая"
+   },
+   {
+    "id": "a3",
+    "kind": "drink:sbiten",
+    "target": 3,
+    "name": "3 сбитня"
+   },
+   {
+    "id": "a4",
+    "kind": "pastry",
+    "target": 6,
+    "name": "Подай 6 выпечки"
+   },
+   {
+    "id": "a5",
+    "kind": "level",
+    "target": 3,
+    "name": "Пройди 3 смены"
+   },
+   {
+    "id": "a6",
+    "kind": "fast",
+    "target": 5,
+    "name": "5 заказов «Быстро!»"
+   },
+   {
+    "id": "a7",
+    "kind": "stars",
+    "target": 6,
+    "name": "Заработай 6 звёзд"
+   },
+   {
+    "id": "a8",
+    "kind": "drink:hot_choc",
+    "target": 4,
+    "name": "4 горячих шоколада"
+   },
+   {
+    "id": "a9",
+    "kind": "tips",
+    "target": 40,
+    "name": "Собери 40 монет чаевых"
+   },
+   {
+    "id": "a10",
+    "kind": "perfect",
+    "target": 2,
+    "name": "2 смены без ушедших"
+   }
+  ],
+  "tiers": [
+   {
+    "need": 3,
+    "free": {
+     "coins": 150
+    },
+    "premium": {
+     "fish": 5
+    }
+   },
+   {
+    "need": 6,
+    "free": {
+     "fish": 5,
+     "boosters": {
+      "cat_help": 1
+     }
+    },
+    "premium": {
+     "boosters": {
+      "auto": 2
+     },
+     "fish": 5
+    }
+   },
+   {
+    "need": 10,
+    "free": {
+     "coins": 300,
+     "boosters": {
+      "double_tips": 1
+     }
+    },
+    "premium": {
+     "fish": 25,
+     "furniture": "rug_loft"
+    }
+   }
+  ]
+ },
+ {
+  "id": "winter",
+  "name": "Снежный вечер",
+  "blurb": "Тёплые напитки и зимний декор",
+  "start": "12-15",
+  "end": "01-10",
+  "tasks": [
+   {
+    "id": "w1",
+    "kind": "serve",
+    "target": 12,
+    "name": "Подай 12 заказов"
+   },
+   {
+    "id": "w2",
+    "kind": "drink:sbiten",
+    "target": 5,
+    "name": "5 сбитней"
+   },
+   {
+    "id": "w3",
+    "kind": "drink:cocoa",
+    "target": 4,
+    "name": "4 какао"
+   },
+   {
+    "id": "w4",
+    "kind": "pastry",
+    "target": 8,
+    "name": "Подай 8 выпечки"
+   },
+   {
+    "id": "w5",
+    "kind": "level",
+    "target": 4,
+    "name": "Пройди 4 смены"
+   },
+   {
+    "id": "w6",
+    "kind": "fast",
+    "target": 6,
+    "name": "6 заказов «Быстро!»"
+   },
+   {
+    "id": "w7",
+    "kind": "stars",
+    "target": 8,
+    "name": "Заработай 8 звёзд"
+   },
+   {
+    "id": "w8",
+    "kind": "drink:hot_choc",
+    "target": 5,
+    "name": "5 горячих шоколадов"
+   },
+   {
+    "id": "w9",
+    "kind": "coins",
+    "target": 300,
+    "name": "Заработай 300 монет"
+   },
+   {
+    "id": "w10",
+    "kind": "perfect",
+    "target": 2,
+    "name": "2 смены без ушедших"
+   }
+  ],
+  "tiers": [
+   {
+    "need": 3,
+    "free": {
+     "coins": 150
+    },
+    "premium": {
+     "fish": 5
+    }
+   },
+   {
+    "need": 6,
+    "free": {
+     "unlock": [
+      "style:winter"
+     ],
+     "fish": 5
+    },
+    "premium": {
+     "boosters": {
+      "patience": 2
+     },
+     "fish": 5
+    }
+   },
+   {
+    "need": 10,
+    "free": {
+     "coins": 300,
+     "boosters": {
+      "auto": 1
+     }
+    },
+    "premium": {
+     "fish": 25,
+     "furniture": "plant_winter"
+    }
+   }
+  ]
+ }
+]

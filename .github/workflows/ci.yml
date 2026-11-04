@@ -34,9 +34,13 @@ jobs:
       - name: Импорт ресурсов
         run: $GODOT_BIN --headless --path . --import || true
       - name: Тесты игры
-        run: $GODOT_BIN --headless --path . res://tools/modes_test.tscn
-      - name: Тесты платформы, сохранения, звука
-        run: $GODOT_BIN --headless --path . res://tools/platform_test.tscn
+        run: |
+          $GODOT_BIN --headless --path . res://tools/modes_test.tscn 2>&1 | tee modes.log
+          grep -q "MODES PASS" modes.log && ! grep -q "SCRIPT ERROR" modes.log
+      - name: Тесты платформы, сохранения, звука, контента
+        run: |
+          $GODOT_BIN --headless --path . res://tools/platform_test.tscn 2>&1 | tee platform.log
+          grep -q "PLATFORM PASS" platform.log && ! grep -q "SCRIPT ERROR" platform.log
       - name: Пакет ресурсов (проверка пресетов и размера)
         run: |
           mkdir -p build

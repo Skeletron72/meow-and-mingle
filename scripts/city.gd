@@ -110,6 +110,8 @@ var _intro: Intro                       # интро (ставни и расчи
 var _repair_card: RepairCard
 var _door_wanted := false
 var _star_btn: Button
+var _sign_sprite: Sprite2D
+var _terrace: Array[Node2D] = []
 var _story_playing := false
 var _badge: ColorRect
 var _popup_queue: Array[Callable] = []
@@ -141,6 +143,7 @@ func _ready() -> void:
 	_build_shading()
 	_build_cats()
 	_apply_clip_materials()
+	_refresh_terrace()
 	_set_space(SPACE_CAFE, Vector2i(-1, -1))
 	_build_camera()
 	_weather_fx = WeatherFx.new()
@@ -323,7 +326,8 @@ func _build_storefront() -> void:
 		(m as ShaderMaterial).set_shader_parameter("door", rects[1])
 	# вывеска: на серой доске фасада (art x 33..136, y 101..108) — название кафе
 	var sign_sprite := Sprite2D.new()
-	sign_sprite.texture = PixelArt.sign_texture("ТЁПЛАЯ ЛАПКА")
+	_sign_sprite = sign_sprite
+	_refresh_sign()
 	sign_sprite.centered = false
 	sign_sprite.position = Vector2(33, 101 - _cafe.texture.get_height())   # в пикселях арта: родитель масштаба 2, низ спрайта — начало координат
 	_cafe.add_child(sign_sprite)
@@ -563,11 +567,12 @@ func _build_menu() -> void:
 	if pc:
 		_page_button(main, 8, "Выход", "exit").pressed.connect(get_tree().quit)
 	# «Ещё»: коты, дневник, сезонный пропуск
-	var more := _page("more", Ui.column_h(4), "Ещё")
-	_page_button(more, 0, "Коты", "cat").pressed.connect(_open_cat_book)
-	_page_button(more, 1, "Дневник", "home").pressed.connect(_open_diary)
-	_page_button(more, 2, "Мурлык-пасс", "flower").pressed.connect(_open_meta.bind("season"))
-	_page_button(more, 3, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+	var more := _page("more", Ui.column_h(5), "Ещё")
+	_page_button(more, 0, "События", "flower").pressed.connect(_open_meta.bind("events"))
+	_page_button(more, 1, "Мурлык-пасс", "check").pressed.connect(_open_meta.bind("season"))
+	_page_button(more, 2, "Коты", "cat").pressed.connect(_open_cat_book)
+	_page_button(more, 3, "Дневник", "home").pressed.connect(_open_diary)
+	_page_button(more, 4, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
 	# настройки
 	var settings := _page("settings", Ui.column_h(7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
@@ -1297,17 +1302,63 @@ func _open_meta(which: String) -> void:
 			s = MetaScreens.open_shop(self)
 		"quests":
 			s = MetaScreens.open_quests(self)
+		"events":
+			s = MetaScreens.open_events(self)
 		_:
 			s = MetaScreens.open_season(self)
 	s.layer = 12
 	s.closed.connect(_refresh_badges)
 
 
+## Вывеска кафе: цвет букв и лапок по выбранному варианту ремонта.
+func _refresh_sign() -> void:
+	if _sign_sprite == null:
+		return
+	var pal := GameState.style_colors()
+	_sign_sprite.texture = PixelArt.sign_texture("ТЁПЛАЯ ЛАПКА", 104, 8, pal.get("ink", Color("202e37")), pal.get("paw", Color("c9573a")))
+
+
+## Уличная терраса перед кафе: столики, стулья, цветы, кусты, вывеска-стойка. Предметы появляются по задачам ремонта (открытия `terrace:<id>`).
+## Это украшение: проходу не мешает, сортируется по y вместе с котами.
+func _refresh_terrace() -> void:
+	if _actors == null or _cafe == null:
+		return
+	for old in _terrace:
+		if is_instance_valid(old):
+			old.queue_free()
+	_terrace.clear()
+	var origin := Vector2(_interior_rect.position.x, _interior_rect.end.y)   # левый край фасада на линии земли
+	for slot in Data.terrace:
+		if not GameState.has_unlock("terrace:%s" % String(slot["id"])):
+			continue
+		var tex := load("res://assets/street/props/%s.png" % String(slot["prop"])) as Texture2D
+		if tex == null:
+			continue
+		var holder := Node2D.new()   # y-сортировка: опорная точка — «лапки» предмета на земле
+		holder.position = origin + Vector2(float(slot["dx"]), float(slot["dy"]))
+		var sp := Sprite2D.new()
+		sp.texture = tex
+		sp.centered = false
+		sp.scale = Vector2(PX, PX)
+		sp.position = Vector2(-tex.get_width() * PX / 2.0, -tex.get_height() * PX)
+		sp.flip_h = bool(slot.get("flip", false))
+		var pid := String(slot["prop"])
+		sp.material = _prop_mats[2] if (pid.begins_with("bush") or pid.begins_with("plant")) else _prop_mats[0]
+		var wa := tex.get_width()
+		var blob := PixelArt.sprite(PixelArt.blob(maxi(5, wa / 2 + 2), maxi(3, wa / 6 + 1)), Vector2.ZERO)
+		blob.scale = Vector2.ONE
+		blob.modulate = Color(1, 1, 1, 0.55)
+		holder.add_child(blob)
+		holder.add_child(sp)
+		_actors.add_child(holder)   # прямой потомок y-сортируемого слоя
+		_terrace.append(holder)
+
+
 ## Красная точка на шестерёнке: подарок, задания или награды пропуска ждут.
 func _refresh_badges() -> void:
 	if _badge == null:
 		return
-	_badge.visible = GameState.intro_stage >= GameState.INTRO_DONE and (Daily.gift_ready() or Daily.claimable_count() > 0 or Shop.season_claimable() > 0)
+	_badge.visible = GameState.intro_stage >= GameState.INTRO_DONE and (Daily.gift_ready() or Daily.claimable_count() > 0 or Shop.season_claimable() > 0 or Events.claimable_count() > 0)
 
 
 # ---------------------------------------------------------------- окна при входе: подарок, офлайн-доход, предложения
@@ -1438,6 +1489,8 @@ func _open_repairs() -> void:
 ## Ремонт выполнен: зал перерисовывается (цвета, новая мебель), открытые улучшения применяются.
 func _on_repair_done(id: String) -> void:
 	var effects: Array = GameState.repair_def(id).get("effects", [])
+	_refresh_sign()
+	_refresh_terrace()
 	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) in ["furniture", "style"]):
 		_room.set_layout(GameState.layout)
 		_room.queue_redraw()

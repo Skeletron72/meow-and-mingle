@@ -20,7 +20,8 @@ const META_DEFAULT := {
 	"quests": {"day": -1, "items": [], "box": false},
 	"offline": {"pending": 0, "away": 0},
 	"shop": {"deal_day": -1, "deal_taken": false, "starter_shown_day": -1, "starter_start": 0, "ads": {}, "last_interstitial": 0, "star_views": 0},
-	"season": {"id": "", "start_day": -1, "xp": 0, "free": [], "premium": [], "pass": false},
+	"season": {"no": 1, "id": "", "start_day": -1, "xp": 0, "free": [], "premium": [], "pass": false},
+	"event": {"key": "", "progress": {}, "free": [], "premium": []},
 	"sessions": 0, "notif_asked": false, "return_gift_pending": false, "clock_max": 0, "last_open_day": -1, "return_gift_day": -1,
 }
 const SETTINGS_DEFAULT := {"lang": "auto", "music": 0.8, "sfx": 1.0, "quality": "auto", "analytics": true, "notifications": true}
@@ -282,7 +283,7 @@ func sync_repairs() -> void:
 ## Цвета зала по выбранным вариантам: {"wall", "stripe", "base", "a", "b", "edge"} (Color).
 func style_colors() -> Dictionary:
 	var out := {}
-	for key in ["wall", "floor", "trim"]:
+	for key in ["wall", "floor", "trim", "sign"]:
 		var table: Dictionary = Data.styles.get(key, {})
 		var pick := String(style.get(key, ""))
 		var variant: Dictionary = table.get(pick, table.get(table.keys()[0], {})) if not table.is_empty() else {}

@@ -387,12 +387,11 @@ const SIGN_GLYPHS := {
 const SIGN_PAW := ["..#.#..", ".......", "#.....#", "..###..", ".#####.", ".#####.", "..###.."]
 
 
-static func sign_texture(text: String, w := 104, h := 8) -> ImageTexture:
-	var key := "sign_%s_%d_%d" % [text, w, h]
+static func sign_texture(text: String, w := 104, h := 8, ink := Color("202e37"), paw := Color("c9573a")) -> ImageTexture:
+	var key := "sign_%s_%d_%d_%s_%s" % [text, w, h, ink.to_html(), paw.to_html()]
 	if _cache.has(key):
 		return _cache[key]
 	var img := image(w, h)
-	var ink := Color("202e37")
 	var total := 0
 	for ch in text:
 		total += (SIGN_GLYPHS[ch][0] as String).length() + 1
@@ -400,14 +399,14 @@ static func sign_texture(text: String, w := 104, h := 8) -> ImageTexture:
 	var paw_w := 7
 	var span := paw_w + 3 + total + 3 + paw_w
 	var x := (w - span) / 2
-	_draw_pattern(img, SIGN_PAW, x, 0, Color("c9573a"))
+	_draw_pattern(img, SIGN_PAW, x, 0, paw)
 	x += paw_w + 3
 	for ch in text:
 		var g: Array = SIGN_GLYPHS[ch]
 		_draw_pattern(img, g, x, 0, ink)
 		x += (g[0] as String).length() + 1
 	x += 2
-	_draw_pattern(img, SIGN_PAW, x, 0, Color("c9573a"))
+	_draw_pattern(img, SIGN_PAW, x, 0, paw)
 	_cache[key] = texture(img)
 	return _cache[key]
 

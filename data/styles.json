@@ -19,6 +19,16 @@
    "wall": "b3c8d9",
    "stripe": "c6d9e8",
    "base": "7f92a6"
+  },
+  "brick": {
+   "wall": "a6654f",
+   "stripe": "b47360",
+   "base": "6e3f33"
+  },
+  "slate": {
+   "wall": "8d98a6",
+   "stripe": "9ba6b3",
+   "base": "5e6773"
   }
  },
  "floor": {
@@ -41,6 +51,16 @@
    "a": "5f7a52",
    "b": "68855a",
    "edge": "3f5236"
+  },
+  "tile": {
+   "a": "8e9298",
+   "b": "9aa0a6",
+   "edge": "5a5f66"
+  },
+  "parquet": {
+   "a": "b0803f",
+   "b": "bd8e4c",
+   "edge": "7a5526"
   }
  },
  "trim": {
@@ -55,6 +75,42 @@
   },
   "dark": {
    "base": "4a3426"
+  }
+ },
+ "sign": {
+  "warm": {
+   "ink": "202e37",
+   "paw": "c9573a"
+  },
+  "forest": {
+   "ink": "1f4a3a",
+   "paw": "e0a030"
+  },
+  "plum": {
+   "ink": "4a2a5a",
+   "paw": "e06a8a"
+  },
+  "navy": {
+   "ink": "1b2a5a",
+   "paw": "4aa8d8"
+  }
+ },
+ "decor": {
+  "cozy": {
+   "name": "Уют",
+   "tint": ""
+  },
+  "loft": {
+   "name": "Лофт",
+   "tint": "a9b9d0"
+  },
+  "japan": {
+   "name": "Японский",
+   "tint": "bfe3b0"
+  },
+  "winter": {
+   "name": "Зимний",
+   "tint": "d6e8ff"
   }
  }
 }

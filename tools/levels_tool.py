@@ -56,12 +56,52 @@ CH3 = [
     ("Проверка мамы", ["raf", "matcha_latte", "sea_tea", "cocoa", "latte"], ["eclair", "syrniki", "cheesecake"], 0.7, 0.3, 0.3),
     ("Открытие!", ["raf", "matcha_latte", "sea_tea", "cocoa", "latte", "espresso"], ["eclair", "syrniki", "cheesecake"], 0.7, 0.3, 0.3),
 ]
-CHAPTERS = [CH1, CH2, CH3]
+# (название, напитки, меню выпечки, выпечка, спешащие, гурманы, курьеры, критик) — главы 4–6: сезоны, терраса, дом
+CH4 = [
+    ("Осенний рынок", ["raf", "cocoa", "caramel"], ["pirozhok", "syrniki", "eclair"], 0.55, 0.2, 0.15, 0.0, 0.0),
+    ("Листопад", ["hot_choc", "latte", "sea_tea"], ["pirozhok", "croissant"], 0.55, 0.2, 0.2, 0.0, 0.0),
+    ("Дождь и сбитень", ["sbiten", "tea", "hot_choc"], ["medovik", "pirozhok", "keks"], 0.6, 0.2, 0.2, 0.0, 0.0),
+    ("Горячий шоколад", ["hot_choc", "cocoa", "raf"], ["medovik", "eclair", "keks"], 0.6, 0.25, 0.2, 0.0, 0.0),
+    ("Туман над крышей", ["caramel", "espresso", "raf", "latte"], ["pirozhok", "eclair"], 0.6, 0.25, 0.2, 0.0, 0.0),
+    ("Первый снег", ["sbiten", "hot_choc", "matcha_latte"], ["keks", "medovik", "syrniki"], 0.6, 0.25, 0.25, 0.0, 0.0),
+    ("Критик у двери", ["raf", "sbiten", "hot_choc", "caramel"], ["medovik", "eclair", "cheesecake"], 0.65, 0.2, 0.2, 0.0, 0.25),
+    ("Сезон варенья", ["sea_tea", "sbiten", "latte", "cocoa"], ["syrniki", "pirozhok", "keks"], 0.65, 0.3, 0.25, 0.0, 0.0),
+    ("Проверка зимой", ["sbiten", "raf", "caramel", "hot_choc", "matcha_latte"], ["medovik", "eclair", "keks"], 0.7, 0.3, 0.25, 0.0, 0.25),
+    ("Ярмарка ратуши", ["sbiten", "raf", "hot_choc", "sea_tea", "caramel"], ["medovik", "pirozhok", "syrniki"], 0.7, 0.3, 0.3, 0.0, 0.3),
+]
+CH5 = [
+    ("Терраса открыта", ["latte", "tea", "caramel"], ["croissant", "pirozhok"], 0.6, 0.2, 0.2, 0.15, 0.0),
+    ("Курьер Кефир", ["espresso", "caramel", "latte"], ["donut", "keks"], 0.4, 0.2, 0.2, 0.3, 0.0),
+    ("Летний полдень", ["sea_tea", "cocoa", "latte", "tea"], ["cheesecake", "syrniki", "donut"], 0.65, 0.2, 0.25, 0.2, 0.0),
+    ("Уличные столики", ["raf", "caramel", "matcha_latte"], ["eclair", "medovik"], 0.65, 0.25, 0.25, 0.2, 0.0),
+    ("Пик на веранде", ["espresso", "latte", "caramel", "tea"], ["pirozhok", "croissant", "keks"], 0.55, 0.3, 0.2, 0.3, 0.0),
+    ("Закатный чай", ["raf", "hot_choc", "sea_tea"], ["medovik", "eclair", "cheesecake"], 0.7, 0.2, 0.3, 0.1, 0.25),
+    ("Ярмарка во дворе", ["sbiten", "latte", "cocoa", "sea_tea"], ["syrniki", "pirozhok", "medovik"], 0.65, 0.3, 0.25, 0.25, 0.0),
+    ("Кофе на вынос", ["espresso", "caramel", "latte", "raf"], ["donut", "keks"], 0.4, 0.3, 0.2, 0.4, 0.0),
+    ("Проверка летом", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel"], ["eclair", "medovik", "cheesecake"], 0.7, 0.3, 0.3, 0.2, 0.3),
+    ("Ночь на террасе", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel", "sea_tea"], ["eclair", "medovik", "pirozhok"], 0.7, 0.3, 0.3, 0.25, 0.3),
+]
+CH6 = [
+    ("Дом, милый дом", ["latte", "raf", "hot_choc", "tea"], ["syrniki", "medovik"], 0.65, 0.25, 0.25, 0.15, 0.0),
+    ("Мамина кухня", ["raf", "sea_tea", "cocoa", "caramel"], ["medovik", "syrniki", "pirozhok"], 0.7, 0.25, 0.3, 0.15, 0.0),
+    ("Семейный обед", ["latte", "matcha_latte", "hot_choc", "sbiten"], ["eclair", "keks", "cheesecake"], 0.7, 0.3, 0.3, 0.2, 0.0),
+    ("Гости из города", ["raf", "caramel", "sbiten", "espresso"], ["medovik", "eclair", "donut"], 0.7, 0.3, 0.3, 0.3, 0.25),
+    ("Перед праздником", ["raf", "hot_choc", "matcha_latte", "sea_tea"], ["medovik", "syrniki", "keks"], 0.7, 0.3, 0.3, 0.2, 0.0),
+    ("Все наши", ["raf", "sbiten", "hot_choc", "caramel", "latte"], ["medovik", "eclair", "pirozhok"], 0.75, 0.3, 0.3, 0.25, 0.25),
+    ("Шумный вечер", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel"], ["medovik", "eclair", "keks"], 0.75, 0.35, 0.3, 0.3, 0.25),
+    ("Звёздная ночь", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel", "sea_tea"], ["medovik", "eclair", "pirozhok"], 0.75, 0.35, 0.3, 0.3, 0.3),
+    ("Письмо от мамы", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel", "sea_tea", "latte"], ["medovik", "eclair", "syrniki"], 0.75, 0.35, 0.35, 0.3, 0.3),
+    ("Мама вернулась!", ["raf", "matcha_latte", "sbiten", "hot_choc", "caramel", "sea_tea", "latte", "espresso"], ["medovik", "eclair", "syrniki"], 0.8, 0.35, 0.35, 0.35, 0.35),
+]
+CHAPTERS = [CH1, CH2, CH3, CH4, CH5, CH6]
 # по главам: клиентов на уровень, интервал (старт → конец), терпение (старт → конец), цель скорости, цель точности, очередь
 PARAMS = [
     {"customers": [6, 6, 7, 7, 8, 8, 9, 9, 10, 12], "interval": ((9.0, 12.0), (6.0, 8.5)), "patience": (44.0, 36.0), "speed": (11.0, 9.5), "accuracy": (0.80, 0.85), "queue": [2, 2, 2, 3, 3, 3, 3, 3, 3, 3]},
     {"customers": [10, 10, 11, 11, 12, 12, 13, 13, 14, 16], "interval": ((7.0, 9.5), (4.8, 6.8)), "patience": (40.0, 32.0), "speed": (11.0, 9.0), "accuracy": (0.84, 0.88), "queue": [3] * 10},
     {"customers": [12, 12, 13, 13, 14, 14, 15, 15, 16, 18], "interval": ((6.0, 8.0), (4.0, 5.8)), "patience": (38.0, 30.0), "speed": (11.0, 9.0), "accuracy": (0.86, 0.90), "queue": [3] * 10},
+    {"customers": [14, 14, 15, 15, 16, 16, 17, 17, 18, 20], "interval": ((5.6, 7.4), (3.8, 5.4)), "patience": (36.0, 30.0), "speed": (11.0, 9.0), "accuracy": (0.86, 0.90), "queue": [3] * 10},
+    {"customers": [15, 15, 16, 16, 17, 17, 18, 18, 19, 22], "interval": ((5.2, 7.0), (3.6, 5.0)), "patience": (36.0, 28.0), "speed": (11.0, 9.0), "accuracy": (0.87, 0.91), "queue": [3] * 10},
+    {"customers": [16, 16, 17, 17, 18, 18, 19, 20, 22, 25], "interval": ((5.0, 6.6), (3.4, 4.8)), "patience": (34.0, 27.0), "speed": (11.0, 9.0), "accuracy": (0.88, 0.92), "queue": [3] * 10},
 ]
 
 
@@ -74,7 +114,9 @@ def build():
     n = 0
     for ci, chapter in enumerate(CHAPTERS):
         P = PARAMS[ci]
-        for i, (name, pool, menu, pastry, rushed, gourmet) in enumerate(chapter):
+        for i, row in enumerate(chapter):
+            name, pool, menu, pastry, rushed, gourmet = row[:6]
+            courier, critic = (row[6], row[7]) if len(row) > 6 else (0.0, 0.0)
             n += 1
             t = i / 9.0
             lo = lerp(P["interval"][0][0], P["interval"][1][0], t)
@@ -85,7 +127,7 @@ def build():
                 "interval": [round(lo * (0.9 if boss else 1.0), 1), round(hi * (0.9 if boss else 1.0), 1)],
                 "patience": round(lerp(P["patience"][0], P["patience"][1], t), 1), "queue": P["queue"][i],
                 "speed": round(lerp(P["speed"][0], P["speed"][1], t), 1), "accuracy": round(lerp(P["accuracy"][0], P["accuracy"][1], t), 2),
-                "pool": pool, "pastry_menu": menu, "pastry": pastry, "types": {"rushed": rushed, "gourmet": gourmet}, "boss": boss,
+                "pool": pool, "pastry_menu": menu, "pastry": pastry, "types": {"rushed": rushed, "gourmet": gourmet, "courier": courier, "critic": critic}, "boss": boss,
             })
     return out
 
@@ -97,7 +139,7 @@ PLAYERS = {   # (заготовка на заказ: прочитать, взя�
     "средний": (4.0, 2.0, 0.07),
     "мастер": (2.6, 1.3, 0.02),
 }
-DRINK_STEPS = {"espresso": 1, "tea": 1, "latte": 2, "matcha_latte": 2, "cocoa": 1, "sea_tea": 2, "raf": 3}
+DRINK_STEPS = {"espresso": 1, "tea": 1, "latte": 2, "matcha_latte": 2, "cocoa": 1, "sea_tea": 2, "raf": 3, "hot_choc": 2, "caramel": 2, "sbiten": 3}
 
 
 def simulate(level, player, rng, detail=False):
@@ -107,6 +149,9 @@ def simulate(level, player, rng, detail=False):
     queue_max = level["queue"]
     rushed_p = level["types"]["rushed"]
     gourmet_p = level["types"]["gourmet"]
+    courier_p = level["types"].get("courier", 0.0)
+    critic_p = level["types"].get("critic", 0.0)
+    critic_done = False
     t = 0.0
     next_spawn = 0.8
     spawned = 0
@@ -134,20 +179,26 @@ def simulate(level, player, rng, detail=False):
             patience = level["patience"] * rng.uniform(0.85, 1.15)
             steps = DRINK_STEPS[rng.choice(level["pool"])]
             tag = rng.random()
-            if tag < rushed_p:
+            critic = False
+            if not critic_done and rng.random() < critic_p * 0.5 and level["pastry_menu"]:
+                critic = critic_done = True   # критик: один за смену, напиток и выпечка, потеря стоит двух
+                steps += 2
+            elif tag < rushed_p:
                 patience *= 0.65
             elif tag < rushed_p + gourmet_p:
                 steps += 2   # гурман: напиток и выпечка
+            elif tag < rushed_p + gourmet_p + courier_p:
+                patience *= 0.8   # курьер: на вынос, без выпечки
             elif level["pastry_menu"] and rng.random() < level["pastry"]:
                 steps += 1
-            queue.append({"arr": t, "pat_end": t + patience, "steps": steps})
+            queue.append({"arr": t, "pat_end": t + patience, "steps": steps, "critic": critic})
             spawned += 1
             next_spawn = t + rng.uniform(*interval)
         elif kind == "leave":
             for c in list(queue):
                 if c["pat_end"] <= t + 1e-9:
                     queue.remove(c)
-                    lost += 1
+                    lost += 2 if c.get("critic") else 1
                     if c is queue[:1] and False:
                         pass
         else:   # free: игрок собирает заказ первого кота
@@ -186,7 +237,7 @@ def tune(levels, runs=600):
     base_t, act, err = PLAYERS["средний"]
     for i, lv in enumerate(levels):
         t = i / (len(levels) - 1)
-        want_speed = lerp(0.80, 0.30, t) - (0.05 if lv.get("boss") else 0.0)
+        want_speed = (lerp(0.80, 0.30, i / 29.0) if i < 30 else lerp(0.55, 0.22, (i - 30) / 29.0)) - (0.05 if lv.get("boss") else 0.0)
         avgs, accs = [], []
         probe = dict(lv, speed=999.0, accuracy=0.0)
         for _ in range(runs):

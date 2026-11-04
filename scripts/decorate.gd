@@ -17,7 +17,9 @@ var _sel_box: Node2D
 var _toolbar: Control
 var _hint: Control
 var _coins_label: Label
-var _cards: Array[Dictionary] = []   # {"btn": Button, "id": String}
+var _cards: Array[Dictionary] = []   # {"btn": Button, "id": String, "holder": Control, "style": String}
+var _style_btn: Button
+var _style := "cozy"                # какой стиль мебели показан в каталоге
 
 var _sel := -1
 var _dragging := false
@@ -66,8 +68,12 @@ func _build_top() -> void:
 	_coins_label = Ui.label("0", Rect2(44, 12, 68, 32), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
 	_hint = Control.new()
 	_ui.add_child(_hint)
-	Ui.panel(Rect2(124, 8, 164, 48), Ui.UI_CREAM, _hint)
-	Ui.label("Тяни мебель", Rect2(124, 12, 164, 32), Ui.FONT_SIZE, Ui.INK, _hint, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_style_btn = Ui.button("", Rect2(124, 8, 164, 48), "", _hint, true, Ui.UI_CREAM)   # стиль каталога: Уют, Лофт, Японский, Зимний
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_style_btn.add_theme_color_override(c, Ui.INK)
+	_style_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
+	_style_btn.pressed.connect(_cycle_style)
+	_refresh_style_button()
 	var back := Ui.button("", Rect2(296, 8, 56, 48), "home", _ui)
 	back.pressed.connect(_back)
 
@@ -97,6 +103,7 @@ func _build_catalog() -> void:
 	scroll.add_child(row)
 	for id in Data.furniture:
 		_add_card(row, String(id))
+	_apply_style_filter()
 
 
 func _add_card(row: Container, id: String) -> void:
@@ -126,7 +133,33 @@ func _add_card(row: Container, id: String) -> void:
 	coin.position = Vector2(CARD_W - 28.0, 74)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(coin)
-	_cards.append({"btn": b, "id": id})
+	_cards.append({"btn": b, "id": id, "holder": holder, "style": String(def.get("style", "cozy"))})
+
+
+## Стили, доступные игроку: «Уют» всегда, остальные — после задач ремонта и событий (открытие `style:<id>`).
+func available_styles() -> Array[String]:
+	var out: Array[String] = []
+	for key in Data.styles["decor"]:
+		if String(key) == "cozy" or GameState.has_unlock("style:%s" % String(key)):
+			out.append(String(key))
+	return out
+
+
+func _cycle_style() -> void:
+	var list := available_styles()
+	_style = list[(list.find(_style) + 1) % list.size()]
+	_apply_style_filter()
+	_refresh_style_button()
+
+
+func _refresh_style_button() -> void:
+	var name_text := String(Data.styles["decor"][_style]["name"])
+	Ui.set_button_text(_style_btn, tr("Стиль: %s") % tr(name_text))
+
+
+func _apply_style_filter() -> void:
+	for c in _cards:
+		(c["holder"] as Control).visible = String(c["style"]) == _style
 
 
 func _on_coins_changed(value: int) -> void:

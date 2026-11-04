@@ -1,0 +1,69 @@
+[
+ {
+  "id": "t_table_l",
+  "prop": "table_round",
+  "dx": 56,
+  "dy": 46
+ },
+ {
+  "id": "t_chair_l",
+  "prop": "chair_side",
+  "dx": 22,
+  "dy": 44
+ },
+ {
+  "id": "t_table_r",
+  "prop": "table_square",
+  "dx": 264,
+  "dy": 46
+ },
+ {
+  "id": "t_chair_r",
+  "prop": "chair_side",
+  "dx": 298,
+  "dy": 44,
+  "flip": true
+ },
+ {
+  "id": "t_plant_l",
+  "prop": "plant4",
+  "dx": 6,
+  "dy": 24
+ },
+ {
+  "id": "t_plant_r",
+  "prop": "plant3",
+  "dx": 312,
+  "dy": 24
+ },
+ {
+  "id": "t_bush_l",
+  "prop": "bush1",
+  "dx": 22,
+  "dy": 12
+ },
+ {
+  "id": "t_bush_r",
+  "prop": "bush2",
+  "dx": 298,
+  "dy": 12
+ },
+ {
+  "id": "t_sign",
+  "prop": "sign2",
+  "dx": 236,
+  "dy": 22
+ },
+ {
+  "id": "t_bin",
+  "prop": "trashbin",
+  "dx": 112,
+  "dy": 22
+ },
+ {
+  "id": "t_flowers",
+  "prop": "plant1",
+  "dx": 124,
+  "dy": 38
+ }
+]

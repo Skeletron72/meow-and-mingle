@@ -632,5 +632,658 @@
   ],
   "blurb": "Придёт строгий Профессор Усов",
   "icon": "play"
+ },
+ {
+  "id": "loft",
+  "chapter": 4,
+  "zone": "hall",
+  "name": "Стиль «Лофт»",
+  "cost": 2,
+  "requires": [
+   "reopening"
+  ],
+  "after": 30,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "style:loft"
+   }
+  ],
+  "blurb": "Мебель в стиле лофт — в каталоге",
+  "icon": "brush"
+ },
+ {
+  "id": "wall_loft",
+  "chapter": 4,
+  "zone": "hall",
+  "name": "Кирпич и сланец",
+  "cost": 2,
+  "requires": [
+   "loft"
+  ],
+  "after": 31,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "wall"
+   }
+  ],
+  "blurb": "Новый цвет стен: лофт",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "brick",
+    "name": "Кирпичные"
+   },
+   {
+    "id": "slate",
+    "name": "Сланцевые"
+   }
+  ]
+ },
+ {
+  "id": "floor_tile",
+  "chapter": 4,
+  "zone": "hall",
+  "name": "Плитка и паркет",
+  "cost": 2,
+  "requires": [
+   "loft"
+  ],
+  "after": 32,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "floor"
+   }
+  ],
+  "blurb": "Новый пол в зале",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "tile",
+    "name": "Плитка"
+   },
+   {
+    "id": "parquet",
+    "name": "Паркет"
+   }
+  ]
+ },
+ {
+  "id": "recipe_hotchoc",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Горячий шоколад",
+  "cost": 2,
+  "requires": [
+   "wall_loft"
+  ],
+  "after": 32,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "drink:hot_choc"
+   }
+  ],
+  "blurb": "Новый напиток: горячий шоколад",
+  "icon": "check"
+ },
+ {
+  "id": "recipe_caramel",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Эспрессо-карамель",
+  "cost": 2,
+  "requires": [
+   "recipe_hotchoc"
+  ],
+  "after": 33,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "drink:caramel"
+   }
+  ],
+  "blurb": "Новый напиток: эспрессо-карамель",
+  "icon": "check"
+ },
+ {
+  "id": "recipe_sbiten",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Мамин сбитень",
+  "cost": 2,
+  "requires": [
+   "recipe_caramel"
+  ],
+  "after": 34,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "drink:sbiten"
+   }
+  ],
+  "blurb": "Новый напиток: сбитень",
+  "icon": "check"
+ },
+ {
+  "id": "pirozhok",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Пирожки на витрине",
+  "cost": 2,
+  "requires": [
+   "floor_tile"
+  ],
+  "after": 33,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "pastry:pirozhok"
+   }
+  ],
+  "blurb": "Новая выпечка: пирожок",
+  "icon": "check"
+ },
+ {
+  "id": "medovik",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Медовик по рецепту",
+  "cost": 2,
+  "requires": [
+   "pirozhok"
+  ],
+  "after": 35,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "pastry:medovik"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:irisk"
+   }
+  ],
+  "blurb": "Новая выпечка; придёт Ириска",
+  "icon": "check"
+ },
+ {
+  "id": "keks",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Кексы к чаю",
+  "cost": 2,
+  "requires": [
+   "medovik"
+  ],
+  "after": 37,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "pastry:keks"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:ugolek"
+   }
+  ],
+  "blurb": "Новая выпечка; придёт Уголёк",
+  "icon": "check"
+ },
+ {
+  "id": "sign_new",
+  "chapter": 4,
+  "zone": "facade",
+  "name": "Новая вывеска",
+  "cost": 2,
+  "requires": [
+   "keks"
+  ],
+  "after": 39,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "sign"
+   }
+  ],
+  "blurb": "Другой цвет букв на вывеске",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "forest",
+    "name": "Лесная"
+   },
+   {
+    "id": "plum",
+    "name": "Сливовая"
+   },
+   {
+    "id": "navy",
+    "name": "Морская"
+   }
+  ]
+ },
+ {
+  "id": "terrace_1",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Столик на улице",
+  "cost": 3,
+  "requires": [
+   "sign_new"
+  ],
+  "after": 40,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_table_l"
+   },
+   {
+    "kind": "unlock",
+    "key": "terrace:t_chair_l"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:kefir"
+   }
+  ],
+  "blurb": "Терраса слева; придёт курьер Кефир",
+  "icon": "home"
+ },
+ {
+  "id": "terrace_2",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Ещё столик",
+  "cost": 2,
+  "requires": [
+   "terrace_1"
+  ],
+  "after": 42,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_table_r"
+   },
+   {
+    "kind": "unlock",
+    "key": "terrace:t_chair_r"
+   }
+  ],
+  "blurb": "Терраса справа",
+  "icon": "home"
+ },
+ {
+  "id": "terrace_3",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Цветы у входа",
+  "cost": 1,
+  "requires": [
+   "terrace_1"
+  ],
+  "after": 43,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_plant_l"
+   },
+   {
+    "kind": "unlock",
+    "key": "terrace:t_plant_r"
+   }
+  ],
+  "blurb": "Горшки с цветами",
+  "icon": "flower"
+ },
+ {
+  "id": "terrace_4",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Кусты и зелень",
+  "cost": 1,
+  "requires": [
+   "terrace_3"
+  ],
+  "after": 44,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_bush_l"
+   },
+   {
+    "kind": "unlock",
+    "key": "terrace:t_bush_r"
+   }
+  ],
+  "blurb": "Живая изгородь",
+  "icon": "flower"
+ },
+ {
+  "id": "terrace_5",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Вывеска-стойка",
+  "cost": 1,
+  "requires": [
+   "terrace_2"
+  ],
+  "after": 45,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_sign"
+   }
+  ],
+  "blurb": "Меню на улице",
+  "icon": "check"
+ },
+ {
+  "id": "terrace_6",
+  "chapter": 5,
+  "zone": "terrace",
+  "name": "Порядок на улице",
+  "cost": 1,
+  "requires": [
+   "terrace_4"
+  ],
+  "after": 46,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "terrace:t_bin"
+   },
+   {
+    "kind": "unlock",
+    "key": "terrace:t_flowers"
+   },
+   {
+    "kind": "coins",
+    "amount": 50
+   }
+  ],
+  "blurb": "Урна, цветочки и 50 монет",
+  "icon": "brush"
+ },
+ {
+  "id": "loft_table",
+  "chapter": 5,
+  "zone": "hall",
+  "name": "Лофт-стол",
+  "cost": 2,
+  "requires": [
+   "terrace_2"
+  ],
+  "after": 44,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "table_big_loft"
+   }
+  ],
+  "blurb": "Большой стол в стиле лофт",
+  "icon": "home"
+ },
+ {
+  "id": "smetanka",
+  "chapter": 5,
+  "zone": "hall",
+  "name": "Подружка Рыжика",
+  "cost": 1,
+  "requires": [
+   "terrace_3"
+  ],
+  "after": 46,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "cat:smetanka"
+   }
+  ],
+  "blurb": "Придёт Сметанка",
+  "icon": "cat"
+ },
+ {
+  "id": "night_lamp",
+  "chapter": 5,
+  "zone": "hall",
+  "name": "Ночные огни",
+  "cost": 2,
+  "requires": [
+   "loft_table"
+  ],
+  "after": 48,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "window_loft"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:zvezdochet"
+   }
+  ],
+  "blurb": "Окно в лофте; придёт Звездочёт",
+  "icon": "home"
+ },
+ {
+  "id": "loft_bar",
+  "chapter": 5,
+  "zone": "counter",
+  "name": "Лофт-стойка",
+  "cost": 3,
+  "requires": [
+   "night_lamp"
+  ],
+  "after": 49,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "ucounter_loft"
+   },
+   {
+    "kind": "coins",
+    "amount": 80
+   }
+  ],
+  "blurb": "Стойка в лофте и 80 монет",
+  "icon": "home"
+ },
+ {
+  "id": "japan",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Стиль «Японский»",
+  "cost": 3,
+  "requires": [
+   "loft_bar"
+  ],
+  "after": 50,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "style:japan"
+   }
+  ],
+  "blurb": "Японская мебель — в каталоге",
+  "icon": "brush"
+ },
+ {
+  "id": "japan_table",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Низкий столик",
+  "cost": 2,
+  "requires": [
+   "japan"
+  ],
+  "after": 51,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "table_small_japan"
+   }
+  ],
+  "blurb": "Столик для чая",
+  "icon": "home"
+ },
+ {
+  "id": "japan_plant",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Бамбук в зал",
+  "cost": 2,
+  "requires": [
+   "japan"
+  ],
+  "after": 52,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "plant_japan"
+   }
+  ],
+  "blurb": "Бамбук в горшке",
+  "icon": "flower"
+ },
+ {
+  "id": "japan_window",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Окно-сёдзи",
+  "cost": 2,
+  "requires": [
+   "japan_table"
+  ],
+  "after": 53,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "window_japan"
+   }
+  ],
+  "blurb": "Окно с видом",
+  "icon": "home"
+ },
+ {
+  "id": "japan_rug",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Татами",
+  "cost": 2,
+  "requires": [
+   "japan_plant"
+  ],
+  "after": 54,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "rug_japan"
+   }
+  ],
+  "blurb": "Мягкий коврик-татами",
+  "icon": "home"
+ },
+ {
+  "id": "family_photo",
+  "chapter": 6,
+  "zone": "upstairs",
+  "name": "Семейное фото",
+  "cost": 2,
+  "requires": [
+   "japan_window"
+  ],
+  "after": 55,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "board_japan"
+   }
+  ],
+  "blurb": "Фото на стене",
+  "icon": "check"
+ },
+ {
+  "id": "baron",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Приглашение на ужин",
+  "cost": 2,
+  "requires": [
+   "family_photo"
+  ],
+  "after": 56,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "cat:baron"
+   }
+  ],
+  "blurb": "Придёт Барон",
+  "icon": "cat"
+ },
+ {
+  "id": "holiday_table",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Праздничный стол",
+  "cost": 3,
+  "requires": [
+   "japan_rug",
+   "baron"
+  ],
+  "after": 57,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "table_big_japan"
+   },
+   {
+    "kind": "coins",
+    "amount": 150
+   }
+  ],
+  "blurb": "Большой стол и 150 монет",
+  "icon": "home"
+ },
+ {
+  "id": "secret_guest",
+  "chapter": 6,
+  "zone": "hall",
+  "name": "Тайный гость",
+  "cost": 1,
+  "requires": [
+   "holiday_table"
+  ],
+  "after": 58,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "cat:kosmos"
+   }
+  ],
+  "blurb": "Придёт таинственный Космос",
+  "icon": "cat"
+ },
+ {
+  "id": "mom_returns",
+  "chapter": 6,
+  "zone": "facade",
+  "name": "Мама возвращается",
+  "cost": 5,
+  "requires": [
+   "secret_guest"
+  ],
+  "after": 59,
+  "effects": [
+   {
+    "kind": "coins",
+    "amount": 300
+   }
+  ],
+  "blurb": "Финал истории: 300 монет",
+  "icon": "play"
  }
 ]

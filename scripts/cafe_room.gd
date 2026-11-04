@@ -218,6 +218,8 @@ func _spawn_item(item: Dictionary) -> Node2D:
 	sp.scale = Vector2(S, S)
 	sp.position = sprite_rect(id, c, r).position - n.position
 	sp.flip_h = bool(item.get("flip", false))
+	if def.has("tint"):   # раскраска стиля (лофт, японский, зимний): тот же спрайт другого оттенка
+		sp.modulate = Color(String(def["tint"]))
 	if is_wall(id):   # настенное отбрасывает мягкую тень на стену
 		var drop := Sprite2D.new()
 		drop.texture = FURN_TEX
@@ -230,7 +232,7 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		drop.modulate = Color(0, 0, 0, 0.30)
 		n.add_child(drop)
 	n.add_child(sp)
-	if id == "window":
+	if String(def.get("base", id)) == "window":
 		var w := WindowGlow.new()
 		w.position = sp.position
 		n.add_child(w)

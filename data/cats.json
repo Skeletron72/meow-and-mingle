@@ -133,5 +133,110 @@
 			"Ваш раф… сносен. Это комплимент.",
 			"Кафе без характера — склад. Здесь — характер."
 		]
+	},
+	{
+		"id": "kefir",
+		"name": "Кефир",
+		"fav_drink": "caramel",
+		"sprite": "cat-orange-front.png",
+		"tint": "#a0d8ff",
+		"role": "courier",
+		"bio": "Курьер",
+		"starter": false,
+		"lines": [
+			"Я курьер. Кофе — и бегом!",
+			"Сумка, лапы, кофе — и снова в путь.",
+			"Ты — лучший пункт выдачи в городе."
+		]
+	},
+	{
+		"id": "irisk",
+		"name": "Ириска",
+		"fav_drink": "sbiten",
+		"sprite": "cat-waiter-front.png",
+		"tint": "#d9a05b",
+		"role": "normal",
+		"bio": "Сладкоежка",
+		"starter": false,
+		"lines": [
+			"Сладкое — это не еда, это настроение.",
+			"Медовик варят с терпением. И с мёдом.",
+			"Тебе положено печенье. Просто так."
+		]
+	},
+	{
+		"id": "ugolek",
+		"name": "Уголёк",
+		"fav_drink": "hot_choc",
+		"sprite": "cat-black-front.png",
+		"tint": "#5a4a6a",
+		"role": "normal",
+		"bio": "Кот из подвала",
+		"starter": false,
+		"lines": [
+			"Я жил в подвале. Тут светлее.",
+			"Какао согревает не хуже печки.",
+			"Спасибо, что не гнали."
+		]
+	},
+	{
+		"id": "baron",
+		"name": "Барон",
+		"fav_drink": "raf",
+		"sprite": "cat-waiter-front.png",
+		"tint": "#b9b0c9",
+		"role": "critic",
+		"bio": "Аристократ",
+		"starter": false,
+		"lines": [
+			"Барон. Ужин в семь. Раф — сейчас.",
+			"Подача безупречна. Почти.",
+			"В моём клубе о вас говорят. Хорошо говорят."
+		]
+	},
+	{
+		"id": "smetanka",
+		"name": "Сметанка",
+		"fav_drink": "sea_tea",
+		"sprite": "cat-waiter-front.png",
+		"tint": "#fff6e0",
+		"role": "normal",
+		"bio": "Подруга Рыжика",
+		"starter": false,
+		"lines": [
+			"Рыжик сказал, у вас тепло. Он не соврал.",
+			"Мы с Рыжиком вместе гоняли воробьёв.",
+			"Приведу подруг. Всех. Не пугайся."
+		]
+	},
+	{
+		"id": "zvezdochet",
+		"name": "Звездочёт",
+		"fav_drink": "espresso",
+		"sprite": "cat-black-front.png",
+		"tint": "#6a7aa8",
+		"role": "normal",
+		"bio": "Ночной гость",
+		"starter": false,
+		"lines": [
+			"Я ночной гость. Днём сплю.",
+			"Звёзды видны и сквозь окна.",
+			"Эспрессо — как маленький рассвет."
+		]
+	},
+	{
+		"id": "kosmos",
+		"name": "Космос",
+		"fav_drink": "matcha_latte",
+		"sprite": "cat-orange-front.png",
+		"tint": "#7ae0c0",
+		"role": "normal",
+		"bio": "Секретный гость",
+		"starter": false,
+		"lines": [
+			"…",
+			"Я пришёл издалека. Здесь вкусно.",
+			"Тайна — это когда не рассказываешь. Но тебе расскажу."
+		]
 	}
 ]
