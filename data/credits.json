@@ -1,0 +1,39 @@
+{
+ "game": "Тёплая Лапка",
+ "sections": [
+  {
+   "title": "Игра",
+   "lines": [
+    "Идея, код, дизайн — команда «Тёплой Лапки»"
+   ]
+  },
+  {
+   "title": "Графика",
+   "lines": [
+    "Коты, мебель, выпечка — Neko Cafe Asset Pack, hellorumin",
+    "Иконки еды — 100 Free Pixel Art Foods, Alex Kovacs (CC BY 4.0)",
+    "Машины — TopDown Vehicles, MinZiin_ (CC BY 4.0)",
+    "Интерфейс — Mega Cozy UI Pack, dobo_ui",
+    "Город — City Essentials, Ranitaya"
+   ]
+  },
+  {
+   "title": "Шрифт",
+   "lines": [
+    "Galmuri — SIL OFL 1.1"
+   ]
+  },
+  {
+   "title": "Звук",
+   "lines": [
+    "Музыка и звуки — собственный синтез"
+   ]
+  },
+  {
+   "title": "Спасибо",
+   "lines": [
+    "Всем, кто играл и писал нам!"
+   ]
+  }
+ ]
+}
