@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	var c := camera.get_screen_center_position()
 	var view := Rect2(c - Vector2(180.0, 320.0) - Vector2(MARGIN, MARGIN), Vector2(360.0, 640.0) + Vector2(MARGIN, MARGIN) * 2.0)
-	var active := int(COUNT * amount)
+	var active := int(COUNT * amount * (0.5 if Quality.low() else 1.0))
 	for i in _flakes.size():
 		var f: Dictionary = _flakes[i]
 		var sp: Sprite2D = f["sp"]

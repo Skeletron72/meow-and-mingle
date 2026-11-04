@@ -45,6 +45,7 @@ var _hint: Label
 
 
 func _ready() -> void:
+	Audio.music("city")
 	var bg := ColorRect.new()
 	bg.size = Vector2(360, 640)
 	bg.color = PAGE_BG

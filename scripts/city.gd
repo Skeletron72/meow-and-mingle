@@ -108,6 +108,7 @@ var _credits_idx := 0
 var _diary_page: Control
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
 var _repair_card: RepairCard
+var _door_wanted := false
 
 
 func _ready() -> void:
@@ -142,6 +143,11 @@ func _ready() -> void:
 	_snow.camera = _camera
 	_world.add_child(_snow)
 	_build_ui()
+	if OS.is_debug_build():
+		add_child(PerfOverlay.new())   # F2
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
+	Audio.music("city")
 	_build_fade()
 	_build_menu()
 	_start_intro_if_needed()
@@ -351,6 +357,10 @@ func _update_door() -> void:
 			if absf(cat.position.x - c.x) < 64.0 and dy > -110.0 and dy < 96.0:
 				open = true
 				break
+	if open != _door_wanted:
+		_door_wanted = open
+		if open and _door.open_amount < 0.2:
+			Audio.sfx("bell", 0.0, -6.0)   # колокольчик над дверью, когда кто-то подошёл
 	_door.set_open(open)
 	if _door_beam != null:
 		_door_beam.modulate.a = _door.open_amount * _lit * 0.7 * (1.0 - (_xray if _space == SPACE_CAFE else 0.0))
@@ -459,7 +469,7 @@ func _build_cats() -> void:
 
 ## Коты-посетители: половина в зале, половина на улице; дальше сами заходят и выходят. (Во время интро кафе пустое.)
 func _spawn_npcs() -> void:
-	for i in 4:
+	for i in (2 if Quality.low() else 4):
 		var cat := CatWalker.new()
 		_actors.add_child(cat)
 		cat.setup(_nav, Data.cats[i % Data.cats.size()])
@@ -823,6 +833,7 @@ func _on_tutorial_finished(served: int, earned: int) -> void:
 	if _shift_layer != null:
 		_shift_layer.queue_free()
 		_shift_layer = null
+	Audio.music("city")
 	_world.visible = true
 	_sky_layer.visible = true
 	_ui.visible = true
@@ -861,6 +872,7 @@ func _on_repair_chosen(id: String) -> void:
 	if _repair_card != null:
 		_repair_card.queue_free()
 		_repair_card = null
+	Audio.sfx("star", 0.0)
 	if id == "shutters" and _intro != null:
 		_intro.enable_knock()
 		Fx.burst(_ui, Vector2(180, 360), "star", Color("ffe08a"), 10, 200.0, 160.0, 0.9, 1.1)
@@ -882,6 +894,8 @@ func _finish_intro() -> void:
 # ---------------------------------------------------------------- кадр
 
 func _process(delta: float) -> void:
+	if Quality.sample(delta):
+		_on_quality_dropped()
 	_traffic.update(delta)
 	_npc_tick(delta)
 	_update_xray(delta)
@@ -1334,6 +1348,21 @@ func _toast(text: String, world_p: Vector2) -> void:
 
 
 ## F3: показать зоны уровня поверх игры (ходьба, полосы машин, интерьер...).
+## Сдвигает интерфейс вниз, если вырез камеры заходит в игровую область (обычно сдвиг 0).
+func _apply_safe_area() -> void:
+	var ins := SafeArea.current()
+	if _ui is CanvasLayer:
+		(_ui as CanvasLayer).offset = Vector2(0.0, ins.y)
+
+
+## «Авто» заметило низкий FPS: качество понижено, лишние гости уходят с улицы.
+func _on_quality_dropped() -> void:
+	while _npcs.size() > 2:
+		var n: Dictionary = _npcs.pop_back()
+		(n["cat"] as Node).queue_free()
+	Ui.toast(_ui, tr("Включено экономное качество"), Vector2(180, 150))
+
+
 func _toggle_zones() -> void:
 	StreetZone.show_in_game = not StreetZone.show_in_game
 	_level.visible = StreetZone.show_in_game
@@ -1442,6 +1471,7 @@ func _open_shift(tutorial: bool, level := {}) -> void:
 	_player.stop()
 	_pending = ""
 	GameState.save_game()
+	Audio.music("shift")
 	_shift_layer = CanvasLayer.new()
 	_shift_layer.layer = 5
 	add_child(_shift_layer)
@@ -1462,6 +1492,7 @@ func _open_shift(tutorial: bool, level := {}) -> void:
 
 
 func _end_shift(served: int, earned: int) -> void:
+	Audio.music("city")
 	_shift_layer.queue_free()
 	_shift_layer = null
 	_world.visible = true

@@ -101,6 +101,7 @@ func _setup_shutter() -> void:
 
 func _knock() -> void:
 	_knocks += 1
+	Audio.sfx("box", 0.03)
 	var base := _shutter.position
 	if _knocks == 1:
 		Fx.shake(_shutter, 8.0, 0.4, 8)
@@ -117,6 +118,7 @@ func _knock() -> void:
 
 
 func _open_shutter() -> void:
+	Audio.sfx("shutter", 0.0)
 	var t := create_tween()
 	t.tween_property(_shutter, "lift", 1.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.parallel().tween_method(_rattle, 0.0, 1.0, 1.1)
@@ -344,6 +346,7 @@ func _process(_delta: float) -> void:
 
 func _act(id: String) -> void:
 	var def := _def(id)
+	Audio.sfx("tap")
 	var done := _done_taps(id) + 1
 	GameState.intro_cleaned[id] = done
 	var left := int(def["taps"]) - done
@@ -543,6 +546,7 @@ func _finish_cleanup() -> void:
 	GameState.intro_stage = GameState.INTRO_DONE
 	GameState.save_game()
 	Platform.track("cleanup_done", {})
+	Audio.sfx("success", 0.0)
 	Fx.banner(city._ui, tr("Кафе готово!"), Vector2(180, 240), Color("8dff7a"))
 	Fx.confetti(city._ui, Vector2(180, 200), 36)
 	if _progress_panel != null:

@@ -219,7 +219,9 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 		skin.self_modulate = Color(1.0, 0.55, 0.5)   # красноватая кнопка для опасных действий
 	b.mouse_entered.connect(func() -> void: skin.modulate = Color(1.1, 1.1, 1.1))
 	b.mouse_exited.connect(func() -> void: skin.modulate = Color.WHITE)
-	b.button_down.connect(func() -> void: skin.modulate = Color(0.8, 0.8, 0.8))
+	b.button_down.connect(func() -> void:
+		skin.modulate = Color(0.8, 0.8, 0.8)
+		Audio.sfx("back" if icon_name == "undo" else "click", 0.02))
 	b.button_up.connect(func() -> void: skin.modulate = Color.WHITE)
 	parent.add_child(b)
 	if icon_name != "":

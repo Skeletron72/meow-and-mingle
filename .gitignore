@@ -1,3 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# сборки, ключи и секреты (в репозиторий не попадают)
+build/
+*.keystore
+*.jks
+export_credentials.cfg
+.env

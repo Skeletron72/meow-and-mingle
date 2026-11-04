@@ -23,6 +23,7 @@ func _ready() -> void:
 	_test_save()
 	_test_repairs()
 	await _test_menu()
+	_test_s2()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -226,3 +227,62 @@ func _test_menu() -> void:
 	await get_tree().process_frame
 	GameState.settings = GameState.SETTINGS_DEFAULT.duplicate()
 	GameState.new_game()
+
+
+## S2: звук, качество, безопасная зона, наличие файлов звука и сборочных настроек.
+func _test_s2() -> void:
+	# все заявленные звуки и музыка существуют и подгружаются
+	for s in Audio.SFX:
+		_check(ResourceLoader.exists("res://assets/audio/%s.ogg" % s), "звук «%s» есть в assets/audio" % s)
+	for k in Audio.MUSIC:
+		_check(ResourceLoader.exists("res://assets/audio/%s.ogg" % Audio.MUSIC[k]), "музыка «%s» есть" % k)
+	_check(AudioServer.get_bus_index("Music") >= 0 and AudioServer.get_bus_index("SFX") >= 0, "шины Music и SFX созданы")
+	GameState.set_setting("music", 0.4)
+	GameState.set_setting("sfx", 0.0)
+	_check(is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), linear_to_db(0.4)), "громкость музыки из настроек")
+	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index("SFX")), "громкость 0 глушит шину")
+	GameState.set_setting("music", 0.8)
+	GameState.set_setting("sfx", 1.0)
+	_check(not AudioServer.is_bus_mute(AudioServer.get_bus_index("SFX")), "громкость вернулась")
+	Audio.sfx("click")   # в безголовом режиме ничего не играет, но и не падает
+	Audio.music("city")
+	_check(Audio.current_music() == "city", "музыка города выбрана")
+	Audio.music("shift")
+	_check(Audio.current_music() == "shift", "музыка смены выбрана")
+	# качество
+	GameState.set_setting("quality", "low")
+	_check(Quality.low() and Quality.scale() == 0.5 and Quality.count(10) == 5 and Quality.count(1) == 1 and Quality.count(0) == 0, "низкое качество: вдвое меньше частиц, минимум одна")
+	GameState.set_setting("quality", "high")
+	_check(not Quality.low() and Quality.count(10) == 10, "высокое качество: всё как есть")
+	GameState.set_setting("quality", "auto")
+	Quality.reset_probe()
+	var switched := false
+	for i in 600:   # 10 секунд по 20 FPS: «авто» понижает качество после прогрева и окна замера
+		if Quality.sample(0.05):
+			switched = true
+	_check(switched and Quality.low(), "авто: 20 FPS → экономное качество")
+	Quality.reset_probe()
+	switched = false
+	for i in 800:
+		if Quality.sample(1.0 / 60.0):
+			switched = true
+	_check(not switched and not Quality.measured_low, "авто: 60 FPS качество не трогает")
+	Quality.reset_probe()
+	# безопасная зона
+	var none := SafeArea.logical_insets(Vector2(1080, 1920), Rect2(0, 0, 1080, 1920))
+	_check(none == Vector4.ZERO, "нет выреза — отступы нулевые")
+	var tall := SafeArea.logical_insets(Vector2(1080, 2400), Rect2(0, 90, 1080, 2310))   # вырез 90 px, поля сверху (2400-1920)/2 = 240
+	_check(tall == Vector4.ZERO, "вырез целиком в чёрном поле — отступа нет")
+	var notch := SafeArea.logical_insets(Vector2(1080, 1920), Rect2(0, 120, 1080, 1800))   # 16:9 с вырезом 120 px → 40 логических px
+	_check(is_equal_approx(notch.y, 40.0) and notch.x == 0.0, "16:9 с вырезом: отступ сверху 40 логических px (%s)" % [notch])
+	# экспорт: пресеты и аудит лицензий
+	var cfg := ConfigFile.new()
+	_check(cfg.load("res://export_presets.cfg") == OK, "export_presets.cfg читается")
+	var names := []
+	for sec in cfg.get_sections():
+		if sec.begins_with("preset.") and not sec.ends_with(".options"):
+			names.append(String(cfg.get_value(sec, "name")))
+	_check(names.size() >= 3 and names.any(func(n: String) -> bool: return n.begins_with("Android")) and names.any(func(n: String) -> bool: return n.begins_with("Web")), "пресеты Android и Web на месте (%s)" % [names])
+	for sec in cfg.get_sections():
+		if sec.begins_with("preset.") and not sec.ends_with(".options"):
+			_check(String(cfg.get_value(sec, "exclude_filter")).contains("assets/packs"), "пресет «%s»: исходники паков не попадают в сборку" % cfg.get_value(sec, "name"))

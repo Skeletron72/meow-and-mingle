@@ -258,6 +258,7 @@ func _begin_run() -> void:
 	_tutorial_done_sent = false
 	_stats = {"served": 0, "wrong": 0, "left": 0, "times": []}
 	_run_started_msec = Time.get_ticks_msec()
+	Audio.music("shift")
 	if not tutorial:
 		Platform.track("level_start", {"id": String(level.get("id", "?")), "stars": GameState.level_star_count(String(level.get("id", "?")))})
 	shift_served = 0
@@ -481,7 +482,8 @@ func _lose_patience(e: Dictionary) -> void:
 	_free_bubble(e)
 	var cat: CatCustomer = e["cat"]
 	Fx.burst(_fx, cat.center() + Vector2(0, -40), "anger", Color("ff5a4a"), 3, 60.0, 0.0, 0.7, 1.0)
-	_toast("%s ушёл злой!" % String(e["def"].get("name", "Кот")), Vector2(180, 392))
+	_toast(tr("%s ушёл злой!") % String(e["def"].get("name", "Кот")), Vector2(180, 392))
+	Audio.sfx("angry", 0.05, -4.0)
 	_shake_screen(4.0)
 	cat.leave_angry()
 	_queue.erase(e)
@@ -589,6 +591,7 @@ func _return_tray() -> void:
 func _discard_cup() -> void:
 	_bin.hop()
 	Fx.burst(_fx, BIN_POS + Vector2(0, -16), "puff", Color(0.8, 0.8, 0.85), 6, 70.0, -20.0, 0.6, 1.0, 50.0)
+	Audio.sfx("whoosh")
 	_cup.clear()
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
@@ -608,8 +611,10 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 		"tea": color = Color("f0b84a")
 		"milk": color = Color("fffaf0")
 	if kind == "pastry":
+		Audio.sfx("pop")
 		Fx.burst(_fx, at, "sparkle", Color("ffe9a0"), 7, 130.0, 100.0, 0.7, 1.0)
 	else:
+		Audio.sfx("pour")
 		Fx.burst(_fx, _tray.position + Vector2(-40, -30), "drop", color, 10, 150.0, 520.0, 0.7, 1.0, 60.0)
 	Fx.ring(_fx, _tray.position + Vector2(0, -6), Color(color, 0.9).lightened(0.2), 70.0, 0.5)
 	_refresh_cup()
@@ -655,6 +660,8 @@ func _serve(e: Dictionary = {}) -> void:
 		(_stats["times"] as Array).append(elapsed)
 		if tutorial:
 			_tutorial_index += 1
+			if _tutorial_index == 1:   # первый поданный заказ: главная метрика входа (цель ≤ 20 с от запуска)
+				Platform.track("ftue_step", {"step": "first_order", "t": Platform.session_seconds()})
 		GameState.add_coins(total)
 	else:
 		streak = 0
@@ -684,6 +691,8 @@ func _on_tray_delivered(e: Dictionary, ok: bool, total: int, tip: int, bonus: in
 	var c := cat.center()
 	if ok:
 		cat.react_happy()
+		Audio.sfx("success", 0.0)
+		Audio.sfx("meow1" if randf() < 0.5 else "meow2", 0.08, -4.0)
 		Fx.burst(_fx, c + Vector2(0, -36), "heart", Color("ff6b8b"), 8, 160.0, 90.0, 1.1, 1.0, 55.0)
 		Fx.burst(_fx, c + Vector2(0, -30), "star", Color("ffe08a"), 6, 190.0, 160.0, 0.9, 1.0)
 		Fx.ring(_fx, c, Color("ffd27a"), 90.0, 0.55)
@@ -699,6 +708,7 @@ func _on_tray_delivered(e: Dictionary, ok: bool, total: int, tip: int, bonus: in
 				Fx.confetti(_fx, c + Vector2(0, -50), 22)
 	else:
 		cat.react_no()
+		Audio.sfx("fail", 0.0)
 		Fx.burst(_fx, c + Vector2(30, -50), "anger", Color("ff5a4a"), 2, 60.0, 0.0, 0.8, 1.0)
 		_shake_screen(7.0)
 		_toast("Не то... кот ушёл", Vector2(180, 392))
@@ -743,6 +753,7 @@ func _reject_in_tutorial(e: Dictionary) -> void:
 
 
 func _on_coin_landed() -> void:
+	Audio.sfx("coin", 0.1, -8.0)
 	Fx.hop(_coin_icon, 6.0, 0.25, 2.0)
 	Fx.burst(_fx, COIN_POS, "sparkle", Color("fff3b0"), 3, 60.0, 0.0, 0.35, 0.7)
 
@@ -818,6 +829,7 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 			var tw := star.create_tween()
 			tw.tween_interval(0.25 + i * 0.3)
 			tw.tween_callback(func() -> void:
+				Audio.sfx("star", 0.0)
 				star.visible = true
 				Fx.hop(star, 12.0, 0.3)
 				Fx.burst(_result, Vector2(sx, star_y), "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))

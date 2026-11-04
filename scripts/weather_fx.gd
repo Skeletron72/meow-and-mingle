@@ -25,7 +25,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	# шейдер с чтением экрана дорог — выключаем, когда погоды нет
-	_rect.visible = Weather.rain + Weather.fog + Weather.heat > 0.01   # снег — частицы в мире (snow_field.gd)
+	_rect.visible = Weather.rain + Weather.fog + Weather.heat > 0.01 and not Quality.low()   # снег — частицы в мире (snow_field.gd)
 
 
 ## screen_rect — зал в экранных координатах (px окна 360×640); amount — насколько раскрыт интерьер.
