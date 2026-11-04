@@ -3,10 +3,17 @@ extends Node
 ## Меняется структура сохранения -> повысить SAVE_VERSION и дописать шаг в _migrate().
 
 signal coins_changed(value: int)
+signal setting_changed(key: String)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 4
-const INTRO_DONE := 5   # стадии: 0 комикс, 1 катсцена, 2 расчистка, 3 обучающая смена, 4 магазин, 5 интро пройдено
+const SAVE_BAK := "user://save.bak"
+const SAVE_TMP := "user://save.tmp"
+const SAVE_VERSION := 5
+## Стадии вступления (v5): игра раньше истории. 0 кадр-заставка, 1 обучающая смена (3 заказа), 2 ставни (ремонт за 1★),
+## 3 расчистка зала (ремонт за 2★), 4 — не используется (был «первый магазин»), 5 вступление пройдено.
+const INTRO_DONE := 5
+const TUTORIAL_STARS := 3   # звёзды за обучающую смену: на них оплачиваются первые два ремонта
+const SETTINGS_DEFAULT := {"lang": "auto", "music": 0.8, "sfx": 1.0, "quality": "auto", "analytics": true, "notifications": true}
 
 var coins: int = 0
 var served_total: int = 0
@@ -20,6 +27,13 @@ var tutorial_served := 0
 var level_stars := {}              # id уровня → маска звёзд: 1 пройден, 2 точность, 4 скорость
 var upgrades: Array[String] = []    # купленные функциональные улучшения (id из data/upgrades.json)
 var keepsakes: Array[String] = []   # найденные в коробках памятные вещи
+var stars_bonus := 0               # звёзды не из уровней (награда за обучение и т. п.)
+var stars_spent := 0               # потрачено на ремонт
+var repairs: Array[String] = []     # выполненные задачи ремонта (data/repairs.json)
+var shifts_played := 0             # завершённых смен (для подсказок: магазин после 3-й и т. п.)
+var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
+var install_id := ""               # случайный анонимный идентификатор установки (аналитика)
+var first_run_unix := 0
 
 
 func _ready() -> void:
@@ -41,6 +55,14 @@ func new_game() -> void:
 	upgrades = []
 	keepsakes = []
 	level_stars = {}
+	stars_bonus = 0
+	stars_spent = 0
+	repairs = []
+	shifts_played = 0
+	if install_id == "":
+		install_id = "%08x%08x" % [randi(), randi()]
+	if first_run_unix == 0:
+		first_run_unix = int(Time.get_unix_time_from_system())
 	TimeOfDay.hour = 9.0
 	Weather.force(Weather.Kind.CLEAR)
 	Weather.set_mode(Weather.AUTO)
@@ -48,8 +70,9 @@ func new_game() -> void:
 
 ## Сброс прогресса из настроек аккаунта: удаляет сохранение и начинает игру заново.
 func reset_progress() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	for path in [SAVE_PATH, SAVE_BAK]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	new_game()
 	coins_changed.emit(coins)
 	save_game()
@@ -89,6 +112,66 @@ func record_level(id: String, mask: int) -> int:
 	return (new_bits & 1) + ((new_bits >> 1) & 1) + ((new_bits >> 2) & 1)
 
 
+# ---------------------------------------------------------------- звёзды и ремонт
+
+## Всего заработано звёзд: уровни + бонусы.
+func stars_total() -> int:
+	var n := stars_bonus
+	for id in level_stars:
+		n += level_star_count(String(id))
+	return n
+
+
+func stars_free() -> int:
+	return maxi(stars_total() - stars_spent, 0)
+
+
+func has_repair(id: String) -> bool:
+	return id in repairs
+
+
+func repair_def(id: String) -> Dictionary:
+	for r in Data.repairs:
+		if String(r["id"]) == id:
+			return r
+	return {}
+
+
+## Оплата ремонта звёздами. false — не хватает или уже сделано (ничего не списано).
+func do_repair(id: String) -> bool:
+	var def := repair_def(id)
+	if def.is_empty() or has_repair(id) or stars_free() < int(def["cost"]):
+		return false
+	stars_spent += int(def["cost"])
+	repairs.append(id)
+	save_game()
+	Platform.track("repair_done", {"id": id, "stars_left": stars_free()})
+	return true
+
+
+## Какая стадия вступления идёт после обучающей смены: ставни, расчистка или сразу свободная игра.
+func stage_after_tutorial() -> int:
+	if not has_repair("shutters"):
+		return 2
+	if not has_repair("cleanup"):
+		return 3
+	return INTRO_DONE
+
+
+func get_setting(key: String) -> Variant:
+	return settings.get(key, SETTINGS_DEFAULT.get(key))
+
+
+func set_setting(key: String, value: Variant) -> void:
+	settings[key] = value
+	if key == "lang":
+		Loc.apply(String(value))
+	elif key == "analytics":
+		Platform.analytics_enabled = bool(value)
+	setting_changed.emit(key)
+	save_game()
+
+
 # ---------------------------------------------------------------- улучшения
 
 func has_upgrade(id: String) -> bool:
@@ -112,6 +195,7 @@ func buy_upgrade(id: String) -> bool:
 			spend_coins(int(u["price"]))
 	upgrades.append(id)
 	save_game()
+	Platform.track("upgrade_buy", {"id": id, "coins_left": coins})
 	return true
 
 
@@ -158,6 +242,13 @@ func register_served() -> void:
 	served_total += 1
 
 
+## Смена закончена (не обучающая): считаем для подсказок и аналитики.
+func register_shift() -> void:
+	shifts_played += 1
+
+
+## Сохранение: пишем во временный файл, проверяем, прошлое сохранение уходит в save.bak — обрыв записи не портит игру.
+## В файл добавлено поле "crc" (md5 остальных полей): по нему при загрузке отличаем целое сохранение от битого.
 func save_game() -> void:
 	last_visit_unix = int(Time.get_unix_time_from_system())
 	var data := {
@@ -175,25 +266,83 @@ func save_game() -> void:
 		"keepsakes": keepsakes,
 		"level_stars": level_stars,
 		"weather_mode": Weather.mode,
+		"stars_bonus": stars_bonus,
+		"stars_spent": stars_spent,
+		"repairs": repairs,
+		"shifts_played": shifts_played,
+		"settings": settings,
+		"install_id": install_id,
+		"first_run_unix": first_run_unix,
 	}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	data["crc"] = _crc(data)
+	var f := FileAccess.open(SAVE_TMP, FileAccess.WRITE)
 	if f == null:
 		push_error("Не удалось записать сохранение: %s" % error_string(FileAccess.get_open_error()))
 		return
 	f.store_string(JSON.stringify(data))
+	f.close()
+	var current := _read_save(SAVE_PATH)
+	if not current.is_empty() and not current.has("_crc_bad"):   # в запасной файл — только целое сохранение
+		DirAccess.copy_absolute(ProjectSettings.globalize_path(SAVE_PATH), ProjectSettings.globalize_path(SAVE_BAK))
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(SAVE_TMP), ProjectSettings.globalize_path(SAVE_PATH))
+
+
+## Контрольная сумма сохранения: md5 JSON без поля "crc" (ключи отсортированы).
+func _crc(data: Dictionary) -> String:
+	var copy := data.duplicate()
+	copy.erase("crc")
+	return JSON.stringify(_canon(copy), "", true).md5_text()
+
+
+## После записи в JSON и чтения обратно целые числа становятся дробными (9 → 9.0): приводим к одному виду перед суммой.
+func _canon(v: Variant) -> Variant:
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			out[k] = _canon(v[k])
+		return out
+	if v is Array:
+		var arr := []
+		for x in v:
+			arr.append(_canon(x))
+		return arr
+	if v is float and is_finite(v) and absf(v) < 1.0e15 and is_equal_approx(v, roundf(v)):
+		return int(roundf(v))
+	return v
+
+
+## Читает файл сохранения; пустой словарь — нет файла или он повреждён (нужен запасной).
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	if not (parsed is Dictionary):
+		push_warning("Сохранение %s повреждено" % path)
+		return {}
+	var d: Dictionary = parsed
+	if d.has("crc") and String(d["crc"]) != _crc(d):
+		# содержимое менялось после записи: игру не ломаем, но сумма уже не сходится; запасное, если оно целее
+		push_warning("Контрольная сумма %s не сошлась" % path)
+		d["_crc_bad"] = true
+	return d
 
 
 func load_game() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var d := _read_save(SAVE_PATH)
+	if d.is_empty() or d.has("_crc_bad"):
+		var bak := _read_save(SAVE_BAK)
+		if not bak.is_empty() and not bak.has("_crc_bad"):
+			d = bak
+		elif d.is_empty():
+			d = bak
+	if d.is_empty():
+		_apply_settings_side_effects()
 		return
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	if not (parsed is Dictionary):
-		push_warning("Сохранение повреждено, начинаем заново")
-		return
-	var data := _migrate(parsed as Dictionary)
+	d.erase("_crc_bad")
+	var data := _migrate(d)
 	coins = int(data.get("coins", 0))
 	served_total = int(data.get("served_total", 0))
 	cat_progress = data.get("cat_progress", {})
@@ -206,7 +355,25 @@ func load_game() -> void:
 	upgrades = _string_array(data.get("upgrades", []))
 	keepsakes = _string_array(data.get("keepsakes", []))
 	level_stars = _sanitize_stars(data.get("level_stars", {}))
+	stars_bonus = maxi(int(data.get("stars_bonus", 0)), 0)
+	stars_spent = maxi(int(data.get("stars_spent", 0)), 0)
+	repairs = _string_array(data.get("repairs", []))
+	shifts_played = maxi(int(data.get("shifts_played", 0)), 0)
+	settings = SETTINGS_DEFAULT.duplicate()
+	var raw_settings: Variant = data.get("settings", {})
+	if raw_settings is Dictionary:
+		for k in SETTINGS_DEFAULT:
+			if (raw_settings as Dictionary).has(k):
+				settings[k] = raw_settings[k]
+	install_id = String(data.get("install_id", install_id))
+	first_run_unix = int(data.get("first_run_unix", first_run_unix))
 	Weather.set_mode(clampi(int(data.get("weather_mode", Weather.AUTO)), Weather.AUTO, Weather.Kind.SNOW))
+	_apply_settings_side_effects()
+
+
+func _apply_settings_side_effects() -> void:
+	Loc.apply(String(get_setting("lang")))
+	Platform.analytics_enabled = bool(get_setting("analytics"))
 
 
 func _migrate(data: Dictionary) -> Dictionary:
@@ -234,6 +401,26 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["intro_stage"] = INTRO_DONE
 		data["upgrades"] = ["milk_pitcher", "matcha_kit", "display_case"]
 		v = 4
+	if v < 5:
+		# v5: игра раньше истории. Старые стадии: 0 комикс, 1 ставни, 2 расчистка, 3 обучение, 4 магазин, 5 готово.
+		# Новые: 0 заставка, 1 обучение, 2 ставни, 3 расчистка, 5 готово. Что игрок уже сделал, то помечаем выполненным ремонтом.
+		var old := int(data.get("intro_stage", 5))
+		var done_repairs: Array = []
+		var stage := old
+		match old:
+			0, 1:
+				stage = old   # ставни ещё закрыты: обучение, потом ставни
+			2:
+				stage = 3
+				done_repairs = ["shutters"]
+				data["stars_bonus"] = TUTORIAL_STARS
+				data["stars_spent"] = 1
+			_:
+				stage = INTRO_DONE   # кафе уже расчищено (обучение при этом пропускаем): всё оплачено
+				done_repairs = ["shutters", "cleanup"]
+		data["intro_stage"] = stage
+		data["repairs"] = done_repairs
+		v = 5
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data

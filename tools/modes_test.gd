@@ -13,6 +13,8 @@ func _check(cond: bool, msg: String) -> void:
 
 
 func _ready() -> void:
+	Loc.override = "ru"           # проверки написаны под русские подписи
+	Loc.apply("ru")
 	TimeOfDay.set_process(false)   # время стоит, пока тест сам его не двигает
 	Weather.set_process(false)     # погода тоже стоит: ясно, пока тест её не включит
 	Weather.force(Weather.Kind.CLEAR)
@@ -890,11 +892,12 @@ func _intro_city(stage: int) -> Node2D:
 	return city
 
 
-## Интро: комикс, ставни (катсцена), расчистка на 21 тап с наградами, обучение → магазин → свободная игра.
+## Вступление (v5): заставка из одного кадра → обучающая смена (3 заказа) → 3 звезды → ставни за звезду → расчистка за 2 звезды → свободная игра.
 func _test_intro() -> void:
-	# комикс: 5 панелей, подписи и реплики влезают в кадр
-	_check(IntroComic.PANELS.size() == 5, "в комиксе 5 панелей")
-	for pn in IntroComic.PANELS:
+	# заставка — один кадр; полный комикс лежит в Дневнике, подписи и реплики влезают в кадр
+	_check(IntroComic.START_PANELS.size() == 1, "заставка: один кадр")
+	_check(IntroComic.PANELS.size() == 5 and IntroComic.DIARY_UNLOCK.size() == 5 and IntroComic.DIARY_TITLES.size() == 5, "в Дневнике 5 записей комикса")
+	for pn in IntroComic.PANELS + IntroComic.START_PANELS:
 		for line in String(pn["caption"]).split("\n"):
 			_check(Ui.FONT_NARROW.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x <= 296.0, "подпись комикса не влезает в кадр: «%s»" % line)
 		for ln in pn["lines"]:
@@ -904,14 +907,14 @@ func _test_intro() -> void:
 	for d in Intro.OBJECTS:
 		taps += int(d["taps"])
 	_check(Intro.OBJECTS.size() == 15 and taps == Intro.TOTAL_TAPS and taps == 21, "расчистка: 15 объектов и 21 тап (%d)" % taps)
-	_check(Intro.TUTORIAL_ORDERS.size() == 5, "в обучающей смене 5 заказов")
+	_check(Intro.TUTORIAL_ORDERS.size() == 3, "в обучающей смене 3 заказа")
 	var tut_total := 0
 	for o in Intro.TUTORIAL_ORDERS:
 		var price := int(Data.drinks[o["drink"]]["price"])
 		tut_total += price + maxi(1, int(round(price * 0.2)))
 		_check(String(o["drink"]) in ["espresso", "tea"], "в обучении только эспрессо и чай")
-	_check(tut_total == 46, "обучающая смена приносит 46 монет (%d)" % tut_total)
-	# стадия 1: закрытые ставни не пускают в кафе
+	_check(tut_total == 28, "обучающая смена приносит 28 монет (%d)" % tut_total)
+	# стадия 1: обучающая смена стартует сама, пока ставни закрыты
 	var city := _intro_city(1)
 	await get_tree().process_frame
 	var nav: WorldNav = city._nav
@@ -927,11 +930,22 @@ func _test_intro() -> void:
 	city._skip_hour()
 	_check(TimeOfDay.hour == before_hour, "во время интро время не перематывается")
 	# два тапа по ставням открывают их
+	await get_tree().create_timer(0.9).timeout
+	_check(city._shift_layer != null and city._shift_layer.get_child(0).tutorial and city._shift_layer.get_child(0).tutorial_orders.size() == 3, "обучающая смена стартует сама поверх города")
+	city._on_tutorial_finished(3, 28)
+	_check(city._shift_layer == null and GameState.intro_stage == 2 and GameState.tutorial_served == 3, "обучение пройдено: стадия 2 (ставни)")
+	_check(GameState.stars_total() == 3 and GameState.stars_free() == 3, "за обучение — три звезды (%d)" % GameState.stars_free())
 	var shutter_p := Intro.SHUTTER_RECT.get_center()
-	_check(city._intro.on_tap(shutter_p) and city._intro._knocks == 1 and GameState.intro_stage == 1, "первый тап: ставни заело")
-	_check(city._intro.on_tap(shutter_p) and GameState.intro_stage == 1, "второй тап: «Пяткой!» — ставни пошли вверх")
+	_check(not city._intro.on_tap(shutter_p), "пока звезда не потрачена, ставни не толкаются")
+	await get_tree().create_timer(2.6).timeout
+	_check(city._repair_card != null, "появилась карточка «Ремонт кафе»")
+	city._on_repair_chosen("shutters")
+	_check(GameState.has_repair("shutters") and GameState.stars_free() == 2 and city._repair_card == null, "ставни куплены за 1 звезду")
+	_check(city._intro.on_tap(shutter_p) and city._intro._knocks == 1 and GameState.intro_stage == 2, "первый тап: ставни заело")
+	_check(city._intro.on_tap(shutter_p) and GameState.intro_stage == 2, "второй тап: «Пяткой!» — ставни пошли вверх")
 	await get_tree().create_timer(1.6).timeout
-	_check(GameState.intro_stage == 2 and city._intro._shutter == null, "ставни открыты, началась расчистка")
+	_check(GameState.intro_stage == 3 and city._intro._shutter == null, "ставни открыты, началась расчистка")
+	_check(GameState.has_repair("cleanup") and GameState.stars_free() == 0, "расчистка оплачена двумя звёздами")
 	_check(not nav.find_path(WorldNav.feet_at(out_cell), WorldNav.feet_at(in_cell)).is_empty(), "после открытия ставней в кафе можно войти")
 	_check(city._player.is_moving(), "кот сам заходит в кафе")
 	_check(city._intro._nodes.size() == 15 - 0 and is_equal_approx(city._intro.progress(), 0.0), "расчистка: объекты созданы, прогресс 0")
@@ -956,14 +970,14 @@ func _test_intro() -> void:
 			_check(pr >= last - 0.0001, "прогресс не убывает")
 			last = pr
 			if done_taps == 20:
-				_check(finished.is_empty() and GameState.intro_stage == 2, "на 20-м тапе кафе ещё не готово")
+				_check(finished.is_empty() and GameState.intro_stage == 3, "на 20-м тапе кафе ещё не готово")
 	await get_tree().create_timer(0.7).timeout
 	for ch in city.get_children():   # окно с фото ставит игру на паузу — закрываем, как игрок
 		if ch is CanvasLayer and (ch as CanvasLayer).layer == 9:
 			ch.queue_free()
 	get_tree().paused = false
 	_check(is_equal_approx(city._intro.progress(), 1.0) and finished.size() == 1, "21 тап = 100%, расчистка завершена один раз")
-	_check(GameState.intro_stage == 3, "после расчистки — обучающая смена (стадия 3)")
+	_check(GameState.intro_stage == GameState.INTRO_DONE, "после расчистки — свободная игра")
 	_check(GameState.coins == 20, "коробка с посудой дала 20 монет (%d)" % GameState.coins)
 	_check("recipe_latte" in GameState.keepsakes and "photo" in GameState.keepsakes, "в коробках найдены рецепт и фото")
 	var ids: Array[String] = []
@@ -972,24 +986,14 @@ func _test_intro() -> void:
 	_check("window" in ids and "board" in ids and "table_small" in ids and "stool" in ids, "после расчистки появились окно и доска, стол и стул на месте (%s)" % [ids])
 	_check(GameState.intro_cleaned.size() == 15, "прогресс расчистки сохранён по объектам")
 	_check(city._intro.light().is_equal_approx(Color.WHITE), "после расчистки свет нормальный")
-	# дальше — обучающая смена в оверлее
-	city._start_tutorial()
-	_check(city._shift_layer != null and city._shift_layer.get_child(0).tutorial and city._shift_layer.get_child(0).tutorial_orders.size() == 5, "обучающая смена открылась поверх города")
-	city._on_tutorial_finished(5, 46)
-	_check(GameState.intro_stage == 4 and GameState.tutorial_served == 5 and city._shift_layer == null, "обучение пройдено: стадия 4, магазин")
-	await get_tree().create_timer(2.8).timeout
-	_check(city._menu.visible and city._menu_pages["shop"].visible, "после обучения сам открылся магазин улучшений")
-	GameState.coins = 66
-	city._buy_upgrade("milk_pitcher")
-	_check(GameState.has_upgrade("milk_pitcher") and GameState.coins == 36, "в магазине куплен молочник")
-	city._shop_back()
-	_check(GameState.intro_stage == GameState.INTRO_DONE and city._intro == null and not city._menu.visible, "закрытие магазина завершает интро")
+	await get_tree().create_timer(2.3).timeout
+	_check(city._intro == null, "вступление закончено")
 	_check(city._npcs.size() == 4, "после интро в кафе приходят гости")
 	city.queue_free()
 	await get_tree().process_frame
 	# возобновление: часть расчистки уже сделана (сохранение посреди интро)
 	GameState.new_game()
-	GameState.intro_stage = 2
+	GameState.intro_stage = 3
 	GameState.intro_cleaned = {"web_0": 1, "dust_0": 1, "machine": 2}
 	var resumed: Node2D = load(Nav.CITY).instantiate()
 	add_child(resumed)
@@ -1433,7 +1437,7 @@ func _test_levels() -> void:
 
 ## Интро: уборка изнутри (кот не бежит на улицу), коробки — преграда.
 func _test_intro_fixes() -> void:
-	var city := _intro_city(2)
+	var city := _intro_city(3)
 	await get_tree().process_frame
 	var intro: Intro = city._intro
 	var nav: WorldNav = city._nav

@@ -23,6 +23,7 @@ func _snap(path: String, wait := 0.5, root: Node = null) -> void:
 	f.store_string(JSON.stringify(out))
 func _ready() -> void:
 	var S: String = OS.get_cmdline_user_args()[0]
+	Loc.override = OS.get_environment("MEOW_LANG") if OS.get_environment("MEOW_LANG") != "" else "ru"; Loc.apply("ru")
 	TimeOfDay.set_process(false); Weather.set_process(false); Weather.force(0)
 	GameState.new_game(); GameState.intro_stage = 5
 	GameState.layout = Data.default_layout.duplicate(true)
@@ -41,6 +42,11 @@ func _ready() -> void:
 	city._cycle_weather()
 	city._menu_page("account"); await _snap(S + "/m_account.png", 0.3, city._menu)
 	city._menu_page("confirm"); await _snap(S + "/m_confirm.png", 0.3, city._menu)
+	city._open_credits(); await _snap(S + "/m_credits.png", 0.3, city._menu)
+	city._credits_turn(); city._credits_turn(); await _snap(S + "/m_credits2.png", 0.3, city._menu)
+	GameState.shifts_played = 6
+	city._open_diary(); await _snap(S + "/m_diary.png", 0.3, city._menu)
+	city._menu_page("main"); await _snap(S + "/m_menu2.png", 0.3, city._menu)
 	city._open_shop(); await _snap(S + "/m_shop.png", 0.3, city._menu)
 	city._shop_turn(); await _snap(S + "/m_shop2.png", 0.3, city._menu)
 	city._close_menu()
@@ -55,12 +61,25 @@ func _ready() -> void:
 	await _snap(S + "/m_decor.png", 0.8, d)
 	d.queue_free()
 	await get_tree().process_frame
-	GameState.intro_stage = 2
+	GameState.intro_stage = 3
 	GameState.intro_cleaned = {"web_0": 1, "dust_0": 1}
 	var c2: Node2D = load(Nav.CITY).instantiate()
 	add_child(c2)
 	await _snap(S + "/m_intro.png", 1.0, c2._ui)
 	c2.queue_free()
+	await get_tree().process_frame
+	# после обучения: карточка «Ремонт кафе»
+	GameState.new_game(); GameState.intro_stage = 2; GameState.stars_bonus = 3
+	var c3: Node2D = load(Nav.CITY).instantiate()
+	add_child(c3)
+	await _snap(S + "/m_repair.png", 1.6, c3._ui)
+	c3.queue_free()
+	await get_tree().process_frame
+	GameState.new_game(); GameState.intro_stage = 0
+	var cm: Node2D = IntroComic.new()
+	add_child(cm)
+	await _snap(S + "/m_comic.png", 1.6, cm)
+	cm.queue_free()
 	await get_tree().process_frame
 	var m: Node2D = load(Nav.BREW).instantiate()
 	m.level = {"id": "t1", "name": "Час пик", "customers": 5, "interval": [0.4, 0.4], "patience": 12.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": [], "pastry": 0.5}

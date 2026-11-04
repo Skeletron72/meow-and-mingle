@@ -98,7 +98,16 @@ var _levels_idx := 0
 var _account_stats: Label
 var _shift_layer: CanvasLayer
 var _levels_layer: CanvasLayer             # выбор уровня-смены
+var _lang_btn: Button
+var _music_btn: Button
+var _sfx_btn: Button
+var _quality_btn: Button
+var _privacy_btn: Button
+var _credits_text: Label
+var _credits_idx := 0
+var _diary_page: Control
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
+var _repair_card: RepairCard
 
 
 func _ready() -> void:
@@ -510,31 +519,55 @@ func _build_menu() -> void:
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
 	# главная
-	var main := _page("main", Ui.column_h(5 if pc else 4), "Меню")
+	var main := _page("main", Ui.column_h(6 if pc else 5), "Меню")
 	_page_button(main, 0, "Продолжить", "play").pressed.connect(_close_menu)
 	_page_button(main, 1, "Украшение", "brush").pressed.connect(_open_decorate)
 	_page_button(main, 2, "Улучшения", "cart").pressed.connect(_open_shop)
-	_page_button(main, 3, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
+	_page_button(main, 3, "Дневник", "home").pressed.connect(_open_diary)
+	_page_button(main, 4, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
 	if pc:
-		_page_button(main, 4, "Выход", "exit").pressed.connect(get_tree().quit)
+		_page_button(main, 5, "Выход", "exit").pressed.connect(get_tree().quit)
 	# настройки
-	var settings := _page("settings", Ui.column_h(3), "Настройки")
+	var settings := _page("settings", Ui.column_h(7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
 	_weather_btn.pressed.connect(_cycle_weather)
-	_page_button(settings, 1, "Аккаунт", "home").pressed.connect(_menu_page.bind("account"))
-	_page_button(settings, 2, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
-	# аккаунт: статистика и спрятанный сброс
-	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(2), "Аккаунт")
+	_lang_btn = _page_button(settings, 1, "Язык: Авто", "flower")
+	_lang_btn.pressed.connect(_cycle_setting.bind("lang"))
+	_music_btn = _page_button(settings, 2, "Музыка: 80%", "play")
+	_music_btn.pressed.connect(_cycle_setting.bind("music"))
+	_sfx_btn = _page_button(settings, 3, "Звуки: 100%", "forks")
+	_sfx_btn.pressed.connect(_cycle_setting.bind("sfx"))
+	_quality_btn = _page_button(settings, 4, "Качество: Авто", "gear")
+	_quality_btn.pressed.connect(_cycle_setting.bind("quality"))
+	_page_button(settings, 5, "Аккаунт", "home").pressed.connect(_menu_page.bind("account"))
+	_page_button(settings, 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+	# аккаунт: статистика, конфиденциальность, титры и спрятанный сброс
+	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(4), "Аккаунт")
 	var ac: Rect2 = account.get_meta("content")
 	_account_stats = Ui.label("\n\n", Rect2(ac.position, Vector2(ac.size.x, 84)), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
-	_page_button(account, 0, "Сбросить прогресс", "trash", true, 92.0).pressed.connect(_menu_page.bind("confirm"))
-	_page_button(account, 1, "Назад", "undo", false, 92.0).pressed.connect(_menu_page.bind("settings"))
+	_privacy_btn = _page_button(account, 0, "Аналитика: вкл", "check", false, 92.0)
+	_privacy_btn.pressed.connect(_cycle_setting.bind("analytics"))
+	_page_button(account, 1, "Титры", "cat", false, 92.0).pressed.connect(_open_credits)
+	_page_button(account, 2, "Сбросить прогресс", "trash", true, 92.0).pressed.connect(_menu_page.bind("confirm"))
+	_page_button(account, 3, "Назад", "undo", false, 92.0).pressed.connect(_menu_page.bind("settings"))
 	# подтверждение сброса
 	var confirm := _page("confirm", 56.0 + Ui.BTN_GAP + Ui.column_h(2), "Сбросить прогресс?")
 	var cc: Rect2 = confirm.get_meta("content")
 	Ui.label("Игра начнётся заново.\nОтменить нельзя.", Rect2(cc.position, Vector2(cc.size.x, 56)), Ui.FONT_SIZE, Ui.INK, confirm, HORIZONTAL_ALIGNMENT_CENTER, true)
 	_page_button(confirm, 0, "Отмена", "undo", false, 64.0).pressed.connect(_menu_page.bind("account"))
 	_page_button(confirm, 1, "Сбросить", "trash", true, 64.0).pressed.connect(_confirm_reset)
+	# титры: по одному разделу на страницу, листаются кнопкой
+	var credits := _page("credits", 140.0 + Ui.BTN_GAP + Ui.column_h(2), "Титры")
+	var kc: Rect2 = credits.get_meta("content")
+	_credits_text = Ui.label("", Rect2(kc.position, Vector2(kc.size.x, 140)), Ui.FONT_SIZE, Ui.INK, credits, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_credits_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_credits_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_credits_text.position = kc.position
+	_credits_text.size.y = 140.0
+	_page_button(credits, 0, "Дальше", "play", false, 148.0).pressed.connect(_credits_turn)
+	_page_button(credits, 1, "Назад", "undo", false, 148.0).pressed.connect(_menu_page.bind("account"))
+	# дневник: записи комикса, открываются за смены
+	_diary_page = _page("diary", Ui.column_h(IntroComic.PANELS.size() + 1), "Дневник")
 	# магазин улучшений (карточки строятся при открытии, по 4 на страницу)
 	_shop_page = _page("shop", SHOP_PER_PAGE * CARD_H + (SHOP_PER_PAGE - 1) * CARD_GAP + Ui.BTN_GAP + Ui.BTN_H, "Улучшения", true)
 	_menu_page("main")
@@ -579,10 +612,104 @@ func _refresh_weather_btn() -> void:
 
 func _menu_page(page_name: String) -> void:
 	_refresh_weather_btn()
+	_refresh_setting_buttons()
 	for k in _menu_pages:
 		(_menu_pages[k] as Control).visible = k == page_name
 	if page_name == "account":
-		_account_stats.text = "Подано за всё время: %d\nМонет в кассе: %d\nУлучшений куплено: %d" % [GameState.served_total, GameState.coins, GameState.upgrades.size()]
+		_account_stats.text = tr("Подано за всё время: %d\nМонет в кассе: %d\nУлучшений куплено: %d") % [GameState.served_total, GameState.coins, GameState.upgrades.size()]
+
+
+const VOLUME_STEPS := [0.0, 0.4, 0.8, 1.0]
+const LANG_STEPS := ["auto", "ru", "en"]
+const QUALITY_STEPS := ["auto", "low", "high"]
+
+
+## Подписи кнопок настроек по текущим значениям (язык, громкость, качество, аналитика).
+func _refresh_setting_buttons() -> void:
+	if _lang_btn == null:
+		return
+	var lang_names := {"auto": tr("Авто"), "ru": "Русский", "en": "English"}
+	Ui.set_button_text(_lang_btn, tr("Язык: %s") % lang_names[String(GameState.get_setting("lang"))])
+	Ui.set_button_text(_music_btn, tr("Музыка: %d%%") % int(round(float(GameState.get_setting("music")) * 100.0)))
+	Ui.set_button_text(_sfx_btn, tr("Звуки: %d%%") % int(round(float(GameState.get_setting("sfx")) * 100.0)))
+	var q_names := {"auto": tr("Авто"), "low": tr("Низкое"), "high": tr("Высокое")}
+	Ui.set_button_text(_quality_btn, tr("Качество: %s") % q_names[String(GameState.get_setting("quality"))])
+	Ui.set_button_text(_privacy_btn, tr("Аналитика: вкл") if bool(GameState.get_setting("analytics")) else tr("Аналитика: выкл"))
+
+
+## Следующее значение настройки по кругу; язык применяется перезагрузкой города (все подписи строятся заново).
+func _cycle_setting(key: String) -> void:
+	var cur: Variant = GameState.get_setting(key)
+	match key:
+		"music", "sfx":
+			var i := 0
+			for k in VOLUME_STEPS.size():
+				if absf(float(VOLUME_STEPS[k]) - float(cur)) < 0.05:
+					i = k
+			GameState.set_setting(key, VOLUME_STEPS[(i + 1) % VOLUME_STEPS.size()])
+		"lang":
+			GameState.set_setting(key, LANG_STEPS[(LANG_STEPS.find(String(cur)) + 1) % LANG_STEPS.size()])
+			get_tree().paused = false
+			Nav.go(self, Nav.CITY)
+			return
+		"quality":
+			GameState.set_setting(key, QUALITY_STEPS[(QUALITY_STEPS.find(String(cur)) + 1) % QUALITY_STEPS.size()])
+		"analytics":
+			GameState.set_setting(key, not bool(cur))
+	_refresh_setting_buttons()
+
+
+# ---------------------------------------------------------------- титры и дневник
+
+func _open_credits() -> void:
+	_credits_idx = 0
+	_refresh_credits()
+	_menu_page("credits")
+
+
+func _credits_turn() -> void:
+	_credits_idx = (_credits_idx + 1) % Data.credits.size()
+	_refresh_credits()
+
+
+func _refresh_credits() -> void:
+	var sec: Dictionary = Data.credits[_credits_idx]
+	var lines: Array[String] = [tr(String(sec["title"])).to_upper()]
+	for ln in sec["lines"]:
+		lines.append(tr(String(ln)))
+	_credits_text.text = "\n".join(lines)
+
+
+## Дневник: записи комикса. Открыта запись, когда сыграно нужное число смен; тап открывает комикс поверх города.
+func _open_diary() -> void:
+	for ch in _diary_page.get_children():
+		if ch.has_meta("diary"):
+			ch.queue_free()
+	var c: Rect2 = _diary_page.get_meta("content")
+	for i in IntroComic.PANELS.size():
+		var need: int = IntroComic.DIARY_UNLOCK[i]
+		var open: bool = GameState.shifts_played >= need
+		var label := tr(IntroComic.DIARY_TITLES[i]) if open else tr("Закрыто: смена %d") % need
+		var b := Ui.button(label, Rect2(c.position.x, c.position.y + i * (Ui.BTN_H + Ui.BTN_GAP), c.size.x, Ui.BTN_H), "home" if open else "", _diary_page)
+		b.set_meta("diary", true)
+		b.disabled = not open
+		b.pressed.connect(_show_diary_entry.bind(i))
+	var back := Ui.button(tr("Назад"), Rect2(c.position.x, c.position.y + IntroComic.PANELS.size() * (Ui.BTN_H + Ui.BTN_GAP), c.size.x, Ui.BTN_H), "undo", _diary_page)
+	back.set_meta("diary", true)
+	back.pressed.connect(_menu_page.bind("main"))
+	_menu_page("diary")
+
+
+func _show_diary_entry(i: int) -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 12
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(layer)
+	var comic := IntroComic.new()
+	comic.panels = [IntroComic.PANELS[i]]
+	comic.overlay = true
+	layer.add_child(comic)
+	comic.tree_exited.connect(layer.queue_free)
 
 
 func _confirm_reset() -> void:
@@ -648,10 +775,7 @@ func _shop_turn() -> void:
 
 
 func _shop_back() -> void:
-	if GameState.intro_stage == 4:
-		_close_menu()   # завершает интро
-	else:
-		_menu_page("main")
+	_menu_page("main")
 
 
 func _buy_upgrade(id: String) -> void:
@@ -673,7 +797,7 @@ func _skip_hour() -> void:
 		TimeOfDay.skip(1.0)
 
 
-## Запускает нужную часть интро по стадии (1 ставни, 2 расчистка, 3 обучение, 4 магазин); время стоит на 9:00.
+## Запускает нужную часть вступления по стадии (1 обучающая смена, 2 ставни за звезду, 3 расчистка); время стоит на 9:00.
 func _start_intro_if_needed() -> void:
 	var stage := GameState.intro_stage
 	if stage >= GameState.INTRO_DONE:
@@ -684,14 +808,15 @@ func _start_intro_if_needed() -> void:
 	add_child(_intro)
 	_intro.setup(self)
 	_intro.cleanup_finished.connect(_on_cleanup_finished)
-	if stage == 3:
-		get_tree().create_timer(0.8).timeout.connect(_start_tutorial)
-	elif stage == 4:
-		get_tree().create_timer(0.8).timeout.connect(_open_first_shop)
+	if stage == 1:
+		Platform.track("ftue_step", {"step": "tutorial_start", "t": Platform.session_seconds()})
+		get_tree().create_timer(0.5).timeout.connect(_start_tutorial)
+	elif stage == 2:
+		_offer_shutter_repair(0.8)
 
 
 func _on_cleanup_finished() -> void:
-	get_tree().create_timer(2.0).timeout.connect(_start_tutorial)
+	get_tree().create_timer(2.0).timeout.connect(_finish_intro)
 
 
 func _on_tutorial_finished(served: int, earned: int) -> void:
@@ -702,23 +827,50 @@ func _on_tutorial_finished(served: int, earned: int) -> void:
 	_sky_layer.visible = true
 	_ui.visible = true
 	GameState.tutorial_served = served
-	GameState.intro_stage = 4
+	GameState.stars_bonus += GameState.TUTORIAL_STARS   # обучение нельзя провалить: три звезды всегда
+	GameState.intro_stage = GameState.stage_after_tutorial()
 	GameState.save_game()
-	Fx.banner(_ui, "Первая смена!", Vector2(180, 200), Color("ffd640"))
+	Platform.track("ftue_step", {"step": "tutorial_done", "t": Platform.session_seconds(), "earned": earned})
+	Fx.banner(_ui, tr("Первая смена!"), Vector2(180, 200), Color("ffd640"))
 	Fx.confetti(_ui, Vector2(180, 180), 36)
-	Ui.toast(_ui, "Пять чашек, +%d. Мама бы заказала шесть." % earned, Vector2(180, 260))
-	get_tree().create_timer(2.4).timeout.connect(_open_first_shop)
+	Ui.toast(_ui, tr("Заработано звёзд: %d") % GameState.TUTORIAL_STARS, Vector2(180, 260))
+	if GameState.intro_stage == 2:
+		_offer_shutter_repair(2.2)
+	elif GameState.intro_stage >= GameState.INTRO_DONE:
+		_finish_intro()
 
 
-## После обучения предлагаем первые покупки; закрытие магазина завершает интро.
-func _open_first_shop() -> void:
-	_open_menu()
-	_open_shop()
+## Карточка «Ремонт»: тап по кнопке тратит звезду и дальше игрок толкает ставни.
+func _offer_shutter_repair(delay: float) -> void:
+	if GameState.has_repair("shutters"):
+		if _intro != null:
+			_intro.enable_knock()
+		return
+	get_tree().create_timer(delay).timeout.connect(func() -> void:
+		if _repair_card != null or GameState.intro_stage != 2 or _intro == null:
+			return
+		_repair_card = RepairCard.new()
+		_ui.add_child(_repair_card)
+		_repair_card.setup("shutters")
+		_repair_card.chosen.connect(_on_repair_chosen))
+
+
+func _on_repair_chosen(id: String) -> void:
+	if not GameState.do_repair(id):
+		return
+	if _repair_card != null:
+		_repair_card.queue_free()
+		_repair_card = null
+	if id == "shutters" and _intro != null:
+		_intro.enable_knock()
+		Fx.burst(_ui, Vector2(180, 360), "star", Color("ffe08a"), 10, 200.0, 160.0, 0.9, 1.1)
 
 
 func _finish_intro() -> void:
 	GameState.intro_stage = GameState.INTRO_DONE
 	GameState.save_game()
+	Platform.track("ftue_step", {"step": "intro_done", "t": Platform.session_seconds()})
+	Ui.toast(_ui, tr("Иди к стойке — там смена!"), Vector2(180, 150))
 	TimeOfDay.set_process(true)
 	if _intro != null:
 		_intro.queue_free()
@@ -1193,7 +1345,7 @@ func _toggle_zones() -> void:
 
 func _start_shift() -> void:
 	if GameState.intro_stage < GameState.INTRO_DONE:   # до обучения смену не начать
-		Ui.toast(_ui, "Сначала расчистим кафе и пройдём обучение", Vector2(180, 150))
+		Ui.toast(_ui, tr("Сначала откроем кафе"), Vector2(180, 150))
 		return
 	_open_levels()
 
@@ -1315,9 +1467,13 @@ func _end_shift(served: int, earned: int) -> void:
 	_world.visible = true
 	_sky_layer.visible = true
 	_ui.visible = true
+	if served > 0:
+		GameState.register_shift()
 	GameState.save_game()
 	if served > 0:
-		Ui.toast(_ui, "Смена: подано %d, +%d" % [served, earned], Vector2(180, 150))
+		Ui.toast(_ui, tr("Смена: подано %d, +%d") % [served, earned], Vector2(180, 150))
+	if GameState.shifts_played == 3 and served > 0 and GameState.upgrades.is_empty():   # третья смена: пора в магазин улучшений
+		get_tree().create_timer(1.6).timeout.connect(func() -> void: Ui.toast(_ui, tr("Загляни в «Улучшения» в меню!"), Vector2(180, 210)))
 
 
 # ---------------------------------------------------------------- меню в игре
@@ -1331,8 +1487,6 @@ func _open_menu() -> void:
 func _close_menu() -> void:
 	_menu.visible = false
 	get_tree().paused = false
-	if GameState.intro_stage == 4:   # первые покупки сделаны (или отложены) — интро закончено
-		_finish_intro()
 
 
 func _open_decorate() -> void:

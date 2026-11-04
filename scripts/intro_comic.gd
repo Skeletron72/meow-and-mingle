@@ -1,6 +1,9 @@
 class_name IntroComic
 extends Node2D
-## Комикс-завязка новой игры: 5 панелей. Мяу находит мамин ключ и решает открыть родительскую кофейню «Тёплая Лапка».
+## Заставка новой игры — ОДИН кадр (игра раньше истории: к 12-й секунде игрок уже у первой смены); остальные 5 панелей комикса
+## лежат в «Дневнике» (меню) и открываются за 3-ю, 6-ю, 9-ю… смены (DIARY_UNLOCK). Свойства: `panels` — какие кадры показать,
+## `overlay` — комикс открыт поверх города из Дневника (по окончании просто закрывается).
+## Раньше здесь был комикс из 5 панелей. Мяу находит мамин ключ и решает открыть родительскую кофейню «Тёплая Лапка».
 ## Все панели собираются кодом из имеющихся спрайтов (коты, мебель, здание, тайлы) и простых форм; тап — следующая панель,
 ## «Пропустить» — сразу в игру. После последней панели начинается катсцена открытия кафе (intro_stage = 1).
 
@@ -17,7 +20,7 @@ const BUILDING: Texture2D = preload("res://assets/street/buildings/building4.png
 const LAMP: Texture2D = preload("res://assets/street/props/lamp.png")
 
 ## Панели: заголовок-подпись, реплики {text, x, y (центр пузыря в рамке кадра), tail: куда смотрит хвостик}.
-const PANELS := [
+const PANELS := [   # полный комикс — в Дневнике
 	{"build": "_panel_home", "caption": "В комоде — ключ с биркой:\n«Ставни — пяткой!»", "lines": [{"text": "Это же мамин ключ…", "x": 150, "y": 34}]},
 	{"build": "_panel_street", "caption": "Ключ знал дорогу.\nМяу — не сразу.", "lines": [{"text": "Налево? Нет, направо.", "x": 150, "y": 30}]},
 	{"build": "_panel_facade", "caption": "Навес выцвел. Вывеска\nтоже. Зато стоит!", "lines": [{"text": "Выцвела. Как и я.", "x": 150, "y": 28}]},
@@ -25,6 +28,16 @@ const PANELS := [
 	{"build": "_panel_decision", "caption": "Решено:\n«Тёплая Лапка» работает!", "lines": [{"text": "Будет! Сейчас… чихну.", "x": 120, "y": 26}, {"text": "Тут эспрессо дают?", "x": 190, "y": 76}]},
 ]
 
+## Заставка: один кадр. Подпись и реплика короткие, главное — кнопка «Играть».
+const START_PANELS := [
+	{"build": "_panel_facade", "caption": "Мама оставила кафе.\nПора его открыть!", "lines": [{"text": "Пора открывать!", "x": 150, "y": 28}]},
+]
+## Смен до открытия записи Дневника (по числу панелей комикса).
+const DIARY_UNLOCK := [3, 6, 9, 12, 15]
+const DIARY_TITLES := ["Мамин ключ", "Дорога", "Фасад", "Замок", "Решение"]
+
+var panels: Array = START_PANELS
+var overlay := false
 var _index := -1
 var _page: Node2D
 var _busy := false
@@ -40,9 +53,10 @@ func _ready() -> void:
 	var title := Ui.label("Тёплая Лапка", Rect2(0, 18, 360, 36), Ui.FONT_SIZE, Color("ffd9a0"), self, HORIZONTAL_ALIGNMENT_CENTER, true)
 	title.add_theme_color_override("font_outline_color", Color("5b3a22"))
 	title.add_theme_constant_override("outline_size", Ui.PX * 2)
-	var skip := Ui.button("Пропустить", Rect2(222, 590, 126, 40), "", self, true)
+	var single := panels.size() == 1 and not overlay
+	var skip := Ui.button(tr("Играть") if single else tr("Закрыть") if overlay else tr("Пропустить"), Rect2(90, 584, 180, Ui.BTN_H) if single else Rect2(222, 590, 126, 40), "play" if single else "", self, true)
 	skip.pressed.connect(_finish)
-	_hint = Ui.label("Нажми, чтобы читать дальше", Rect2(10, 596, 210, 32), Ui.FONT_SIZE, Color("b8a58c"), self, HORIZONTAL_ALIGNMENT_LEFT, true)
+	_hint = Ui.label(tr("Нажми, чтобы читать дальше") if panels.size() > 1 else "", Rect2(10, 596, 210, 32), Ui.FONT_SIZE, Color("b8a58c"), self, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var blink := _hint.create_tween().set_loops()
 	blink.tween_property(_hint, "modulate:a", 0.3, 0.7).set_trans(Tween.TRANS_SINE)
 	blink.tween_property(_hint, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
@@ -57,13 +71,13 @@ func _unhandled_input(event: InputEvent) -> void:
 func _next() -> void:
 	if _busy:
 		return
-	if _index >= PANELS.size() - 1:
+	if _index >= panels.size() - 1:
 		_finish()
 		return
 	_busy = true
 	_index += 1
 	var old := _page
-	_page = _build_page(PANELS[_index])
+	_page = _build_page(panels[_index])
 	_page.position = Vector2(360, 0)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(_page, "position:x", 0.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -75,13 +89,17 @@ func _next() -> void:
 
 func _after_slide() -> void:
 	_busy = false
-	_show_lines(_page, PANELS[_index])
+	_show_lines(_page, panels[_index])
 
 
 func _finish() -> void:
+	if overlay:
+		queue_free()
+		return
 	if GameState.intro_stage == 0:
 		GameState.intro_stage = 1
 		GameState.save_game()
+		Platform.track("ftue_step", {"step": "comic_done", "t": Platform.session_seconds()})
 	Nav.go(self, Nav.CITY)
 
 
@@ -110,7 +128,7 @@ func _build_page(def: Dictionary) -> Node2D:
 	var art := Node2D.new()
 	clip.add_child(art)
 	call(String(def["build"]), art)
-	var cap := Ui.label(String(def["caption"]), Rect2(ART_POS.x, ART_POS.y + ART_SIZE.y + 14, ART_SIZE.x, 64), Ui.FONT_SIZE, INK, page, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var cap := Ui.label(tr(String(def["caption"])), Rect2(ART_POS.x, ART_POS.y + ART_SIZE.y + 14, ART_SIZE.x, 64), Ui.FONT_SIZE, INK, page, HORIZONTAL_ALIGNMENT_CENTER, true)
 	cap.modulate.a = 0.0
 	cap.create_tween().tween_property(cap, "modulate:a", 1.0, 0.5).set_delay(0.3)
 	page.set_meta("clip", clip)
@@ -123,7 +141,7 @@ func _show_lines(page: Node2D, def: Dictionary) -> void:
 	var delay := 0.0
 	for ln in def["lines"]:
 		var b := Node2D.new()
-		var text := String(ln["text"])
+		var text := tr(String(ln["text"]))
 		var w := clampf(text.length() * 10.5 + 26.0, 100.0, 280.0)
 		b.position = Vector2(clampf(float(ln["x"]), w / 2.0 + 4.0, ART_SIZE.x - w / 2.0 - 4.0), float(ln["y"]))
 		clip.add_child(b)

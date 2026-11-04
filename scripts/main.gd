@@ -50,6 +50,7 @@ var _stats := {"served": 0, "wrong": 0, "left": 0, "times": []}
 var _result: Node2D
 var _tutorial_done_sent := false
 var _tutorial_index := 0
+var _run_started_msec := 0
 var _idle_msec := 0
 var _shown_coins := 0.0
 
@@ -256,6 +257,9 @@ func _begin_run() -> void:
 	_tutorial_index = 0
 	_tutorial_done_sent = false
 	_stats = {"served": 0, "wrong": 0, "left": 0, "times": []}
+	_run_started_msec = Time.get_ticks_msec()
+	if not tutorial:
+		Platform.track("level_start", {"id": String(level.get("id", "?")), "stars": GameState.level_star_count(String(level.get("id", "?")))})
 	shift_served = 0
 	shift_earned = 0
 	streak = 0
@@ -770,6 +774,7 @@ func _finish_run() -> void:
 		if avg > 0.0 and avg <= float(level.get("speed", 10.0)) and served * 10 >= customers * 6:
 			mask |= 4
 	var new_stars := GameState.record_level(String(level.get("id", "l1")), mask)
+	Platform.track("level_end", {"id": String(level.get("id", "l1")), "mask": mask, "acc": snappedf(accuracy, 0.01), "avg": snappedf(avg, 0.1), "served": served, "lost": int(_stats["left"]), "wrong": int(_stats["wrong"]), "len": int((Time.get_ticks_msec() - _run_started_msec) / 1000)})
 	var bonus := new_stars * 10
 	if bonus > 0:
 		GameState.add_coins(bonus)

@@ -1,8 +1,9 @@
 class_name Intro
 extends Node
-## Интро в городе. Стадия 1 — катсцена: Мяу открывает заклинившие ставни (2 тапа, «Ставни — пяткой!»).
-## Стадия 2 — расчистка тёмного кафе: 21 тап по 15 объектам (паутина, пыль, шторка на окне, 3 коробки, покрывало на стойке,
-## кофемашина, стол, стул); шкала «Кофейня N% готова», свет в зале растёт. Дальше город запускает обучающую смену.
+## Вступление в городе после обучающей смены (игра раньше истории: сначала смена, потом ремонт за звёзды).
+## Стадии 1–2 — ставни закрыты: на 1 идёт обучающая смена, на 2 игрок тратит звезду («Поднять ставни») и толкает их (2 тапа, «Ставни — пяткой!»).
+## Стадия 3 — расчистка тёмного кафе за 2 звезды: 21 тап по 15 объектам (паутина, пыль, шторка на окне, 3 коробки, покрывало на стойке,
+## кофемашина, стол, стул); шкала «Кофейня N% готова», свет в зале растёт. Потом — свободная игра (стадия 5).
 ## Прогресс хранится в GameState.intro_cleaned (по объектам), поэтому выход из игры посреди расчистки безопасен.
 
 signal cleanup_finished
@@ -30,13 +31,11 @@ const OBJECTS := [
 	{"id": "stool", "kind": "stool", "pos": Vector2(208, 240), "radius": 20.0, "taps": 1, "line": "Одного стула хватит. Пока."},
 ]
 
-## Обучающая смена: заказы по порядку (+46 монет).
+## Обучающая смена: три заказа по порядку (+30 монет): первая чашка — к 15-й секунде игры.
 const TUTORIAL_ORDERS: Array[Dictionary] = [
 	{"cat": "tucha", "drink": "espresso", "pastry": ""},
 	{"cat": "ryzhik", "drink": "tea", "pastry": ""},
 	{"cat": "pryanik", "drink": "espresso", "pastry": ""},
-	{"cat": "tucha", "drink": "tea", "pastry": ""},
-	{"cat": "ryzhik", "drink": "espresso", "pastry": ""},
 ]
 
 var city: Node2D
@@ -55,19 +54,29 @@ var _progress_panel: Control
 var _progress_fill: ColorRect
 var _progress_label: Label
 var _window_item := false
+var knock_enabled := false    # ставни можно толкать, когда звезда на них уже потрачена
 
 
 func setup(c: Node2D) -> void:
 	city = c
 	_room = c._room
-	if GameState.intro_stage == 1:
+	if GameState.intro_stage <= 2:
 		_setup_shutter()
-	elif GameState.intro_stage == 2:
+		if GameState.has_repair("shutters"):   # оплатили, но не успели открыть — продолжаем
+			enable_knock()
+	elif GameState.intro_stage == 3:
 		_setup_cleanup()
 
 
 func active() -> bool:
-	return GameState.intro_stage in [1, 2]
+	return GameState.intro_stage in [1, 2, 3]
+
+
+## Звезда за ставни потрачена: показываем подсказку «толкнуть».
+func enable_knock() -> void:
+	knock_enabled = true
+	if _shutter_hint != null:
+		_shutter_hint.visible = true
 
 
 # ---------------------------------------------------------------- катсцена: ставни
@@ -81,7 +90,8 @@ func _setup_shutter() -> void:
 	_shutter.position = SHUTTER_RECT.position
 	_shutter.size = SHUTTER_RECT.size
 	_layer.add_child(_shutter)
-	_shutter_hint = Ui.label("Тап: толкнуть", Rect2(SHUTTER_RECT.position.x, SHUTTER_RECT.end.y + 6, SHUTTER_RECT.size.x, 32), Ui.FONT_SIZE, Color("fff1d6"), _layer, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_shutter_hint = Ui.label(tr("Тап: толкнуть"), Rect2(SHUTTER_RECT.position.x, SHUTTER_RECT.end.y + 6, SHUTTER_RECT.size.x, 32), Ui.FONT_SIZE, Color("fff1d6"), _layer, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_shutter_hint.visible = false
 	_shutter_hint.add_theme_color_override("font_outline_color", Ui.INK)
 	_shutter_hint.add_theme_constant_override("outline_size", Ui.PX * 2)
 	var bob := _shutter_hint.create_tween().set_loops()
@@ -96,11 +106,11 @@ func _knock() -> void:
 		Fx.shake(_shutter, 8.0, 0.4, 8)
 		Fx.burst(_layer, SHUTTER_RECT.position + Vector2(SHUTTER_RECT.size.x / 2.0, 20), "puff", Color(0.8, 0.78, 0.72), 8, 70.0, 10.0, 0.9, 1.2, 180.0)
 		city._player.hop()
-		_say("Заело…")
-		_shutter_hint.text = "Ещё разок!"
+		_say(tr("Заело…"))
+		_shutter_hint.text = tr("Ещё разок!")
 	elif _knocks == 2 and _shutter != null:
 		_shutter.position = base
-		_say("Пяткой!")
+		_say(tr("Пяткой!"))
 		city._player.hop()
 		_shutter_hint.queue_free()
 		_open_shutter()
@@ -125,8 +135,8 @@ func _on_shutter_open() -> void:
 	_shutter.queue_free()
 	_shutter = null
 	city._nav.set_entrance_open(true)
-	Fx.banner(city._ui, "Открыто!", Vector2(180, 200), Color("ffd640"))
-	GameState.intro_stage = 2
+	Fx.banner(city._ui, tr("Открыто!"), Vector2(180, 200), Color("ffd640"))
+	GameState.intro_stage = 3
 	GameState.save_game()
 	_setup_cleanup()
 	# кот входит; внутри темно — диафрагма освещает только круг вокруг него
@@ -137,6 +147,9 @@ func _on_shutter_open() -> void:
 # ---------------------------------------------------------------- расчистка
 
 func _setup_cleanup() -> void:
+	if not GameState.has_repair("cleanup"):
+		GameState.do_repair("cleanup")   # расчистка оплачена звёздами за обучение
+	Platform.track("cleanup_start", {})
 	_grime = Node2D.new()
 	_room.add_child(_grime)
 	for def in OBJECTS:
@@ -170,9 +183,9 @@ func progress() -> float:
 
 ## Свет в зале: тёмно-синий до расчистки, нормальный после.
 func light() -> Color:
-	if GameState.intro_stage >= 3:
+	if GameState.intro_stage >= 4:
 		return Color.WHITE
-	if GameState.intro_stage < 2:
+	if GameState.intro_stage < 3:
 		return DARK
 	var t := progress() + (0.08 if _done_taps("curtain") >= 1 else 0.0)
 	return DARK.lerp(Color.WHITE, clampf(t, 0.0, 1.0))
@@ -267,12 +280,12 @@ func _add_window() -> void:
 
 ## Тап в мире. true — перехвачен интро.
 func on_tap(world_p: Vector2) -> bool:
-	if GameState.intro_stage == 1 and _shutter != null:
-		if SHUTTER_RECT.grow(14).has_point(world_p) and _knocks < 2:
+	if GameState.intro_stage <= 2 and _shutter != null:
+		if knock_enabled and GameState.intro_stage == 2 and SHUTTER_RECT.grow(14).has_point(world_p) and _knocks < 2:
 			_knock()
 			return true
 		return false
-	if GameState.intro_stage != 2 or _finished:
+	if GameState.intro_stage != 3 or _finished:
 		return false
 	if not city._interior_rect.has_point(world_p) or city._xray < 0.25:
 		return false
@@ -324,7 +337,7 @@ func on_arrived() -> void:
 
 
 func _process(_delta: float) -> void:
-	if GameState.intro_stage == 2 and not _echo_said and city != null and city._depth(city._player.position) > 0.6:
+	if GameState.intro_stage == 3 and not _echo_said and city != null and city._depth(city._player.position) > 0.6:
 		_echo_said = true
 		_say("Тут… кто-то есть? Нет. Только эхо.")
 
@@ -494,7 +507,7 @@ func _show_photo() -> void:
 
 
 func _say(text: String) -> void:
-	city._toast(text, city._player.position + Vector2(0, -44))
+	city._toast(tr(text), city._player.position + Vector2(0, -44))
 
 
 # ---------------------------------------------------------------- шкала и финал
@@ -527,9 +540,10 @@ func _update_progress() -> void:
 
 func _finish_cleanup() -> void:
 	_finished = true
-	GameState.intro_stage = 3
+	GameState.intro_stage = GameState.INTRO_DONE
 	GameState.save_game()
-	Fx.banner(city._ui, "Кафе готово!", Vector2(180, 240), Color("8dff7a"))
+	Platform.track("cleanup_done", {})
+	Fx.banner(city._ui, tr("Кафе готово!"), Vector2(180, 240), Color("8dff7a"))
 	Fx.confetti(city._ui, Vector2(180, 200), 36)
 	if _progress_panel != null:
 		var t := _progress_panel.create_tween()

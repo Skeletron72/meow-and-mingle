@@ -1,0 +1,4 @@
+[
+ {"id": "shutters", "name": "Поднять ставни", "cost": 1, "icon": "home"},
+ {"id": "cleanup", "name": "Расчистить зал", "cost": 2, "icon": "brush"}
+]
