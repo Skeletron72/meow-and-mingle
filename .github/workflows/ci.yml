@@ -41,6 +41,10 @@ jobs:
         run: |
           $GODOT_BIN --headless --path . res://tools/platform_test.tscn 2>&1 | tee platform.log
           grep -q "PLATFORM PASS" platform.log && ! grep -q "SCRIPT ERROR" platform.log
+      - name: Проверка интерфейса (тексты влезают, сетка, перекрытия; ru и en)
+        run: |
+          $GODOT_BIN --headless --path . res://tools/ui_lint.tscn 2>&1 | tee lint.log
+          grep -q "UI LINT" lint.log && ! grep -q "SCRIPT ERROR" lint.log && grep -q "замечаний 0" lint.log
       - name: Пакет ресурсов (проверка пресетов и размера)
         run: |
           mkdir -p build

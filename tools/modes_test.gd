@@ -742,6 +742,8 @@ func _same(a: Array, b: Array) -> bool:
 func _button_texts(node: Node, out: Array[String]) -> void:
 	if node is Button:
 		out.append((node as Button).text)
+	elif node is Label and (node as Label).text != "":
+		out.append((node as Label).text)   # подписи плиток меню — Label внутри кнопки
 	for c in node.get_children():
 		_button_texts(c, out)
 
@@ -816,7 +818,9 @@ func _test_progress_and_menu() -> void:
 	GameState.coins = 70
 	city._open_shop()
 	var texts_shop: Array[String] = []
-	_button_texts(city._shop_page, texts_shop)
+	for r in city._upgrade_rows():
+		if (r as Dictionary).has("action"):
+			texts_shop.append(String(r["action"]["text"]))
 	_check("30" in texts_shop and "60" in texts_shop and "120" in texts_shop, "в магазине видны цены улучшений (%s)" % [texts_shop])
 	city._buy_upgrade("milk_pitcher")
 	_check(GameState.has_upgrade("milk_pitcher") and GameState.coins == 40, "покупка в магазине: списаны монеты, улучшение получено")
@@ -1310,13 +1314,11 @@ func _test_spaces() -> void:
 	_check(CafeRoom.STAFF_INNER.has_point(back_cell) and player.nav == nav, "кот спустился в служебку и снова ходит по городской сетке: %s" % back_cell)
 	# магазин показывает все шесть улучшений
 	GameState.upgrades = []
-	city._shop_idx = 0
-	city.call("_open_shop")
-	city.call("_shop_turn")   # вторая страница магазина: дом
 	var texts: Array[String] = []
-	_button_texts(city.get("_shop_page"), texts)
-	_check("150" in texts and "300" in texts, "на второй странице магазина — коморка и второй этаж (%s)" % [texts])
-	city.call("_close_menu")
+	for r in city._upgrade_rows():
+		if (r as Dictionary).has("action"):
+			texts.append(String(r["action"]["text"]))
+	_check("150" in texts and "300" in texts, "в списке улучшений — коморка и второй этаж (%s)" % [texts])
 	city.queue_free()
 	await get_tree().process_frame
 
@@ -1530,7 +1532,7 @@ func _audit_labels(root: Node, what: String) -> int:
 	var labels: Array[Label] = []
 	_collect_ui(root, panels, labels)
 	for l in labels:
-		if l.text == "" or not l.is_visible_in_tree():
+		if l.text == "" or not l.is_visible_in_tree() or l.has_meta("no_audit"):
 			continue
 		var c := l.position + l.size / 2.0
 		var host: NinePatchRect = null
@@ -1588,25 +1590,8 @@ func _test_ui_layout() -> void:
 				panel_inner = ch.get_meta("inner")
 		_check(absf((content.position.x - panel_inner.position.x) - Ui.PAGE_AIR) <= 0.5 and absf((panel_inner.end.x - content.end.x) - Ui.PAGE_AIR) <= 0.5, "меню/%s: слева и справа воздух %d" % [page, Ui.PAGE_AIR])
 		_check(absf((panel_inner.end.y - content.end.y) - Ui.PAGE_AIR) <= 0.5, "меню/%s: снизу воздух %d (сейчас %d)" % [page, Ui.PAGE_AIR, panel_inner.end.y - content.end.y])
-	GameState.upgrades = []
-	for i in 2:
-		city._shop_idx = i
-		city.call("_open_shop")
-		n += _audit_labels(city._menu, "магазин/%d" % i)
-	_check(n > 10, "проверено подписей в меню и магазине: %d" % n)
+	_check(n > 10, "проверено подписей в меню: %d (остальные экраны — tools/ui_lint.tscn)" % n)
 	city._close_menu()
-	GameState.level_stars = {"l1": 7}
-	for i in 2:
-		city._levels_idx = i
-		city.call("_open_levels")
-		await get_tree().process_frame
-		var lv: CanvasLayer = city.get("_levels_layer")
-		for ch in lv.get_children():
-			if ch is Label and (ch as Label).text != "":
-				var l := ch as Label
-				var font: Font = l.get_theme_font("font")
-				_check(font.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x <= l.size.x, "уровни/%d: «%s» не влезает" % [i, l.text])
-		city.call("_close_levels")
 	city.queue_free()
 	await get_tree().process_frame
 	# смена: HUD и итог

@@ -31,10 +31,6 @@ const SKY_SHADER := preload("res://assets/shaders/sky_gradient.gdshader")
 const GROUND_WEATHER_SHADER := preload("res://assets/shaders/weather_ground.gdshader")
 const PROP_WEATHER_SHADER := preload("res://assets/shaders/weather_prop.gdshader")
 const ROOF_FRAC := {"building1": 0.27, "building2": 0.40, "building3": 0.30, "building4": 0.42, "building7": 0.25}   # какая часть спрайта — крыша
-const SHOP_PER_PAGE := 4   # карточек улучшений на странице магазина (и уровней в выборе смены)
-const CARD_H := 84.0        # свободно 74 px (контур 2 сверху, 8 снизу): две строки шрифта 56 + по 9 воздуха
-const CARD_GAP := 4.0
-const PRICE_W := 88.0   # кнопка цены в карточке: монета и до 3 цифр
 const CAMERA_FEET_OFFSET := 90.0   # лапки кота на улице — ниже центра экрана на столько
 
 var _level: StreetLevel
@@ -91,13 +87,13 @@ var _clock_btn: Button
 var _btn_shift: Button
 var _menu: CanvasLayer
 var _menu_pages: Dictionary = {}
-var _shop_page: Control
+var _upgrade_screen: ListScreen
 var _weather_btn: Button
 var _shop_idx := 0
 var _levels_idx := 0
 var _account_stats: Label
 var _shift_layer: CanvasLayer
-var _levels_layer: CanvasLayer             # выбор уровня-смены
+var _levels_layer: ListScreen              # выбор уровня-смены
 var _lang_btn: Button
 var _music_btn: Button
 var _sfx_btn: Button
@@ -109,11 +105,14 @@ var _diary_page: Control
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
 var _repair_card: RepairCard
 var _door_wanted := false
-var _star_btn: Button
+var _coins_chip: Control
+var _fish_chip: Control
+var _fish_label: Label
+var _dock: Control
+var _dock_btns: Dictionary = {}
 var _sign_sprite: Sprite2D
 var _terrace: Array[Node2D] = []
 var _story_playing := false
-var _badge: ColorRect
 var _popup_queue: Array[Callable] = []
 var _popup_busy := false
 var _repair_board: RepairBoard
@@ -506,39 +505,168 @@ func _build_ui() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 2
 	add_child(_ui)
-	Ui.panel(Rect2(8, 8, 108, 48), Ui.UI_CREAM, _ui)   # 48: рамка 4 сверху + 12 тени снизу оставляют 32 px под строку 28
-	var coin := Sprite2D.new()
-	coin.texture = Ui.icon("coin")
-	coin.position = Vector2(28, 28)   # центр области рамки над нижней тенью
-	coin.scale = Vector2(2, 2)
-	_ui.add_child(coin)
-	_coins_label = Ui.label(str(GameState.coins), Rect2(44, 14, 68, 32), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
+	# шапка: монеты и рыбки слева (ширина по числу), часы и шестерёнка справа
+	_coins_chip = _chip("coin", str(GameState.coins), 8.0, 8.0)
+	_coins_label = _coins_chip.get_meta("label")
 	GameState.coins_changed.connect(_on_coins_changed)  # метод, а не лямбда: отпишется вместе со сценой
-	# часы: нажатие перематывает время на час
-	_clock_btn = Ui.button("12:00", Rect2(120, 8, 108, 48), "", _ui, false, Ui.UI_CREAM)
+	_fish_chip = _chip("fish", str(Economy.fish()), 0.0, 8.0)
+	_fish_label = _fish_chip.get_meta("label")
+	Economy.fish_changed.connect(_on_fish_changed)
+	_layout_chips()
+	_clock_btn = Ui.button("12:00", Rect2(216, 8, 76, 48), "", _ui, false, Ui.UI_CREAM)   # нажатие перематывает время на час
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		_clock_btn.add_theme_color_override(c, Ui.INK)
 	_clock_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
 	_clock_btn.pressed.connect(_skip_hour)
-	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)
-	gear.pressed.connect(_open_menu)
-	_badge = ColorRect.new()   # красная точка на шестерёнке: есть что забрать (задания, пропуск, подарок)
-	_badge.color = Color("e0432f")
-	_badge.position = Vector2(338, 10)
-	_badge.size = Vector2(12, 12)
-	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_badge.visible = false
-	_ui.add_child(_badge)
-	_star_btn = Ui.button("★0", Rect2(232, 8, 60, 48), "", _ui, false, Ui.UI_CREAM)   # доска ремонта: сколько звёзд свободно
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		_star_btn.add_theme_color_override(c, Color("b87a10"))
-	_star_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
-	_star_btn.pressed.connect(_open_repairs)
+	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)   # настройки одним касанием
+	gear.pressed.connect(_open_settings)
 	GameState.repair_done.connect(_on_repair_done)
-	_refresh_star_button()
-	_btn_shift = Ui.button("Смена", Rect2(88, 568, 184, 56), "play", _ui)
+	_build_dock()
+	_refresh_dock()
+	_btn_shift = Ui.button("Смена", Rect2(88, 488, 184, 56), "play", _ui)
 	_btn_shift.visible = false   # появляется, только когда кот у стойки
 	_btn_shift.pressed.connect(_start_shift)
+
+
+## Плашка шапки: значок + число на кремовой рамке. Ширина по тексту (не меньше 80), чтобы число не вылезало.
+func _chip(icon_name: String, text: String, x: float, y: float) -> Control:
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = Vector2(x, y)
+	_ui.add_child(holder)
+	var panel := Ui.panel(Rect2(0, 0, 96, 48), Ui.UI_CREAM, holder)
+	var ic := TextureRect.new()
+	ic.texture = Ui.icon(icon_name)
+	ic.stretch_mode = TextureRect.STRETCH_SCALE
+	ic.size = Vector2(32, 32)
+	ic.position = Vector2(8, 4)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(ic)
+	var l := Ui.label(text, Rect2(44, 6, 44, 32), Ui.FONT_SIZE, Ui.INK, holder, HORIZONTAL_ALIGNMENT_LEFT, true)
+	holder.set_meta("label", l)
+	holder.set_meta("panel", panel)
+	return holder
+
+
+func _chip_set(chip: Control, text: String) -> void:
+	var l: Label = chip.get_meta("label")
+	l.text = text
+	var tw := Ui.FONT_NARROW.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
+	var w := Ui.snap(clampf(44.0 + tw + 10.0, 80.0, 124.0))
+	var panel: NinePatchRect = chip.get_meta("panel")
+	panel.size = Vector2(w / 2.0, 24)
+	panel.set_meta("outer", Rect2(chip.position, Vector2(w, 48)))
+	l.size.x = w - 44.0 - 4.0
+	chip.set_meta("w", w)
+
+
+## Монеты и рыбки идут подряд слева, каждая по своей ширине.
+func _layout_chips() -> void:
+	_chip_set(_coins_chip, str(GameState.coins))
+	_chip_set(_fish_chip, str(Economy.fish()))
+	_fish_chip.position.x = _coins_chip.position.x + float(_coins_chip.get_meta("w")) + 4.0
+
+
+func _on_fish_changed(_v: int) -> void:
+	_layout_chips()
+
+
+## Нижняя панель: пять кнопок, до которых раньше надо было «проваливаться» через меню.
+func _build_dock() -> void:
+	_dock = Control.new()
+	_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(_dock)
+	var bar := ColorRect.new()
+	bar.position = Vector2(0, 560)
+	bar.size = Vector2(360, 80)
+	bar.color = Color("3f2815")
+	bar.mouse_filter = Control.MOUSE_FILTER_STOP   # тапы по панели не уходят коту
+	_dock.add_child(bar)
+	var edge := ColorRect.new()
+	edge.position = Vector2(0, 560)
+	edge.size = Vector2(360, 4)
+	edge.color = Color("6b4527")
+	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dock.add_child(edge)
+	var defs := [
+		["dock_repair", "hammer", "Ремонт", _open_repairs],
+		["dock_quests", "quest", "Дела", _open_meta.bind("quests")],
+		["dock_decor", "sofa", "Декор", _open_decorate],
+		["dock_shop", "bag", "Лавка", _open_meta.bind("shop")],
+		["dock_menu", "dots", "Меню", _open_menu],
+	]
+	var bw := 68.0
+	var gap := 2.0
+	var x0 := Ui.snap((360.0 - (5.0 * bw + 4.0 * gap)) / 2.0)
+	for i in defs.size():
+		var d: Array = defs[i]
+		var bw_i := bw
+		var b := _icon_tile(_dock, Rect2(x0 + i * (bw + gap), 566.0, bw_i, 72.0), String(d[1]), String(d[2]), d[3])
+		_dock_btns[String(d[0])] = b
+
+
+## Кнопка-плитка: значок сверху, подпись снизу (нижняя панель города, главное меню).
+func _icon_tile(parent: Node, r: Rect2, icon_name: String, text: String, handler: Callable) -> Button:
+	var b := Ui.button("", r, "", parent)
+	b.pressed.connect(handler)
+	var ic := TextureRect.new()
+	ic.texture = Ui.icon(icon_name)
+	ic.stretch_mode = TextureRect.STRETCH_SCALE
+	ic.size = Vector2(32, 32)
+	ic.position = Vector2(Ui.snap((r.size.x - 32.0) / 2.0), 4)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
+	var lab := Ui.label(text, Rect2(0, 36, r.size.x, 28), Ui.FONT_SIZE, Ui.CREAM, b, HORIZONTAL_ALIGNMENT_CENTER, true)
+	lab.add_theme_color_override("font_outline_color", Ui.INK)
+	lab.add_theme_constant_override("outline_size", Ui.PX)
+	var back := ColorRect.new()   # место под число/точку в углу
+	back.color = Color("e0432f")
+	back.position = Vector2(r.size.x - 24.0, -4.0)
+	back.size = Vector2(24, 24)
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.visible = false
+	b.add_child(back)
+	var badge := Ui.label("", Rect2(r.size.x - 24.0, -4.0, 24, 24), Ui.FONT_SIZE, Color.WHITE, b, HORIZONTAL_ALIGNMENT_CENTER, true)
+	badge.add_theme_color_override("font_outline_color", Ui.INK)
+	badge.add_theme_constant_override("outline_size", Ui.PX)
+	badge.set_meta("no_audit", true)   # число в углу кнопки намеренно выступает за её край
+	b.set_meta("badge", badge)
+	b.set_meta("badge_bg", back)
+	return b
+
+
+## Значки на кнопках нижней панели: свободные звёзды (мигает, когда хватает на задачу), готовые задания, подарок и награды.
+func _refresh_dock() -> void:
+	if _dock == null:
+		return
+	var done := GameState.intro_stage >= GameState.INTRO_DONE
+	_dock.visible = done and ListScreen.open_count == 0   # поверх списков нижняя панель не нужна
+	if not done:
+		return
+	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())
+	_set_badge("dock_repair", str(GameState.stars_free()) if GameState.stars_free() > 0 else "", affordable)
+	var claim := Daily.claimable_count()
+	_set_badge("dock_quests", str(claim) if claim > 0 else "", false)
+	_set_badge("dock_shop", "!" if (Daily.gift_ready() or not Shop.deal_taken()) else "", false)
+	_set_badge("dock_menu", "!" if (Shop.season_claimable() > 0 or Events.claimable_count() > 0) else "", false)
+
+
+func _set_badge(key: String, text: String, blink: bool) -> void:
+	var b: Button = _dock_btns[key]
+	var badge: Label = b.get_meta("badge")
+	var back: ColorRect = b.get_meta("badge_bg")
+	badge.text = text
+	back.visible = text != ""
+	back.color = Color("e0a020") if blink else Color("e0432f")
+	if b.has_meta("blink"):
+		(b.get_meta("blink") as Tween).kill()
+		b.remove_meta("blink")
+	b.modulate = Color.WHITE
+	if blink:
+		var t := b.create_tween().set_loops()
+		t.tween_property(b, "modulate", Color(1.25, 1.15, 0.7), 0.5)
+		t.tween_property(b, "modulate", Color.WHITE, 0.5)
+		b.set_meta("blink", t)
 
 
 ## Меню внутри игры (пауза). Страницы: главная → «Улучшения» (магазин), «Настройки» → «Аккаунт» → «Сбросить прогресс»
@@ -554,54 +682,51 @@ func _build_menu() -> void:
 	dim.color = Color(0, 0, 0, 0.5)
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
-	# главная
-	var main := _page("main", Ui.column_h(9 if pc else 8), "Меню")
-	_page_button(main, 0, "Продолжить", "play").pressed.connect(_close_menu)
-	_page_button(main, 1, "Ремонт", "brush").pressed.connect(_open_repairs_from_menu)
-	_page_button(main, 2, "Задания", "check").pressed.connect(_open_meta.bind("quests"))
-	_page_button(main, 3, "Магазин", "coin").pressed.connect(_open_meta.bind("shop"))
-	_page_button(main, 4, "Украшение", "flower").pressed.connect(_open_decorate)
-	_page_button(main, 5, "Улучшения", "cart").pressed.connect(_open_shop)
-	_page_button(main, 6, "Ещё", "home").pressed.connect(_menu_page.bind("more"))
-	_page_button(main, 7, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
+	# главная: плитки 2×3 (без длинного списка); частые действия — на нижней панели города
+	var main := _page("main", 3.0 * 80.0 + Ui.BTN_H + (Ui.BTN_GAP + Ui.BTN_H if pc else 0.0), "Меню", true)
+	var mc: Rect2 = main.get_meta("content")
+	var tile_w := Ui.snap((mc.size.x - Ui.BTN_GAP) / 2.0)
+	var tiles := [
+		["Улучшения", "cart", _open_shop], ["Коты", "cat", _open_cat_book],
+		["События", "calendar", _open_meta.bind("events")], ["Пасс", "crown", _open_meta.bind("season")],
+		["Дневник", "book", _open_diary], ["Настройки", "gear", _menu_page.bind("settings")],
+	]
+	for i in tiles.size():
+		var t: Array = tiles[i]
+		_icon_tile(main, Rect2(mc.position.x + (i % 2) * (tile_w + Ui.BTN_GAP), mc.position.y + (i / 2) * 80.0, tile_w, 72.0), String(t[1]), String(t[0]), t[2])
+	var cont := Ui.button("Продолжить", Rect2(mc.position.x, mc.position.y + 3.0 * 80.0, mc.size.x, Ui.BTN_H), "play", main)
+	cont.pressed.connect(_close_menu)
 	if pc:
-		_page_button(main, 8, "Выход", "exit").pressed.connect(get_tree().quit)
-	# «Ещё»: коты, дневник, сезонный пропуск
-	var more := _page("more", Ui.column_h(5), "Ещё")
-	_page_button(more, 0, "События", "flower").pressed.connect(_open_meta.bind("events"))
-	_page_button(more, 1, "Мурлык-пасс", "check").pressed.connect(_open_meta.bind("season"))
-	_page_button(more, 2, "Коты", "cat").pressed.connect(_open_cat_book)
-	_page_button(more, 3, "Дневник", "home").pressed.connect(_open_diary)
-	_page_button(more, 4, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+		Ui.button("Выход", Rect2(mc.position.x, mc.position.y + 3.0 * 80.0 + Ui.BTN_H + Ui.BTN_GAP, mc.size.x, Ui.BTN_H), "exit", main).pressed.connect(get_tree().quit)
 	# настройки
 	var settings := _page("settings", Ui.column_h(7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
 	_weather_btn.pressed.connect(_cycle_weather)
-	_lang_btn = _page_button(settings, 1, "Язык: Авто", "flower")
+	_lang_btn = _page_button(settings, 1, "Язык: Авто", "globe")
 	_lang_btn.pressed.connect(_cycle_setting.bind("lang"))
-	_music_btn = _page_button(settings, 2, "Музыка: 80%", "play")
+	_music_btn = _page_button(settings, 2, "Музыка: 80%", "note")
 	_music_btn.pressed.connect(_cycle_setting.bind("music"))
-	_sfx_btn = _page_button(settings, 3, "Звуки: 100%", "forks")
+	_sfx_btn = _page_button(settings, 3, "Звуки: 100%", "speaker")
 	_sfx_btn.pressed.connect(_cycle_setting.bind("sfx"))
-	_quality_btn = _page_button(settings, 4, "Качество: Авто", "gear")
+	_quality_btn = _page_button(settings, 4, "Качество: Авто", "bolt")
 	_quality_btn.pressed.connect(_cycle_setting.bind("quality"))
-	_page_button(settings, 5, "Аккаунт", "home").pressed.connect(_menu_page.bind("account"))
+	_page_button(settings, 5, "Аккаунт", "shield").pressed.connect(_menu_page.bind("account"))
 	_page_button(settings, 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
 	# аккаунт: статистика, конфиденциальность, титры и спрятанный сброс
 	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(5), "Аккаунт")
 	var ac: Rect2 = account.get_meta("content")
 	_account_stats = Ui.label("\n\n", Rect2(ac.position, Vector2(ac.size.x, 84)), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
-	_privacy_btn = _page_button(account, 0, "Аналитика: вкл", "check", false, 92.0)
+	_privacy_btn = _page_button(account, 0, "Аналитика: вкл", "info", false, 92.0)
 	_privacy_btn.pressed.connect(_cycle_setting.bind("analytics"))
 	_page_button(account, 1, "Титры", "cat", false, 92.0).pressed.connect(_open_credits)
-	_page_button(account, 2, "Документы", "home", false, 92.0).pressed.connect(_menu_page.bind("docs"))
+	_page_button(account, 2, "Документы", "doc", false, 92.0).pressed.connect(_menu_page.bind("docs"))
 	_page_button(account, 3, "Сбросить прогресс", "trash", true, 92.0).pressed.connect(_menu_page.bind("confirm"))
 	_page_button(account, 4, "Назад", "undo", false, 92.0).pressed.connect(_menu_page.bind("settings"))
 	# документы: политика конфиденциальности, соглашение, поддержка (адреса — data/legal.json; площадкам нужна ссылка внутри игры)
 	var docs := _page("docs", Ui.column_h(4), "Документы")
-	_page_button(docs, 0, "Конфиденциальность", "check").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["privacy_url"])))
-	_page_button(docs, 1, "Соглашение", "check").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["terms_url"])))
-	_page_button(docs, 2, "Поддержка", "cat").pressed.connect(func() -> void: OS.shell_open("mailto:" + String(Data.legal["support_email"])))
+	_page_button(docs, 0, "Конфиденциальность", "shield").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["privacy_url"])))
+	_page_button(docs, 1, "Соглашение", "doc").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["terms_url"])))
+	_page_button(docs, 2, "Поддержка", "mail").pressed.connect(func() -> void: OS.shell_open("mailto:" + String(Data.legal["support_email"])))
 	_page_button(docs, 3, "Назад", "undo").pressed.connect(_menu_page.bind("account"))
 	# подтверждение сброса
 	var confirm := _page("confirm", 56.0 + Ui.BTN_GAP + Ui.column_h(2), "Сбросить прогресс?")
@@ -610,26 +735,24 @@ func _build_menu() -> void:
 	_page_button(confirm, 0, "Отмена", "undo", false, 64.0).pressed.connect(_menu_page.bind("account"))
 	_page_button(confirm, 1, "Сбросить", "trash", true, 64.0).pressed.connect(_confirm_reset)
 	# титры: по одному разделу на страницу, листаются кнопкой
-	var credits := _page("credits", 140.0 + Ui.BTN_GAP + Ui.column_h(2), "Титры")
+	var credits := _page("credits", 232.0 + Ui.BTN_GAP + Ui.column_h(2), "Титры", true)
 	var kc: Rect2 = credits.get_meta("content")
-	_credits_text = Ui.label("", Rect2(kc.position, Vector2(kc.size.x, 140)), Ui.FONT_SIZE, Ui.INK, credits, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_credits_text = Ui.label("", Rect2(kc.position, Vector2(kc.size.x, 232)), Ui.FONT_SIZE, Ui.INK, credits, HORIZONTAL_ALIGNMENT_CENTER, true)
 	_credits_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_credits_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_credits_text.position = kc.position
-	_credits_text.size.y = 140.0
-	_page_button(credits, 0, "Дальше", "play", false, 148.0).pressed.connect(_credits_turn)
-	_page_button(credits, 1, "Назад", "undo", false, 148.0).pressed.connect(_menu_page.bind("account"))
+	_credits_text.size.y = 232.0
+	_page_button(credits, 0, "Дальше", "arrow_r", false, 240.0).pressed.connect(_credits_turn)
+	_page_button(credits, 1, "Назад", "undo", false, 240.0).pressed.connect(_menu_page.bind("account"))
 	# дневник: записи комикса, открываются за смены
 	_diary_page = _page("diary", Ui.column_h(IntroComic.PANELS.size() + 1), "Дневник")
-	# магазин улучшений (карточки строятся при открытии, по 4 на страницу)
-	_shop_page = _page("shop", SHOP_PER_PAGE * CARD_H + (SHOP_PER_PAGE - 1) * CARD_GAP + Ui.BTN_GAP + Ui.BTN_H, "Улучшения", true)
 	_menu_page("main")
 
 
 ## Кнопка в столбце страницы: i — номер, dy — сдвиг вниз от начала области (под текстом выше).
 func _page_button(page: Control, i: int, text: String, icon: String, danger := false, dy := 0.0) -> Button:
 	var c: Rect2 = page.get_meta("content")
-	var b := Ui.button(text, Rect2(c.position.x, c.position.y + dy + i * (Ui.BTN_H + Ui.BTN_GAP), c.size.x, Ui.BTN_H), icon, page, false, null, danger)
+	var b := Ui.button(text, Rect2(c.position.x, c.position.y + dy + i * (Ui.BTN_H + Ui.BTN_GAP), c.size.x, Ui.BTN_H), icon, page, true, null, danger)
 	return b
 
 
@@ -773,62 +896,37 @@ func _confirm_reset() -> void:
 
 # ---------------------------------------------------------------- магазин улучшений
 
+## «Улучшения»: общий экран-список. Карточка — значок, что даёт, цена-кнопка; недоступные (нет монет / нет условия) — серые.
 func _open_shop() -> void:
-	_refresh_shop()
-	_menu_page("shop")
+	var sc := ListScreen.new()
+	sc.title = "Улучшения"
+	sc.header_provider = func() -> Array: return [{"icon": "coin", "text": str(GameState.coins)}]
+	sc.provider = func(_tab: int) -> Array: return _upgrade_rows()
+	sc.layer = 12
+	add_child(sc)
+	_upgrade_screen = sc
 
 
-## Карточки улучшений: название, что даёт, цена-кнопка. Недоступные (не хватает монет / нет условия) — серые.
-func _refresh_shop() -> void:
-	for ch in _shop_page.get_children().slice(2):   # рамка и заголовок остаются
-		ch.queue_free()
-	var c: Rect2 = _shop_page.get_meta("content")
-	var pages := int(ceil(float(Data.upgrades.size()) / float(SHOP_PER_PAGE)))
-	_shop_idx = clampi(_shop_idx, 0, pages - 1)
-	var first := _shop_idx * SHOP_PER_PAGE
-	var y := c.position.y
-	for i in range(first, mini(Data.upgrades.size(), first + SHOP_PER_PAGE)):
-		var u: Dictionary = Data.upgrades[i]
+func _upgrade_rows() -> Array:
+	var rows: Array = []
+	for u in Data.upgrades:
 		var id := String(u["id"])
 		var owned := GameState.has_upgrade(id)
 		var req := String(u["requires"])
 		var locked := req != "" and not GameState.has_upgrade(req)
-		Ui.panel(Rect2(c.position.x, y, c.size.x, CARD_H), Ui.UI_CREAM, _shop_page)
-		var text_w := c.size.x - 12.0 - PRICE_W - 12.0 - 8.0   # слева 12, справа кнопка цены 104 с отступом 12
-		Ui.label(String(u["name"]), Rect2(c.position.x + 12.0, y + 12.0, text_w, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
 		var sub := String(u["unlocks"])
 		if locked:
 			for r in Data.upgrades:
 				if String(r["id"]) == req:
-					sub = "Нужен: " + String(r["name"]).to_lower()
-		Ui.label(sub, Rect2(c.position.x + 12.0, y + 12.0 + Ui.LINE_H, text_w, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _shop_page, HORIZONTAL_ALIGNMENT_LEFT, true)
-		var bx := c.position.x + c.size.x - 12.0 - PRICE_W
+					sub = tr("Нужен: %s") % tr(String(r["name"])).to_lower()
+		var row := {"title": String(u["name"]), "sub": sub, "icon": "lock" if locked else String(u["icon"]), "enabled": not locked}
 		if owned:
-			Ui.label("Куплено", Rect2(bx, y + Ui.EDGE, PRICE_W, CARD_H - Ui.EDGE - Ui.SHADOW_CREAM), Ui.FONT_SIZE, Color("3c8c4a"), _shop_page, HORIZONTAL_ALIGNMENT_CENTER, true)
+			row["sub"] = tr("Куплено")
+			row["action"] = {"text": tr("Есть"), "icon": "check", "enabled": false}
 		else:
-			var b := Ui.button(str(int(u["price"])), Rect2(bx, y + 14.0, PRICE_W, Ui.BTN_H), "coin", _shop_page)
-			b.disabled = locked or GameState.coins < int(u["price"])
-			b.modulate = Color(0.65, 0.65, 0.65) if b.disabled else Color.WHITE
-			b.pressed.connect(_buy_upgrade.bind(id))
-		y += CARD_H + CARD_GAP
-	var by := c.position.y + c.size.y - Ui.BTN_H
-	if pages > 1:
-		var half := (c.size.x - Ui.BTN_GAP) / 2.0
-		Ui.button("Назад", Rect2(c.position.x, by, half, Ui.BTN_H), "undo", _shop_page).pressed.connect(_shop_back)
-		var more := Ui.button("Дальше" if _shop_idx < pages - 1 else "Раньше", Rect2(c.position.x + half + Ui.BTN_GAP, by, half, Ui.BTN_H), "", _shop_page)
-		more.pressed.connect(_shop_turn)
-	else:
-		Ui.button("Назад", Rect2(c.position.x, by, c.size.x, Ui.BTN_H), "undo", _shop_page).pressed.connect(_shop_back)
-
-
-func _shop_turn() -> void:
-	var pages := int(ceil(float(Data.upgrades.size()) / float(SHOP_PER_PAGE)))
-	_shop_idx = (_shop_idx + 1) % pages
-	_refresh_shop()
-
-
-func _shop_back() -> void:
-	_menu_page("main")
+			row["action"] = {"text": str(int(u["price"])), "icon": "coin", "enabled": not locked and GameState.coins >= int(u["price"]), "press": _buy_upgrade.bind(id)}
+		rows.append(row)
+	return rows
 
 
 func _buy_upgrade(id: String) -> void:
@@ -836,11 +934,11 @@ func _buy_upgrade(id: String) -> void:
 		return
 	for u in Data.upgrades:
 		if String(u["id"]) == id:
-			Fx.burst(_menu, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
-			Ui.toast(_menu, String(u["flavor"]), Vector2(180, 560))
+			if _upgrade_screen != null and is_instance_valid(_upgrade_screen):
+				Fx.burst(_upgrade_screen, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
+				Ui.toast(_upgrade_screen, tr(String(u["flavor"])), Vector2(180, 600))
 	_on_upgrade_bought(id)
-	_refresh_shop()
-	_coins_label.text = str(GameState.coins)
+	_layout_chips()
 
 
 # ---------------------------------------------------------------- интро
@@ -1134,8 +1232,8 @@ func _on_player_arrived() -> void:
 	_pending = ""
 
 
-func _on_coins_changed(value: int) -> void:
-	_coins_label.text = str(value)
+func _on_coins_changed(_value: int) -> void:
+	_layout_chips()
 
 
 # ---------------------------------------------------------------- коморка, лестница, второй этаж
@@ -1273,22 +1371,9 @@ func _sleep() -> void:
 
 
 ## Купили улучшение: дверь и лестница оживают.
-## Звёзды на кнопке; когда хватает на открытую задачу — кнопка мигает (подсказка «пора в ремонт»).
+## Старое имя: звёзды теперь на кнопке «Ремонт» нижней панели.
 func _refresh_star_button() -> void:
-	if _star_btn == null:
-		return
-	_star_btn.visible = GameState.intro_stage >= GameState.INTRO_DONE
-	Ui.set_button_text(_star_btn, "★%d" % GameState.stars_free())
-	if _star_btn.has_meta("blink"):
-		(_star_btn.get_meta("blink") as Tween).kill()
-		_star_btn.remove_meta("blink")
-	_star_btn.modulate = Color.WHITE
-	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())
-	if affordable and _star_btn.visible:
-		var t := _star_btn.create_tween().set_loops()
-		t.tween_property(_star_btn, "modulate", Color(1.25, 1.15, 0.7), 0.5)
-		t.tween_property(_star_btn, "modulate", Color.WHITE, 0.5)
-		_star_btn.set_meta("blink", t)
+	_refresh_dock()
 
 
 ## Экраны мета-игры (магазин, задания, пропуск) поверх меню: закрыл — вернулся в меню.
@@ -1354,11 +1439,9 @@ func _refresh_terrace() -> void:
 		_terrace.append(holder)
 
 
-## Красная точка на шестерёнке: подарок, задания или награды пропуска ждут.
+## Значки на нижней панели: подарок, задания или награды ждут.
 func _refresh_badges() -> void:
-	if _badge == null:
-		return
-	_badge.visible = GameState.intro_stage >= GameState.INTRO_DONE and (Daily.gift_ready() or Daily.claimable_count() > 0 or Shop.season_claimable() > 0 or Events.claimable_count() > 0)
+	_refresh_dock()
 
 
 # ---------------------------------------------------------------- окна при входе: подарок, офлайн-доход, предложения
@@ -1382,7 +1465,7 @@ func _next_popup() -> void:
 
 func _popup_done() -> void:
 	_refresh_badges()
-	_coins_label.text = str(GameState.coins)
+	_layout_chips()
 	get_tree().create_timer(0.35).timeout.connect(_next_popup)
 
 
@@ -1500,7 +1583,7 @@ func _on_repair_done(id: String) -> void:
 		if String(e["kind"]) == "upgrade":
 			_on_upgrade_bought(String(e["id"]))
 	_refresh_star_button()
-	_coins_label.text = str(GameState.coins)
+	_layout_chips()
 	_play_stories("repair", id)
 
 
@@ -1677,77 +1760,61 @@ func _start_shift() -> void:
 
 
 ## Выбор смены: уровни со звёздами (смена пройдена, точность, скорость); следующий открывается после первой звезды на предыдущем.
-## Уровни листаются по 4 на странице: у карточки две строки шрифта (28+28), больше четырёх по высоте не помещается.
+## Общий экран-список: на странице четыре карточки, открывается на странице с первым непройденным уровнем.
 func _open_levels() -> void:
 	if _levels_layer != null or _shift_layer != null:
 		return
 	_player.stop()
-	_levels_layer = CanvasLayer.new()
-	_levels_layer.layer = 7
-	add_child(_levels_layer)
-	_build_levels_page()
+	var sc := ListScreen.new()
+	sc.title = "Смены"
+	sc.layer = 7
+	sc.provider = func(_tab: int) -> Array: return _level_rows()
+	sc.header_provider = func() -> Array: return [{"icon": "star", "text": str(_total_level_stars())}]
+	var first_open := 0
+	for i in Data.levels.size():
+		if GameState.level_unlocked(i) and GameState.level_star_count(String(Data.levels[i]["id"])) == 0:
+			first_open = i
+			break
+		first_open = i
+	sc.start_page = first_open / ListScreen.PER_PAGE
+	sc.closed.connect(func() -> void: _levels_layer = null)
+	add_child(sc)
+	_levels_layer = sc
 
 
-func _build_levels_page() -> void:
-	for ch in _levels_layer.get_children():
-		ch.queue_free()
-	var dim := ColorRect.new()
-	dim.size = Vector2(360, 640)
-	dim.color = Color(0, 0, 0, 0.55)
-	_levels_layer.add_child(dim)
-	var n := Data.levels.size()
-	var pages := int(ceil(float(n) / float(SHOP_PER_PAGE)))
-	_levels_idx = clampi(_levels_idx, 0, pages - 1)
-	var content_h := SHOP_PER_PAGE * CARD_H + (SHOP_PER_PAGE - 1) * CARD_GAP + Ui.BTN_GAP + Ui.BTN_H
-	var h := Ui.page_height(content_h)
-	var top := floorf((640.0 - h) / 2.0 / 2.0) * 2.0
-	var x := 12.0
-	var w := 336.0
-	Ui.panel(Rect2(x, top, w, h), Ui.UI_WOOD, _levels_layer)
-	Ui.label("Смены", Rect2(x, top + Ui.PAGE_PAD_TOP, w, Ui.PAGE_TITLE_H), Ui.FONT_SIZE, Ui.INK, _levels_layer, HORIZONTAL_ALIGNMENT_CENTER)
-	var cx := x + Ui.PAGE_PAD_X
-	var cw := w - 2.0 * Ui.PAGE_PAD_X
-	var y := top + Ui.PAGE_PAD_TOP + Ui.PAGE_TITLE_H + Ui.PAGE_GAP
-	var first := _levels_idx * SHOP_PER_PAGE
-	for i in range(first, mini(n, first + SHOP_PER_PAGE)):
+func _total_level_stars() -> int:
+	var n := 0
+	for lv in Data.levels:
+		n += GameState.level_star_count(String(lv["id"]))
+	return n
+
+
+func _level_rows() -> Array:
+	var rows: Array = []
+	for i in Data.levels.size():
 		var lv: Dictionary = Data.levels[i]
 		var open := GameState.level_unlocked(i)
-		var b := Ui.button("", Rect2(cx, y, cw, CARD_H), "", _levels_layer)
-		b.disabled = not open
-		b.modulate = Color.WHITE if open else Color(0.6, 0.6, 0.6)
-		b.pressed.connect(_start_level.bind(i))
-		var tw := cw - 12.0 - 12.0 - 66.0   # слева 12, справа три звезды (3×18 + зазоры) с отступом 12
-		Ui.label("%d. %s" % [i + 1, String(lv["name"])], Rect2(cx + 12.0, y + 12.0, tw, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM, _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
-		var sub := "Пока закрыто" if not open else "%d котов, очередь %d" % [int(lv["customers"]), int(lv["queue"])]
-		Ui.label(sub, Rect2(cx + 12.0, y + 12.0 + Ui.LINE_H, tw, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _levels_layer, HORIZONTAL_ALIGNMENT_LEFT, true)
-		var mask := GameState.level_mask(String(lv["id"]))
-		for k in 3:   # три звезды: пройдено, точность, скорость
-			var star := Sprite2D.new()
-			star.texture = Fx.tex("bigstar")
-			star.scale = Vector2(2, 2)
-			star.position = Vector2(cx + cw - 12.0 - 9.0 - 44.0 + k * 22.0, y + Ui.EDGE + (CARD_H - Ui.EDGE - Ui.SHADOW_BUTTON) / 2.0)
-			star.modulate = Color("ffd640") if (mask >> k) & 1 == 1 else Color("3d2c1c")
-			_levels_layer.add_child(star)
-		y += CARD_H + CARD_GAP
-	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
-	if pages > 1:
-		var half := (cw - Ui.BTN_GAP) / 2.0
-		Ui.button("Назад", Rect2(cx, by, half, Ui.BTN_H), "undo", _levels_layer).pressed.connect(_close_levels)
-		Ui.button("Дальше" if _levels_idx < pages - 1 else "Раньше", Rect2(cx + half + Ui.BTN_GAP, by, half, Ui.BTN_H), "", _levels_layer).pressed.connect(_levels_turn)
-	else:
-		Ui.button("Назад", Rect2(cx, by, cw, Ui.BTN_H), "undo", _levels_layer).pressed.connect(_close_levels)
+		var row := {"title": tr(String(lv["name"])), "badge": str(i + 1), "enabled": open}
+		if open:
+			row["stars"] = GameState.level_mask(String(lv["id"]))
+			row["sub"] = tr("%d котов") % int(lv["customers"])
+			row["press"] = _start_level.bind(i)
+		else:
+			row["sub"] = tr("Пока закрыто")
+		rows.append(row)
+	return rows
 
 
 func _levels_turn() -> void:
-	var pages := int(ceil(float(Data.levels.size()) / float(SHOP_PER_PAGE)))
-	_levels_idx = (_levels_idx + 1) % pages
-	_build_levels_page()
+	if _levels_layer != null:
+		_levels_layer._turn()
 
 
 func _close_levels() -> void:
 	if _levels_layer != null:
-		_levels_layer.queue_free()
+		var l := _levels_layer
 		_levels_layer = null
+		l.queue_free()
 
 
 func _start_level(index: int) -> void:
@@ -1822,6 +1889,12 @@ func _end_shift(served: int, earned: int) -> void:
 
 
 # ---------------------------------------------------------------- меню в игре
+
+func _open_settings() -> void:
+	_menu_page("settings")
+	_menu.visible = true
+	get_tree().paused = true
+
 
 func _open_menu() -> void:
 	_menu_page("main")

@@ -48,8 +48,8 @@ func _ready() -> void:
 	GameState.shifts_played = 6
 	city._open_diary(); await _snap(S + "/m_diary.png", 0.3, city._menu)
 	city._menu_page("main"); await _snap(S + "/m_menu2.png", 0.3, city._menu)
-	city._open_shop(); await _snap(S + "/m_shop.png", 0.3, city._menu)
-	city._shop_turn(); await _snap(S + "/m_shop2.png", 0.3, city._menu)
+	city._open_shop(); await _snap(S + "/m_shop.png", 0.3, city._upgrade_screen)
+	city._upgrade_screen.close()
 	city._close_menu()
 	city._open_levels(); await _snap(S + "/m_levels.png", 0.3, city._levels_layer)
 	city._levels_turn(); await _snap(S + "/m_levels2.png", 0.3, city._levels_layer)

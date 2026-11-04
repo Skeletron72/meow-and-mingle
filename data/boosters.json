@@ -1,11 +1,11 @@
 [
  {
   "id": "patience",
-  "name": "Заморозка терпения",
+  "name": "Заморозка",
   "desc": "Терпение +30% на смену",
   "coins": 80,
   "fish": 6,
-  "icon": "cloud"
+  "icon": "snow"
  },
  {
   "id": "double_tips",

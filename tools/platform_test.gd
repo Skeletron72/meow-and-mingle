@@ -263,7 +263,7 @@ func _test_menu() -> void:
 	add_child(city)
 	await get_tree().process_frame
 	var pages: Dictionary = city._menu_pages
-	for k in ["main", "settings", "account", "confirm", "credits", "diary", "shop"]:
+	for k in ["main", "settings", "account", "confirm", "credits", "diary"]:
 		_check(pages.has(k), "страница меню «%s» есть" % k)
 	# настройки меняют значения по кругу
 	city._cycle_setting("music")
@@ -518,7 +518,9 @@ func _test_ui_screens() -> void:
 	add_child(city)
 	await get_tree().process_frame
 	# кнопка звёзд в шапке и доска ремонта
-	_check(city._star_btn != null and city._star_btn.visible and city._star_btn.text == "★%d" % GameState.stars_free(), "кнопка звёзд в шапке показывает свободные звёзды")
+	_check(city._dock != null and city._dock.visible and city._dock_btns.size() == 5, "внизу города панель из пяти кнопок: ремонт, дела, декор, лавка, меню")
+	var repair_badge: Label = city._dock_btns["dock_repair"].get_meta("badge")
+	_check(repair_badge.text == str(GameState.stars_free()), "на кнопке «Ремонт» число свободных звёзд")
 	city._open_repairs()
 	var board: RepairBoard = city._repair_board
 	_check(board != null, "доска ремонта открылась")
@@ -930,21 +932,25 @@ func _test_meta_ui() -> void:
 	Economy.add_fish(50, "test")
 	var holder := Node.new()
 	add_child(holder)
-	# магазин
-	var rows := MetaScreens.shop_rows(holder)
-	var titles: Array = rows.map(func(r: Dictionary) -> String: return String(r["title"]))
-	_check(rows.size() == 2 + 1 + 4 + 4 + 2 + 1, "в магазине 14 карточек: 2 предложения дня, стартовый, 4 пакета, 4 бустера, без рекламы, пропуск, восстановление (%d)" % rows.size())
-	_check(String(rows[0]["title"]) == String(Shop.deal()["name"]) and String(rows[rows.size() - 1]["title"]) == "Восстановить покупки", "первая карточка — предложение дня, последняя — восстановление покупок")
+	# магазин: четыре вкладки
+	var counts := []
+	for tab in 4:
+		counts.append(MetaScreens.shop_rows(holder, tab).size())
+	_check(counts == [4, 4, 4, 3], "карточек по вкладкам магазина: сегодня 4 (предложение, реклама, стартовый набор, подарок), рыбки 4, бустеры 4, ещё 3 (%s)" % [counts])
+	var today_rows := MetaScreens.shop_rows(holder, 0)
+	_check(String(today_rows[0]["title"]) == String(Shop.deal()["name"]), "первая карточка вкладки «Сегодня» — предложение дня")
 	var shop := MetaScreens.open_shop(holder)
 	await get_tree().process_frame
-	_check(shop.page_count() == 4, "магазин: 4 страницы (%d)" % shop.page_count())
+	_check(shop.tabs.size() == 4 and shop.page_count() == 1, "магазин: 4 вкладки, на первой одна страница")
+	shop.set_tab(2)
+	_check(shop.current_tab() == 2, "вкладки переключаются")
 	Shop.buy("no_ads", func(_ok: bool, _s: String) -> void: pass)
-	_check(MetaScreens.shop_rows(holder).size() == 13, "после «Без рекламы» карточка исчезает")
+	_check(MetaScreens.shop_rows(holder, 3).size() == 2, "после «Без рекламы» карточка исчезает")
 	# покупка бустера карточкой
 	var before := Economy.booster_count("auto")
-	for r in MetaScreens.shop_rows(holder):
+	for r in MetaScreens.shop_rows(holder, 2):
 		if String(r["title"]) == "Автосборка":
-			(r["press"] as Callable).call()
+			(r["action"]["press"] as Callable).call()
 	_check(Economy.booster_count("auto") == before + 1 and GameState.coins == 380, "карточка бустера покупает за монеты (120)")
 	shop.close()
 	# задания
@@ -1047,7 +1053,7 @@ func _test_city_meta() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(_first_of(city, "GiftPopup") != null, "при входе в день первый раз — окно подарка дня")
-	_check(city._badge != null and city._badge.visible, "красная точка на шестерёнке, пока есть что забрать")
+	_check((city._dock_btns["dock_shop"].get_meta("badge_bg") as ColorRect).visible, "красная точка на «Лавке», пока есть подарок")
 	_check(Daily.int_sessions() == 1 if Daily.has_method("int_sessions") else int(GameState.meta["sessions"]) == 1, "сеанс посчитан")
 	var g := _first_of(city, "GiftPopup") as GiftPopup
 	g._claim(false)
@@ -1059,11 +1065,12 @@ func _test_city_meta() -> void:
 	await get_tree().create_timer(0.6).timeout
 	_check(_first_of(city, "InfoPopup") == null, "«Не сейчас» закрывает предложение")
 	# меню: новые страницы
-	for k in ["more", "main"]:
+	for k in ["main", "settings", "account", "credits", "diary", "docs", "confirm"]:
 		_check(city._menu_pages.has(k), "страница меню «%s» есть" % k)
-	var texts: Array[String] = []
-	_collect_buttons(city._menu_pages["main"], texts)
-	_check(texts.has("Магазин") and texts.has("Задания") and texts.has("Ремонт") and texts.has("Ещё"), "в меню есть магазин, задания, ремонт и «Ещё» (%s)" % [texts])
+	var labels: Array[String] = []
+	for l in city._menu_pages["main"].find_children("*", "Label", true, false):
+		labels.append((l as Label).text)
+	_check(labels.has("Улучшения") and labels.has("Коты") and labels.has("События") and labels.has("Пасс") and labels.has("Дневник") and labels.has("Настройки"), "в меню плитки: улучшения, коты, события, пасс, дневник, настройки (%s)" % [labels])
 	# уровень с бустерами: сначала выбор
 	Economy.add_booster("auto", 1, "t")
 	city._start_level(0)

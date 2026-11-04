@@ -59,13 +59,13 @@ func _build_ui() -> void:
 
 
 func _build_top() -> void:
-	Ui.panel(Rect2(8, 8, 108, 48), Ui.UI_CREAM, _ui)
+	Ui.panel(Rect2(8, 8, 112, 48), Ui.UI_CREAM, _ui)
 	var coin := Sprite2D.new()
 	coin.texture = Ui.icon("coin")
 	coin.position = Vector2(28, 28)
 	coin.scale = Vector2(2, 2)
 	_ui.add_child(coin)
-	_coins_label = Ui.label("0", Rect2(44, 12, 68, 32), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
+	_coins_label = Ui.label("0", Rect2(44, 12, 76, 32), Ui.FONT_SIZE, Ui.INK, _ui, HORIZONTAL_ALIGNMENT_LEFT)
 	_hint = Control.new()
 	_ui.add_child(_hint)
 	_style_btn = Ui.button("", Rect2(124, 8, 164, 48), "", _hint, true, Ui.UI_CREAM)   # стиль каталога: Уют, Лофт, Японский, Зимний

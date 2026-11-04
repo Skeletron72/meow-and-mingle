@@ -249,10 +249,10 @@ func _lay_row(items: Array[Dictionary], y: float) -> void:
 
 
 func _build_hud() -> void:
-	Ui.panel(Rect2(8, 6, 108, 48), Ui.UI_CREAM, self).z_index = 80
+	Ui.panel(Rect2(8, 6, 112, 48), Ui.UI_CREAM, self).z_index = 80
 	_coin_icon = _sprite(_atlas(ICONS, Rect2(210, 209, 11, 14)), COIN_POS, 2.0)
 	_coin_icon.z_index = 81
-	_coins_label = _label("0", Rect2(44, 12, 68, 32), INK)
+	_coins_label = _label("0", Rect2(44, 12, 76, 32), INK)
 	_coins_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_coins_label.z_index = 81
 	_served_label = _label("", Rect2(124, 10, 166, 32), Color("fff1d6"), null, true)
@@ -977,8 +977,7 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	var star_y := y + 18.0
 	for i in 3:
 		var sx := cx + cw / 6.0 + i * cw / 3.0   # центры трёх колонок
-		var star := _sprite(Fx.tex("bigstar"), Vector2(sx, star_y), 4.0, _result)
-		star.modulate = Color("5a4636") if (mask >> i) & 1 == 0 else Color("ffd640")
+		var star := _sprite(Ui.icon("star" if (mask >> i) & 1 == 1 else "star_off"), Vector2(sx, star_y), 4.0, _result)
 		Ui.label(captions[i], Rect2(sx - cw / 6.0, y + 44.0, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 		Ui.label(values[i], Rect2(sx - cw / 6.0, y + 44.0 + Ui.LINE_H, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 		if (mask >> i) & 1 == 1:
@@ -997,7 +996,7 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	var lines := "Подано: %d из %d\nОшибок: %d, ушло злыми: %d" % [int(_stats["served"]), _total_customers(), int(_stats["wrong"]), int(_stats["left"])]
 	Ui.label(lines, Rect2(cx, y, cw, Ui.LINE_H * 2.0), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 	y += Ui.LINE_H * 2.0 + 4.0
-	Ui.label("Заработано: %d" % shift_earned + ("  (звёзды +%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.label(tr("Заработано: %d") % shift_earned + ("  (+%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
 	Ui.button("Ещё раз", Rect2(cx, by - Ui.BTN_H - Ui.BTN_GAP, cw, Ui.BTN_H), "play", _result).pressed.connect(_restart_run)
 	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_leave_results)

@@ -143,8 +143,8 @@ func _show_lines(page: Node2D, def: Dictionary) -> void:
 	for ln in def["lines"]:
 		var b := Node2D.new()
 		var text := tr(String(ln["text"]))
-		var w := clampf(text.length() * 10.5 + 26.0, 100.0, 280.0)
-		b.position = Vector2(clampf(float(ln["x"]), w / 2.0 + 4.0, ART_SIZE.x - w / 2.0 - 4.0), float(ln["y"]))
+		var w := Ui.snap(clampf(text.length() * 10.5 + 26.0, 100.0, 280.0))
+		b.position = Ui.snap_v(Vector2(clampf(float(ln["x"]), w / 2.0 + 4.0, ART_SIZE.x - w / 2.0 - 4.0), float(ln["y"])))
 		clip.add_child(b)
 		Ui.panel(Rect2(-w / 2.0, -20, w, 40), Ui.UI_CREAM, b)
 		for i in 3:

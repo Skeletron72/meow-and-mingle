@@ -1,8 +1,56 @@
 [
-	{"id": "milk_pitcher", "name": "Молочник", "price": 30, "requires": "", "flavor": "Мамин латте: две ложки терпения.", "unlocks": "Молоко и латте"},
-	{"id": "matcha_kit", "name": "Набор матчи", "price": 60, "requires": "milk_pitcher", "flavor": "Рыжик давно ждёт. Он вежлив.", "unlocks": "Матча-латте"},
-	{"id": "display_case", "name": "Витрина", "price": 120, "requires": "milk_pitcher", "flavor": "Круассаны под стеклом. Папин пафос.", "unlocks": "Выпечка"},
-	{"id": "espresso_pro", "name": "Кофемашина Pro", "price": 90, "requires": "display_case", "flavor": "Мама звала её «Громовица».", "unlocks": "Кофе +25% цены"},
-	{"id": "back_room", "name": "Коморка", "price": 150, "requires": "display_case", "flavor": "Мамина кладовая. Пахнет кофе и добротой.", "unlocks": "Дверь и лестница"},
-	{"id": "upstairs", "name": "Второй этаж", "price": 300, "requires": "back_room", "flavor": "Там спала мама. Теперь там спит Мяу.", "unlocks": "Жилая зона и сон"}
+	{
+		"id": "milk_pitcher",
+		"name": "Молочник",
+		"price": 30,
+		"requires": "",
+		"flavor": "Мамин латте: две ложки терпения.",
+		"unlocks": "Молоко и латте",
+		"icon": "cup"
+	},
+	{
+		"id": "matcha_kit",
+		"name": "Набор матчи",
+		"price": 60,
+		"requires": "milk_pitcher",
+		"flavor": "Рыжик давно ждёт. Он вежлив.",
+		"unlocks": "Матча-латте",
+		"icon": "drop"
+	},
+	{
+		"id": "display_case",
+		"name": "Витрина",
+		"price": 120,
+		"requires": "milk_pitcher",
+		"flavor": "Круассаны под стеклом. Папин пафос.",
+		"unlocks": "Выпечка",
+		"icon": "pastry"
+	},
+	{
+		"id": "espresso_pro",
+		"name": "Кофемашина Pro",
+		"price": 90,
+		"requires": "display_case",
+		"flavor": "Мама звала её «Громовица».",
+		"unlocks": "Кофе +25% цены",
+		"icon": "bolt"
+	},
+	{
+		"id": "back_room",
+		"name": "Коморка",
+		"price": 150,
+		"requires": "display_case",
+		"flavor": "Мамина кладовая. Пахнет кофе и добротой.",
+		"unlocks": "Дверь и лестница",
+		"icon": "lock"
+	},
+	{
+		"id": "upstairs",
+		"name": "Второй этаж",
+		"price": 300,
+		"requires": "back_room",
+		"flavor": "Там спала мама. Теперь там спит Мяу.",
+		"unlocks": "Жилая зона и сон",
+		"icon": "sofa"
+	}
 ]

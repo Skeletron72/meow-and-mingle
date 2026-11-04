@@ -1,31 +1,17 @@
 class_name RepairBoard
-extends CanvasLayer
-## «Ремонт кафе»: доска задач. Показывает задачи, которые уже можно делать (сначала доступные, потом закрытые с причиной),
-## тратит звёзды (GameState.do_repair) и для задач с выбором спрашивает вариант (цвет стен, пола, плинтуса).
-## Страницы по 4 карточки, как в выборе смены; карточка — кнопка с названием, ценой в звёздах и подписью «что даст».
+extends ListScreen
+## «Ремонт кафе»: доска задач на общем экране-списке. Первыми — задачи, которые уже можно делать, потом закрытые (с причиной).
+## Тап по кнопке со звёздами тратит их (GameState.do_repair); у задач с выбором (цвет стен, пола, вывески) сначала спрашивается вариант.
+## Когда на ближайшую задачу не хватает 1–2 звёзд, первой стоит карточка «звезда за рекламу».
 
-signal closed
-
-const PER_PAGE := 4
-const CARD_H := 84.0
-const CARD_GAP := 4.0
-const X := 12.0
-const W := 336.0
-
-var _page := 0
 var _choosing := ""        # id задачи, для которой выбираем вариант
-var _root: Control
 
 
 func _init() -> void:
-	layer = 7
-
-
-func _ready() -> void:
-	_root = Control.new()
-	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_root)
-	_build()
+	super._init()
+	title = "Ремонт кафе"
+	provider = _provide
+	header_provider = func() -> Array: return [{"icon": "star", "text": str(GameState.stars_free())}]
 
 
 ## Строки доски: сначала открытые задачи, затем закрытые (по порядку списка), выполненные не показываем.
@@ -52,10 +38,6 @@ func ad_card_wanted() -> bool:
 	return best >= 1 and best <= 2
 
 
-func page_count() -> int:
-	return maxi(1, int(ceil(float(_all_rows().size()) / float(PER_PAGE))))
-
-
 func _all_rows() -> Array:
 	var out: Array = rows()
 	if ad_card_wanted():
@@ -63,86 +45,41 @@ func _all_rows() -> Array:
 	return out
 
 
-func _build() -> void:
-	for ch in _root.get_children():
-		ch.queue_free()
-	var dim := ColorRect.new()
-	dim.size = Vector2(360, 640)
-	dim.color = Color(0, 0, 0, 0.55)
-	_root.add_child(dim)
-	var content_h := PER_PAGE * CARD_H + (PER_PAGE - 1) * CARD_GAP + Ui.BTN_GAP + Ui.BTN_H
-	var h := Ui.page_height(content_h)
-	var top := floorf((640.0 - h) / 2.0 / 2.0) * 2.0
-	Ui.panel(Rect2(X, top, W, h), Ui.UI_WOOD, _root)
-	var cx := X + Ui.PAGE_PAD_X
-	var cw := W - 2.0 * Ui.PAGE_PAD_X
-	var title := tr("Выбери вариант") if _choosing != "" else tr("Ремонт кафе")
-	Ui.label(title, Rect2(X, top + Ui.PAGE_PAD_TOP, W - 80.0, Ui.PAGE_TITLE_H), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_CENTER)
-	var stars := Ui.label("★%d" % GameState.stars_free(), Rect2(X + W - 90.0, top + Ui.PAGE_PAD_TOP, 66.0, Ui.PAGE_TITLE_H), Ui.FONT_SIZE, Color("c2891a"), _root, HORIZONTAL_ALIGNMENT_RIGHT)
-	stars.add_theme_color_override("font_outline_color", Ui.CREAM)
-	stars.add_theme_constant_override("outline_size", Ui.PX)
-	var y := top + Ui.PAGE_PAD_TOP + Ui.PAGE_TITLE_H + Ui.PAGE_GAP
-	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
+func _provide(_tab: int) -> Array:
 	if _choosing != "":
-		_build_choice(cx, y, cw, by)
-		return
-	var all := _all_rows()
-	_page = clampi(_page, 0, page_count() - 1)
-	var first := _page * PER_PAGE
-	if all.is_empty():
-		Ui.label(tr("Всё отремонтировано!"), Rect2(cx, y + 60.0, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_CENTER, true)
-	for i in range(first, mini(all.size(), first + PER_PAGE)):
-		_card(all[i], cx, y, cw)
-		y += CARD_H + CARD_GAP
-	if page_count() > 1:
-		var half := (cw - Ui.BTN_GAP) / 2.0
-		Ui.button(tr("Назад"), Rect2(cx, by, half, Ui.BTN_H), "undo", _root).pressed.connect(_close)
-		Ui.button(tr("Дальше") if _page < page_count() - 1 else tr("Раньше"), Rect2(cx + half + Ui.BTN_GAP, by, half, Ui.BTN_H), "", _root).pressed.connect(_turn)
-	else:
-		Ui.button(tr("Назад"), Rect2(cx, by, cw, Ui.BTN_H), "undo", _root).pressed.connect(_close)
+		return _variant_cards()
+	var cards: Array = []
+	for r in _all_rows():
+		cards.append(_card_for(r))
+	if cards.is_empty():
+		cards.append({"title": "Всё отремонтировано!", "icon": "check", "enabled": false})
+	return cards
 
 
-func _ad_card(cx: float, y: float, cw: float) -> void:
-	var views := int((GameState.meta["shop"] as Dictionary)["star_views"])
-	var b := Ui.button("", Rect2(cx, y, cw, CARD_H), "", _root)
-	b.modulate = Color(1.1, 1.05, 0.8)
-	b.pressed.connect(func() -> void:
-		Shop.watch_for_star(func(ok: bool, got: bool) -> void:
-			if not is_inside_tree():
-				return
-			if got:
-				Audio.sfx("star", 0.0)
-				Fx.burst(_root, Vector2(180, 300), "star", Color("ffe08a"), 12, 240.0, 200.0, 1.0, 1.2)
-			elif not ok:
-				Ui.toast(_root, tr("Реклама недоступна"), Vector2(180, 590))
-			_build()))
-	var tw := cw - 24.0 - 52.0
-	Ui.label(tr("Звезда за рекламу"), Rect2(cx + 12.0, y + 12.0, tw, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM, _root, HORIZONTAL_ALIGNMENT_LEFT, true)
-	Ui.label(tr("Два ролика = 1★ (%d/2)") % views, Rect2(cx + 12.0, y + 12.0 + Ui.LINE_H, cw - 24.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
-	var price := Ui.label("+★1", Rect2(cx + cw - 12.0 - 48.0, y + 12.0, 48.0, Ui.LINE_H), Ui.FONT_SIZE, Color("ffd640"), _root, HORIZONTAL_ALIGNMENT_RIGHT)
-	price.add_theme_color_override("font_outline_color", Ui.INK)
-	price.add_theme_constant_override("outline_size", Ui.PX)
-
-
-func _card(r: Dictionary, cx: float, y: float, cw: float) -> void:
+func _card_for(r: Dictionary) -> Dictionary:
 	if String(r["id"]) == "__ad__":
-		_ad_card(cx, y, cw)
-		return
+		var views := int((GameState.meta["shop"] as Dictionary)["star_views"])
+		return {"title": tr("Звезда за рекламу"), "sub": tr("Два ролика = 1★ (%d/2)") % views, "icon": "video", "tint": Color(1.1, 1.05, 0.8),
+			"action": {"text": "+1", "icon": "star", "press": _watch_for_star}}
 	var id := String(r["id"])
 	var open := GameState.repair_state(id) == "open"
 	var cost := int(r["cost"])
-	var can := open and GameState.stars_free() >= cost
-	var b := Ui.button("", Rect2(cx, y, cw, CARD_H), "", _root)
-	b.disabled = not can
-	b.modulate = Color.WHITE if can else Color(0.62, 0.62, 0.62)
-	b.pressed.connect(_pick.bind(id))
-	var tw := cw - 12.0 - 12.0 - 52.0
-	Ui.label(tr(String(r["name"])), Rect2(cx + 12.0, y + 12.0, tw, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM, _root, HORIZONTAL_ALIGNMENT_LEFT, true)
-	var sub := tr(String(r["blurb"])) if open else _lock_reason(r)
-	Ui.label(sub, Rect2(cx + 12.0, y + 12.0 + Ui.LINE_H, tw + 20.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
-	var price := Ui.label("★%d" % cost, Rect2(cx + cw - 12.0 - 48.0, y + 12.0, 48.0, Ui.LINE_H), Ui.FONT_SIZE, Color("ffd640") if can or not open else Color("c9b27a"), _root, HORIZONTAL_ALIGNMENT_RIGHT)
-	price.add_theme_color_override("font_outline_color", Ui.INK)
-	price.add_theme_constant_override("outline_size", Ui.PX)
+	if not open:
+		return {"title": String(r["name"]), "sub": _lock_reason(r), "icon": "lock", "enabled": false}
+	return {"title": String(r["name"]), "sub": String(r["blurb"]), "icon": String(r["icon"]),
+		"action": {"text": str(cost), "icon": "star", "enabled": GameState.stars_free() >= cost, "press": _pick.bind(id)}}
+
+
+func _watch_for_star() -> void:
+	Shop.watch_for_star(func(ok: bool, got: bool) -> void:
+		if not is_inside_tree():
+			return
+		if got:
+			Audio.sfx("star", 0.0)
+			Fx.burst(_root, Vector2(180, 300), "star", Color("ffe08a"), 12, 240.0, 200.0, 1.0, 1.2)
+		elif not ok:
+			Ui.toast(_root, tr("Реклама недоступна"), Vector2(180, 600))
+		refresh())
 
 
 ## Почему задача закрыта: чего не хватает.
@@ -158,33 +95,29 @@ func _pick(id: String) -> void:
 	var def := GameState.repair_def(id)
 	if not (def.get("variants", []) as Array).is_empty():
 		_choosing = id
-		_build()
+		_page = 0
+		refresh()
 		return
 	_do(id, "")
 
 
-func _build_choice(cx: float, y: float, cw: float, by: float) -> void:
+## Варианты выбора (цвет): образец цвета вместо значка.
+func _variant_cards() -> Array:
 	var def := GameState.repair_def(_choosing)
-	Ui.label(tr(String(def["name"])), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_CENTER, true)
-	y += Ui.LINE_H + Ui.BTN_GAP
+	var key := String(def["effects"][0]["key"])
+	var cards: Array = []
 	for v in def["variants"]:
-		var key := String(def["effects"][0]["key"])
-		var b := Ui.button(tr(String(v["name"])), Rect2(cx + 40.0, y, cw - 40.0, Ui.BTN_H), "", _root)
-		b.pressed.connect(_do.bind(_choosing, String(v["id"])))
-		# образец цвета слева от кнопки
 		var table: Dictionary = Data.styles.get(key, {})
 		var sample: Dictionary = table.get(String(v["id"]), {})
-		var col := Color(String(sample.get("wall", sample.get("a", sample.get("base", "cdb892")))))
-		var chip := ColorRect.new()
-		chip.position = Vector2(cx, y + 4.0)
-		chip.size = Vector2(32.0, Ui.BTN_H - Ui.SHADOW_BUTTON - 4.0)
-		chip.color = col
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_root.add_child(chip)
-		y += Ui.BTN_H + Ui.BTN_GAP
-	Ui.button(tr("Назад"), Rect2(cx, by, cw, Ui.BTN_H), "undo", _root).pressed.connect(func() -> void:
-		_choosing = ""
-		_build())
+		var col := Color(String(sample.get("wall", sample.get("a", sample.get("base", sample.get("ink", "cdb892"))))))
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		for y in range(2, 14):
+			for x in range(2, 14):
+				img.set_pixel(x, y, col)
+		cards.append({"title": String(v["name"]), "sub": String(def["name"]), "icon": ImageTexture.create_from_image(img),
+			"action": {"text": tr("Выбрать"), "icon": "check", "press": _do.bind(_choosing, String(v["id"]))}})
+	return cards
 
 
 func _do(id: String, variant: String) -> void:
@@ -193,14 +126,17 @@ func _do(id: String, variant: String) -> void:
 		Audio.sfx("star", 0.0)
 		Fx.burst(_root, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
 		Fx.confetti(_root, Vector2(180, 260), 18)
-	_build()
+	refresh()
 
 
-func _turn() -> void:
-	_page = (_page + 1) % page_count()
-	_build()
+## «Назад» из выбора варианта возвращает к списку, из списка — закрывает доску.
+func close() -> void:
+	if _choosing != "":
+		_choosing = ""
+		refresh()
+		return
+	super.close()
 
 
 func _close() -> void:
-	closed.emit()
-	queue_free()
+	super.close()

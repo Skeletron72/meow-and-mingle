@@ -11,6 +11,7 @@ const INK := Color("4a2e1a")
 const CREAM := Color("fff1d6")
 
 const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
+const GAME_ICONS: Texture2D = preload("res://assets/ui/icons_game.png")   # свой набор 16×16, см. tools/generators/make_icons.py
 const UI_BTN: Texture2D = preload("res://assets/ui/SquareButton1_wood.png")
 const UI_WOOD: Texture2D = preload("res://assets/ui/WoodenContainer5.png")
 const UI_CREAM: Texture2D = preload("res://assets/ui/SimpleColorContainer1_cream.png")
@@ -74,8 +75,43 @@ static func atlas(tex: Texture2D, region: Rect2) -> AtlasTexture:
 	return a
 
 
+static var _game_rects: Dictionary = {}
+
+
+## Область значка в его листе: сначала свой набор (data/icons.json), потом старый IconsEssential.
+static func icon_rect(icon_name: String) -> Rect2:
+	if _game_rects.is_empty():
+		var f := FileAccess.open("res://data/icons.json", FileAccess.READ)
+		if f != null:
+			var parsed: Variant = JSON.parse_string(f.get_as_text())
+			if parsed is Dictionary:
+				for k in parsed:
+					var a: Array = parsed[k]
+					_game_rects[String(k)] = Rect2(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
+	if _game_rects.has(icon_name):
+		return _game_rects[icon_name]
+	return ICON_RECTS[icon_name]
+
+
+static func has_icon(icon_name: String) -> bool:
+	icon_rect("star")   # прогрев
+	return _game_rects.has(icon_name) or ICON_RECTS.has(icon_name)
+
+
 static func icon(icon_name: String) -> AtlasTexture:
+	icon_rect("star")
+	if _game_rects.has(icon_name):
+		return atlas(GAME_ICONS, _game_rects[icon_name])
 	return atlas(ICONS, ICON_RECTS[icon_name])
+
+
+## Чётное число пикселей (сетка арта: 1 пиксель = 2 логических).
+static func snap(v: float) -> float:
+	return roundf(v / float(PX)) * float(PX)
+
+
+static func snap_v(v: Vector2) -> Vector2:
+	return Vector2(snap(v.x), snap(v.y))
 
 
 ## Неделимые края рамки в пикселях текстуры: левый, верхний, правый, нижний.
@@ -101,7 +137,7 @@ static func panel(r: Rect2, tex: Texture2D, parent: Node) -> NinePatchRect:
 	n.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	n.size = (r.size / float(PX)).floor()
 	n.scale = Vector2(PX, PX)
-	n.position = r.position
+	n.position = snap_v(r.position)
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	n.set_meta("outer", Rect2(r.position, (r.size / float(PX)).floor() * float(PX)))
 	var sz := (r.size / float(PX)).floor() * float(PX)
@@ -133,8 +169,8 @@ static func label(text: String, r: Rect2, font_size: int, color: Color, parent: 
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var lh := font.get_height(font_size) * float(maxi(1, lines.size()))
 	var top := floorf(maxf(0.0, r.size.y - lh) / 2.0 / float(PX)) * float(PX)   # чётный сдвиг от верха рамки
-	l.position = Vector2(r.position.x, r.position.y + top)
-	l.size = Vector2(r.size.x, maxf(lh, r.size.y - top))
+	l.position = snap_v(Vector2(r.position.x, r.position.y + top))
+	l.size = snap_v(Vector2(r.size.x, maxf(lh, r.size.y - top)))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	return l
@@ -187,13 +223,13 @@ static func set_button_text(b: Button, text: String) -> void:
 static func button(text: String, r: Rect2, icon_name: String, parent: Node, narrow := false, tex: Texture2D = null, danger := false) -> Button:
 	var b := Button.new()
 	var target := (r.size / float(PX)).floor() * float(PX)
-	b.position = r.position
+	b.position = snap_v(r.position)
 	b.focus_mode = Control.FOCUS_NONE
 	b.clip_text = true
 	# у кнопки с иконкой и текстом слева остаётся место под иконку
 	var pad := 0.0
 	if icon_name != "" and text != "":
-		pad = (ICON_RECTS[icon_name] as Rect2).size.x * PX + 8.0
+		pad = icon_rect(icon_name).size.x * PX + 8.0
 	if not narrow and text != "" and FONT_MAIN.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x + 8.0 + PX * 2.0 + pad > target.x - 8.0:
 		narrow = true   # длинная подпись на кнопке — узкий шрифт
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
@@ -225,7 +261,7 @@ static func button(text: String, r: Rect2, icon_name: String, parent: Node, narr
 	b.button_up.connect(func() -> void: skin.modulate = Color.WHITE)
 	parent.add_child(b)
 	if icon_name != "":
-		var region: Rect2 = ICON_RECTS[icon_name]
+		var region: Rect2 = icon_rect(icon_name)
 		var tr_ := TextureRect.new()
 		tr_.texture = icon(icon_name)
 		tr_.stretch_mode = TextureRect.STRETCH_SCALE

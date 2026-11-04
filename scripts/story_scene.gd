@@ -49,7 +49,7 @@ func _ready() -> void:
 	_label.size = Vector2(336 - 2 * Ui.PAGE_PAD_X, Ui.LINE_H * 3.0)
 	var skip := Ui.button(tr("Пропустить"), Rect2(222, 590, 126, 40), "", _root, true)
 	skip.pressed.connect(_finish)
-	var hint := Ui.label(tr("Нажми, чтобы продолжить"), Rect2(12, 596, 200, 32), Ui.FONT_SIZE, Color("b8a58c"), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var hint := Ui.label(tr("Нажми — дальше"), Rect2(12, 596, 206, 32), Ui.FONT_SIZE, Color("b8a58c"), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var blink := hint.create_tween().set_loops()
 	blink.tween_property(hint, "modulate:a", 0.3, 0.7).set_trans(Tween.TRANS_SINE)
 	blink.tween_property(hint, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
