@@ -3,30 +3,135 @@
 		"id": "pryanik",
 		"name": "Пряник",
 		"fav_drink": "latte",
-		"window": null,
-		"chapters": 7,
 		"sprite": "cat-waiter-front.png",
 		"tint": "#e9c9a0",
-		"starter": true
+		"starter": true,
+		"role": "normal",
+		"bio": "Официант с претензией",
+		"lines": [
+			"Латте — это почти объятие.",
+			"Я подаю, но тайно дегустирую пенку.",
+			"Мама говорила: «Пряник, держи спину и поднос»."
+		]
 	},
 	{
 		"id": "tucha",
 		"name": "Тучка",
 		"fav_drink": "espresso",
-		"window": null,
-		"chapters": 7,
 		"sprite": "cat-black-front.png",
 		"tint": "#ffffff",
-		"starter": true
+		"starter": true,
+		"role": "normal",
+		"bio": "Над ним вечное облачко",
+		"lines": [
+			"Эспрессо. Покрепче моего дня.",
+			"Над мной всегда личное облачко. Зато тут тепло.",
+			"Знаешь, что я люблю? Когда не спрашивают, как дела."
+		]
 	},
 	{
 		"id": "ryzhik",
 		"name": "Рыжик",
 		"fav_drink": "matcha_latte",
-		"window": null,
-		"chapters": 7,
 		"sprite": "cat-orange-front.png",
 		"tint": "#ffffff",
-		"starter": true
+		"starter": true,
+		"role": "normal",
+		"bio": "Мечтает о матче",
+		"lines": [
+			"Матча-латте — моя мечта. Пока — чай.",
+			"Рыжие коты не ждут. Они терпеливо возмущаются.",
+			"Сметанка обещала зайти. Если что — я не скучаю."
+		]
+	},
+	{
+		"id": "bulka",
+		"name": "Булка",
+		"fav_drink": "cocoa",
+		"sprite": "cat-waiter-front.png",
+		"tint": "#ffb59e",
+		"role": "normal",
+		"bio": "Круглый добряк",
+		"starter": false,
+		"lines": [
+			"Какао греет лапы. И душу. И живот.",
+			"Я не толстый, я круглый по замыслу.",
+			"В детстве мама Мурлена угощала меня первым."
+		]
+	},
+	{
+		"id": "suharik",
+		"name": "Сухарик",
+		"fav_drink": "espresso",
+		"sprite": "cat-orange-front.png",
+		"tint": "#ffe28a",
+		"role": "rushed",
+		"bio": "Вечно спешит",
+		"starter": false,
+		"lines": [
+			"Мне бы побыстрее, у меня дела!",
+			"Какие дела? Сидеть на подоконнике. Но срочно!",
+			"Спасибо за скорость. Ты — как часы."
+		]
+	},
+	{
+		"id": "bayun",
+		"name": "Баюн",
+		"fav_drink": "sea_tea",
+		"sprite": "cat-black-front.png",
+		"tint": "#a8b8ff",
+		"role": "gourmet",
+		"bio": "Сказочный гурман",
+		"starter": false,
+		"lines": [
+			"Чай, милейший, но чтобы с историей.",
+			"Я рассказывал, как однажды выпил чай с луной?",
+			"Для сказочника важна подача. И сироп."
+		]
+	},
+	{
+		"id": "marusya",
+		"name": "Маруся",
+		"fav_drink": "tea",
+		"sprite": "cat-waiter-front.png",
+		"tint": "#b8c9b0",
+		"role": "normal",
+		"bio": "Бабушка района",
+		"starter": false,
+		"lines": [
+			"Деточка, у вас сырники — как у моей бабушки.",
+			"Весь район помнит, как твоя мама пекла по воскресеньям.",
+			"Возьму тебе пирожков. Не спорь. Лапка у тебя тощая."
+		]
+	},
+	{
+		"id": "dymka",
+		"name": "Дымка",
+		"fav_drink": "matcha_latte",
+		"sprite": "cat-black-front.png",
+		"tint": "#d9a8ff",
+		"role": "normal",
+		"bio": "Мечтательница",
+		"starter": false,
+		"lines": [
+			"Матча пахнет дождём после грозы.",
+			"Письма мамы лежали в ящике. Ты ведь их нашёл?",
+			"Мечтать надо тихо. Чтобы не спугнуть."
+		]
+	},
+	{
+		"id": "usov",
+		"name": "Профессор Усов",
+		"fav_drink": "raf",
+		"sprite": "cat-orange-front.png",
+		"tint": "#a8794a",
+		"role": "gourmet",
+		"bio": "Строгий критик",
+		"starter": false,
+		"lines": [
+			"Профессор Усов. Пробую всё и всех.",
+			"Ваш раф… сносен. Это комплимент.",
+			"Кафе без характера — склад. Здесь — характер."
+		]
 	}
 ]

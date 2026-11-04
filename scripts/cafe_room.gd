@@ -258,7 +258,11 @@ func set_lighting(day: float, night: float) -> void:
 	_night = night
 	for g in _lamp_glows:
 		g.modulate.a = 0.12 + 0.34 * night
-	_windows = _windows.filter(func(w: WindowGlow) -> bool: return is_instance_valid(w))
+	var alive: Array[WindowGlow] = []   # после перестройки зала (ремонт) часть окон уже освобождена
+	for w in _windows:
+		if is_instance_valid(w):
+			alive.append(w)
+	_windows = alive
 	for w in _windows:
 		w.apply(day, night)
 

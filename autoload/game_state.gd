@@ -32,6 +32,7 @@ var stars_bonus := 0               # звёзды не из уровней (на
 var stars_spent := 0               # потрачено на ремонт
 var repairs: Array[String] = []     # выполненные задачи ремонта (data/repairs.json)
 var unlocks: Array[String] = []     # открытое ремонтом: "drink:cocoa", "pastry:eclair", "source:syrup", "cat:bulka"
+var story_seen: Array[String] = []  # показанные сюжетные сцены (data/story.json)
 var style: Dictionary = {}          # выбранные цвета: {"wall": "mint", "floor": "dark", "trim": "red"}
 var shifts_played := 0             # завершённых смен (для подсказок: магазин после 3-й и т. п.)
 var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
@@ -62,6 +63,7 @@ func new_game() -> void:
 	stars_spent = 0
 	repairs = []
 	unlocks = []
+	story_seen = []
 	style = {}
 	shifts_played = 0
 	if install_id == "":
@@ -294,6 +296,22 @@ func stage_after_tutorial() -> int:
 	return INTRO_DONE
 
 
+## Сцены, которые нужно показать после события: kind — "repair" или "level", id — задача или уровень. Уже показанные не повторяются.
+func story_for(kind: String, id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for s in Data.story:
+		var t: Dictionary = s["trigger"]
+		if String(t["kind"]) == kind and String(t["id"]) == id and not (String(s["id"]) in story_seen):
+			out.append(s)
+	return out
+
+
+func mark_story_seen(id: String) -> void:
+	if not (id in story_seen):
+		story_seen.append(id)
+		save_game()
+
+
 func get_setting(key: String) -> Variant:
 	return settings.get(key, SETTINGS_DEFAULT.get(key))
 
@@ -402,6 +420,38 @@ func register_served() -> void:
 	served_total += 1
 
 
+# ---------------------------------------------------------------- коты: симпатия и записи
+
+const LIKE_STEPS := [5, 15, 30]       # сколько заказов нужно коту для 1-й, 2-й и 3-й записи в «Книге котов»
+const LIKE_REWARD := [20, 40, 80]     # монеты за запись
+
+
+func cat_likes(id: String) -> int:
+	return int((cat_progress.get(id, {}) as Dictionary).get("likes", 0))
+
+
+## Сколько записей открыто (0..3).
+func cat_entries(id: String) -> int:
+	var n := 0
+	for step in LIKE_STEPS:
+		if cat_likes(id) >= int(step):
+			n += 1
+	return n
+
+
+## Кот получил свой заказ: +1 симпатия. Возвращает номер новой записи (0..2) или -1; монеты за запись начисляются сразу.
+func add_like(id: String) -> int:
+	var before := cat_entries(id)
+	var rec: Dictionary = cat_progress.get(id, {"likes": 0})
+	rec["likes"] = int(rec.get("likes", 0)) + 1
+	cat_progress[id] = rec
+	var after := cat_entries(id)
+	if after > before:
+		add_coins(int(LIKE_REWARD[after - 1]))
+		Platform.track("cat_entry", {"cat": id, "entry": after})
+		return after - 1
+	return -1
+
 ## Смена закончена (не обучающая): считаем для подсказок и аналитики.
 func register_shift() -> void:
 	shifts_played += 1
@@ -430,6 +480,7 @@ func save_game() -> void:
 		"stars_spent": stars_spent,
 		"repairs": repairs,
 		"unlocks": unlocks,
+		"story_seen": story_seen,
 		"style": style,
 		"shifts_played": shifts_played,
 		"settings": settings,
@@ -521,6 +572,7 @@ func load_game() -> void:
 	stars_spent = maxi(int(data.get("stars_spent", 0)), 0)
 	repairs = _string_array(data.get("repairs", []))
 	unlocks = _string_array(data.get("unlocks", []))
+	story_seen = _string_array(data.get("story_seen", []))
 	style = _sanitize_style(data.get("style", {}))
 	shifts_played = maxi(int(data.get("shifts_played", 0)), 0)
 	settings = SETTINGS_DEFAULT.duplicate()

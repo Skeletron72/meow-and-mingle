@@ -25,6 +25,8 @@ func _ready() -> void:
 	await _test_menu()
 	_test_s2()
 	_test_content()
+	_test_cats_story()
+	await _test_ui_screens()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -423,3 +425,140 @@ func _same_set(a: Array, b: Array) -> bool:
 		if not (x in b):
 			return false
 	return true
+
+
+## S3: коты, симпатия и записи, сюжетные сцены, доска ремонта и книга котов (интерфейс).
+func _test_cats_story() -> void:
+	GameState.new_game()
+	_check(Data.cats.size() == 9, "в кафе 9 котов (%d)" % Data.cats.size())
+	var ids := {}
+	for c in Data.cats:
+		_check(not ids.has(String(c["id"])), "кот «%s»: id не повторяется" % c["id"])
+		ids[String(c["id"])] = true
+		_check(Data.drinks.has(String(c["fav_drink"])), "кот «%s»: любимый напиток существует" % c["id"])
+		_check(ResourceLoader.exists("res://assets/cats/%s" % String(c["sprite"])), "кот «%s»: лист спрайтов есть" % c["id"])
+		_check((c["lines"] as Array).size() == 3 and String(c["role"]) in ["normal", "rushed", "gourmet"], "кот «%s»: три записи и роль" % c["id"])
+	# каждого не-стартового кота открывает ровно одна задача ремонта
+	for c in Data.cats:
+		if bool(c["starter"]):
+			continue
+		var n := 0
+		for r in Data.repairs:
+			for e in r["effects"]:
+				if String(e["kind"]) == "unlock" and String(e["key"]) == "cat:%s" % c["id"]:
+					n += 1
+		_check(n == 1, "кота «%s» открывает одна задача ремонта (%d)" % [c["id"], n])
+	_check(GameState.cats_available().size() == 3, "сначала приходят только стартовые коты")
+	GameState.unlocks = ["cat:bulka", "cat:usov"]
+	_check(GameState.cats_available().size() == 5, "ремонт зовёт новых котов")
+	# симпатия: записи на 5, 15, 30 заказе, награда монетами
+	var coins0 := GameState.coins
+	var got := []
+	for i in 30:
+		got.append(GameState.add_like("tucha"))
+	_check(got.count(-1) == 27 and got[4] == 0 and got[14] == 1 and got[29] == 2, "записи открываются на 5-м, 15-м и 30-м заказе")
+	_check(GameState.cat_entries("tucha") == 3 and GameState.coins == coins0 + 20 + 40 + 80, "монеты за записи: 20+40+80 (%d)" % (GameState.coins - coins0))
+	_check(GameState.add_like("tucha") == -1 and GameState.cat_entries("tucha") == 3, "после 30-го заказа новых записей нет")
+	# сохранение симпатий
+	GameState.save_game()
+	var likes := GameState.cat_likes("tucha")
+	GameState.new_game()
+	GameState.load_game()
+	_check(GameState.cat_likes("tucha") == likes, "симпатии сохраняются")
+	# сюжет
+	GameState.new_game()
+	_check(Data.story.size() == 9, "9 сюжетных сцен: по три на главу")
+	var repair_ids := {}
+	for r in Data.repairs:
+		repair_ids[String(r["id"])] = true
+	var level_ids := {}
+	for lv in Data.levels:
+		level_ids[String(lv["id"])] = true
+	for s in Data.story:
+		var t: Dictionary = s["trigger"]
+		_check((String(t["kind"]) == "repair" and repair_ids.has(String(t["id"]))) or (String(t["kind"]) == "level" and level_ids.has(String(t["id"]))), "сцена «%s»: событие существует" % s["id"])
+		for line in s["lines"]:
+			var who := String(line["who"])
+			_check(who == "meow" or ids.has(who), "сцена «%s»: говорящий «%s» известен" % [s["id"], who])
+			_check(String(line["text"]).length() <= 84, "сцена «%s»: реплика помещается в 3 строки" % s["id"])
+	_check(GameState.story_for("repair", "bowl").size() == 1, "после «Миски» есть сцена")
+	GameState.mark_story_seen("c1_bulka")
+	_check(GameState.story_for("repair", "bowl").is_empty(), "увиденная сцена не повторяется")
+	GameState.save_game()
+	GameState.new_game()
+	GameState.load_game()
+	_check("c1_bulka" in GameState.story_seen, "увиденные сцены сохраняются")
+	GameState.new_game()
+
+
+func _test_ui_screens() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.stars_bonus = 40
+	GameState.repairs = ["shutters", "cleanup"]
+	GameState.level_stars = {"l1": 7, "l2": 7, "l3": 7, "l4": 7, "l5": 7, "l6": 7}
+	var city: Node2D = load(Nav.CITY).instantiate()
+	add_child(city)
+	await get_tree().process_frame
+	# кнопка звёзд в шапке и доска ремонта
+	_check(city._star_btn != null and city._star_btn.visible and city._star_btn.text == "★%d" % GameState.stars_free(), "кнопка звёзд в шапке показывает свободные звёзды")
+	city._open_repairs()
+	var board: RepairBoard = city._repair_board
+	_check(board != null, "доска ремонта открылась")
+	var rows := board.rows()
+	_check(rows.size() == 28 and String(rows[0]["id"]) in ["wall_paint", "floor", "plant_hall"], "на доске 28 невыполненных задач, открытые первыми (%d)" % rows.size())
+	var first_locked := -1
+	for i in rows.size():
+		if GameState.repair_state(String(rows[i]["id"])) == "locked" and first_locked < 0:
+			first_locked = i
+	for i in rows.size():
+		if GameState.repair_state(String(rows[i]["id"])) == "open":
+			_check(first_locked < 0 or i < first_locked, "открытые задачи идут раньше закрытых")
+	_check(board.page_count() == 7, "7 страниц по 4 карточки (%d)" % board.page_count())
+	# выбор варианта и покупка
+	var stars0 := GameState.stars_free()
+	board._pick("wall_paint")
+	_check(board._choosing == "wall_paint", "у стен спрашивается вариант")
+	board._do("wall_paint", "rose")
+	await get_tree().process_frame
+	_check(GameState.has_repair("wall_paint") and GameState.style["wall"] == "rose" and GameState.stars_free() == stars0 - 2, "стены стали розовыми за 2★")
+	board._pick("plant_hall")
+	_check(GameState.has_repair("plant_hall"), "задача без выбора оплачивается сразу")
+	board._close()
+	await get_tree().process_frame
+	_check(city._repair_board == null, "доска закрылась")
+	var plants := 0
+	for it in GameState.layout:
+		if String(it["id"]) == "plant":
+			plants += 1
+	_check(plants >= 1, "цветок появился в зале")
+	# Книга котов
+	GameState.unlocks = ["cat:bulka"]
+	var book := CatBook.new()
+	add_child(book)
+	await get_tree().process_frame
+	_check(book.page_count() == 3, "книга котов: 9 котов — 3 страницы")
+	var known := 0
+	for c in Data.cats:
+		if book.is_known(c):
+			known += 1
+	_check(known == 4, "в книге открыты 4 кота (3 стартовых + Булка)")
+	_check(book.hint_for("marusya").contains("Сырники") or book.hint_for("marusya").contains("Syrniki") or book.hint_for("marusya") != "", "у закрытого кота есть подсказка, как его позвать")
+	book._say("tucha")
+	book._close()
+	# сюжетная сцена: реплики по очереди, конец помечает сцену увиденной
+	var scene := StoryScene.new()
+	scene.scene = Data.story[0]
+	add_child(scene)
+	await get_tree().process_frame
+	var done := [false]
+	scene.finished.connect(func() -> void: done[0] = true)
+	_check(scene._index == 0, "сцена началась с первой реплики")
+	for i in 3:
+		scene._busy = false
+		scene._next()
+	await get_tree().process_frame
+	_check(done[0] and String(Data.story[0]["id"]) in GameState.story_seen, "сцена закончилась и отмечена увиденной")
+	city.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()

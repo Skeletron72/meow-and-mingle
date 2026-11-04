@@ -110,6 +110,7 @@ var _intro: Intro                       # интро (ставни и расчи
 var _repair_card: RepairCard
 var _door_wanted := false
 var _star_btn: Button
+var _story_playing := false
 var _repair_board: RepairBoard
 
 
@@ -474,7 +475,8 @@ func _spawn_npcs() -> void:
 	for i in (2 if Quality.low() else 4):
 		var cat := CatWalker.new()
 		_actors.add_child(cat)
-		cat.setup(_nav, Data.cats[i % Data.cats.size()])
+		var avail := GameState.cats_available()
+		cat.setup(_nav, avail[i % avail.size()])
 		cat.position = WorldNav.feet_at(_nav.random_cell(i % 2 == 0))
 		_npcs.append({"cat": cat, "timer": randf_range(0.5, 4.0)})
 
@@ -538,14 +540,16 @@ func _build_menu() -> void:
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
 	# главная
-	var main := _page("main", Ui.column_h(6 if pc else 5), "Меню")
+	var main := _page("main", Ui.column_h(8 if pc else 7), "Меню")
 	_page_button(main, 0, "Продолжить", "play").pressed.connect(_close_menu)
-	_page_button(main, 1, "Украшение", "brush").pressed.connect(_open_decorate)
-	_page_button(main, 2, "Улучшения", "cart").pressed.connect(_open_shop)
-	_page_button(main, 3, "Дневник", "home").pressed.connect(_open_diary)
-	_page_button(main, 4, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
+	_page_button(main, 1, "Ремонт", "brush").pressed.connect(_open_repairs_from_menu)
+	_page_button(main, 2, "Украшение", "flower").pressed.connect(_open_decorate)
+	_page_button(main, 3, "Улучшения", "cart").pressed.connect(_open_shop)
+	_page_button(main, 4, "Коты", "cat").pressed.connect(_open_cat_book)
+	_page_button(main, 5, "Дневник", "home").pressed.connect(_open_diary)
+	_page_button(main, 6, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
 	if pc:
-		_page_button(main, 5, "Выход", "exit").pressed.connect(get_tree().quit)
+		_page_button(main, 7, "Выход", "exit").pressed.connect(get_tree().quit)
 	# настройки
 	var settings := _page("settings", Ui.column_h(7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
@@ -1257,6 +1261,21 @@ func _refresh_star_button() -> void:
 		_star_btn.set_meta("blink", t)
 
 
+func _open_repairs_from_menu() -> void:
+	_close_menu()
+	_open_repairs()
+
+
+func _open_cat_book() -> void:
+	if GameState.intro_stage < GameState.INTRO_DONE:
+		Ui.toast(_menu, tr("Сначала откроем кафе"), Vector2(180, 560))
+		return
+	var book := CatBook.new()
+	book.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(book)   # поверх меню (слой 7 < 10): закрыть книгу — вернуться в меню
+	book.layer = 12
+
+
 func _open_repairs() -> void:
 	if _repair_board != null or _shift_layer != null or _levels_layer != null or GameState.intro_stage < GameState.INTRO_DONE:
 		return
@@ -1274,12 +1293,36 @@ func _on_repair_done(id: String) -> void:
 	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) in ["furniture", "style"]):
 		_room.set_layout(GameState.layout)
 		_room.queue_redraw()
+		_apply_clip_materials()   # новая мебель прячется за фасадом, пока кот снаружи
 		_set_space(_space, Vector2i(-1, -1))
 	for e in effects:
 		if String(e["kind"]) == "upgrade":
 			_on_upgrade_bought(String(e["id"]))
 	_refresh_star_button()
 	_coins_label.text = str(GameState.coins)
+	_play_stories("repair", id)
+
+
+## Показывает ещё не виденные сюжетные сцены для события: по очереди, поверх всего (на время сцены игра стоит).
+func _play_stories(kind: String, id: String) -> void:
+	var list := GameState.story_for(kind, id)
+	if list.is_empty() or _story_playing:
+		return
+	_story_playing = true
+	get_tree().create_timer(0.7).timeout.connect(func() -> void: _play_story_queue(list))
+
+
+func _play_story_queue(list: Array[Dictionary]) -> void:
+	if list.is_empty():
+		_story_playing = false
+		get_tree().paused = false
+		return
+	var scene: Dictionary = list.pop_front()
+	var layer := StoryScene.new()
+	layer.scene = scene
+	add_child(layer)
+	get_tree().paused = true
+	layer.finished.connect(func() -> void: _play_story_queue(list))
 
 
 func _on_upgrade_bought(id: String) -> void:
@@ -1546,6 +1589,9 @@ func _open_shift(tutorial: bool, level := {}) -> void:
 
 func _end_shift(served: int, earned: int) -> void:
 	Audio.music("city")
+	var level_id := ""
+	if _shift_layer.get_child_count() > 0:
+		level_id = String((_shift_layer.get_child(0).level as Dictionary).get("id", ""))
 	_shift_layer.queue_free()
 	_shift_layer = null
 	_world.visible = true
@@ -1557,6 +1603,8 @@ func _end_shift(served: int, earned: int) -> void:
 	_refresh_star_button()
 	if served > 0:
 		Ui.toast(_ui, tr("Смена: подано %d, +%d") % [served, earned], Vector2(180, 150))
+	if level_id != "" and GameState.level_star_count(level_id) >= 1:
+		_play_stories("level", level_id)   # конец главы: сюжетная сцена
 	if GameState.shifts_played == 3 and served > 0 and GameState.upgrades.is_empty():   # третья смена: пора в магазин улучшений
 		get_tree().create_timer(1.6).timeout.connect(func() -> void: Ui.toast(_ui, tr("Загляни в «Улучшения» в меню!"), Vector2(180, 210)))
 

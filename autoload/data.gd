@@ -11,6 +11,7 @@ var intro_layout: Array[Dictionary] = []    # расстановка новог�
 var upgrades: Array[Dictionary] = []        # функциональные улучшения (data/upgrades.json), по порядку
 var levels: Array[Dictionary] = []          # уровни-смены (data/levels.json), по порядку
 var credits: Array[Dictionary] = []         # титры (data/credits.json)
+var story: Array[Dictionary] = []           # сюжетные сцены (data/story.json)
 var chapters: Array[Dictionary] = []        # главы кампании (data/chapters.json)
 var styles: Dictionary = {}                 # палитры стен, пола и плинтусов (data/styles.json)
 var repairs: Array[Dictionary] = []         # задачи ремонта за звёзды (data/repairs.json), по порядку
@@ -31,6 +32,7 @@ func _ready() -> void:
 	levels = _read_array("res://data/levels.json")
 	repairs = _read_array("res://data/repairs.json")
 	chapters = _read_array("res://data/chapters.json")
+	story = _read_array("res://data/story.json")
 	var sf := FileAccess.open("res://data/styles.json", FileAccess.READ)
 	if sf != null:
 		var sp: Variant = JSON.parse_string(sf.get_as_text())

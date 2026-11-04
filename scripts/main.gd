@@ -387,21 +387,25 @@ func _spawn_customer() -> void:
 			if String(c["id"]) == String(o.get("cat", "")):
 				def = c
 	else:
+		var busy := _queue.map(func(e: Dictionary) -> String: return String(e["def"]["id"]))   # одинаковых котов подряд не пускаем
+		var others := GameState.cats_available().filter(func(c: Dictionary) -> bool: return not (String(c["id"]) in busy))
+		if not others.is_empty():
+			def = others.pick_random()
 		var avail := _orderable_drinks()
 		drink_id = avail.pick_random()
+		if String(def.get("fav_drink", "")) in avail and randf() < 0.4:
+			drink_id = String(def["fav_drink"])   # любимый напиток кот заказывает чаще
 		var menu := _pastry_menu()
 		var tp: Dictionary = level.get("types", {})
 		var roll := randf()
-		if roll < float(tp.get("rushed", 0.0)):
+		if String(def.get("role", "normal")) in ["rushed", "gourmet"]:
+			type = String(def["role"])   # у некоторых котов характер: Сухарик всегда спешит, Баюн и Усов — гурманы
+		elif roll < float(tp.get("rushed", 0.0)):
 			type = "rushed"
 		elif roll < float(tp.get("rushed", 0.0)) + float(tp.get("gourmet", 0.0)):
 			type = "gourmet"
 		if not menu.is_empty() and (type == "gourmet" or randf() < float(level.get("pastry", 0.0))):
 			pastry_id = menu.pick_random()
-		var busy := _queue.map(func(e: Dictionary) -> String: return String(e["def"]["id"]))   # одинаковых котов подряд не пускаем
-		var others := GameState.cats_available().filter(func(c: Dictionary) -> bool: return not (String(c["id"]) in busy))
-		if not others.is_empty():
-			def = others.pick_random()
 	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else 1.0)
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
@@ -738,6 +742,9 @@ func _serve(e: Dictionary = {}) -> void:
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
 		total = price + tip + bonus
 		GameState.register_served()
+		var entry := -1 if tutorial else GameState.add_like(String(e["def"]["id"]))
+		if entry >= 0:
+			_toast(tr("Новая запись: %s (+%d)") % [String(e["def"]["name"]), int(GameState.LIKE_REWARD[entry])], Vector2(180, 430))
 		shift_served += 1
 		shift_earned += total
 		streak += 1
