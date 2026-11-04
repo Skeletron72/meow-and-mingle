@@ -41,8 +41,26 @@ func rows() -> Array[Dictionary]:
 	return open + locked
 
 
+## Карточка «звезда за рекламу» нужна, когда на ближайшую задачу не хватает звёзд (1–2) и дневной лимит не исчерпан.
+func ad_card_wanted() -> bool:
+	if not Shop.ad_ready("star"):
+		return false
+	var best := 999
+	for r in rows():
+		if GameState.repair_state(String(r["id"])) == "open":
+			best = mini(best, int(r["cost"]) - GameState.stars_free())
+	return best >= 1 and best <= 2
+
+
 func page_count() -> int:
-	return maxi(1, int(ceil(float(rows().size()) / float(PER_PAGE))))
+	return maxi(1, int(ceil(float(_all_rows().size()) / float(PER_PAGE))))
+
+
+func _all_rows() -> Array:
+	var out: Array = rows()
+	if ad_card_wanted():
+		out.push_front({"id": "__ad__"})
+	return out
 
 
 func _build() -> void:
@@ -68,7 +86,7 @@ func _build() -> void:
 	if _choosing != "":
 		_build_choice(cx, y, cw, by)
 		return
-	var all := rows()
+	var all := _all_rows()
 	_page = clampi(_page, 0, page_count() - 1)
 	var first := _page * PER_PAGE
 	if all.is_empty():
@@ -84,7 +102,32 @@ func _build() -> void:
 		Ui.button(tr("Назад"), Rect2(cx, by, cw, Ui.BTN_H), "undo", _root).pressed.connect(_close)
 
 
+func _ad_card(cx: float, y: float, cw: float) -> void:
+	var views := int((GameState.meta["shop"] as Dictionary)["star_views"])
+	var b := Ui.button("", Rect2(cx, y, cw, CARD_H), "", _root)
+	b.modulate = Color(1.1, 1.05, 0.8)
+	b.pressed.connect(func() -> void:
+		Shop.watch_for_star(func(ok: bool, got: bool) -> void:
+			if not is_inside_tree():
+				return
+			if got:
+				Audio.sfx("star", 0.0)
+				Fx.burst(_root, Vector2(180, 300), "star", Color("ffe08a"), 12, 240.0, 200.0, 1.0, 1.2)
+			elif not ok:
+				Ui.toast(_root, tr("Реклама недоступна"), Vector2(180, 590))
+			_build()))
+	var tw := cw - 24.0 - 52.0
+	Ui.label(tr("Звезда за рекламу"), Rect2(cx + 12.0, y + 12.0, tw, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM, _root, HORIZONTAL_ALIGNMENT_LEFT, true)
+	Ui.label(tr("Два ролика = 1★ (%d/2)") % views, Rect2(cx + 12.0, y + 12.0 + Ui.LINE_H, cw - 24.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.CREAM.darkened(0.15), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var price := Ui.label("+★1", Rect2(cx + cw - 12.0 - 48.0, y + 12.0, 48.0, Ui.LINE_H), Ui.FONT_SIZE, Color("ffd640"), _root, HORIZONTAL_ALIGNMENT_RIGHT)
+	price.add_theme_color_override("font_outline_color", Ui.INK)
+	price.add_theme_constant_override("outline_size", Ui.PX)
+
+
 func _card(r: Dictionary, cx: float, y: float, cw: float) -> void:
+	if String(r["id"]) == "__ad__":
+		_ad_card(cx, y, cw)
+		return
 	var id := String(r["id"])
 	var open := GameState.repair_state(id) == "open"
 	var cost := int(r["cost"])

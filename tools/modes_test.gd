@@ -13,6 +13,7 @@ func _check(cond: bool, msg: String) -> void:
 
 
 func _ready() -> void:
+	GameState.suppress_popups = true   # окна при входе мешали бы тапам в тестах города
 	Loc.override = "ru"           # проверки написаны под русские подписи
 	Loc.apply("ru")
 	TimeOfDay.set_process(false)   # время стоит, пока тест сам его не двигает

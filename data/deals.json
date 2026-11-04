@@ -1,0 +1,64 @@
+[
+ {
+  "id": "d_boosters",
+  "name": "Набор бустеров",
+  "desc": "По одному каждого бустера",
+  "fish": 18,
+  "was": 29,
+  "boosters": {
+   "patience": 1,
+   "double_tips": 1,
+   "auto": 1,
+   "cat_help": 1
+  }
+ },
+ {
+  "id": "d_coins",
+  "name": "Мешок монет",
+  "desc": "300 монет",
+  "fish": 8,
+  "was": 15,
+  "coins": 300
+ },
+ {
+  "id": "d_auto",
+  "name": "Автосборка ×2",
+  "desc": "Два бустера «Автосборка»",
+  "fish": 12,
+  "was": 20,
+  "boosters": {
+   "auto": 2
+  }
+ },
+ {
+  "id": "d_tips",
+  "name": "Чаевые ×2",
+  "desc": "Два бустера «Двойные чаевые»",
+  "fish": 10,
+  "was": 16,
+  "boosters": {
+   "double_tips": 2
+  }
+ },
+ {
+  "id": "d_help",
+  "name": "Три помощника",
+  "desc": "Три бустера «Помощь кота»",
+  "fish": 9,
+  "was": 15,
+  "boosters": {
+   "cat_help": 3
+  }
+ },
+ {
+  "id": "d_mix",
+  "name": "Запас на смену",
+  "desc": "150 монет и две заморозки",
+  "fish": 10,
+  "was": 19,
+  "coins": 150,
+  "boosters": {
+   "patience": 2
+  }
+ }
+]

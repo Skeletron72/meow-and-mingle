@@ -1,0 +1,65 @@
+[
+ {
+  "id": "serve8",
+  "kind": "serve",
+  "target": 8,
+  "name": "Подай 8 заказов",
+  "coins": 40
+ },
+ {
+  "id": "serve15",
+  "kind": "serve",
+  "target": 15,
+  "name": "Подай 15 заказов",
+  "coins": 70
+ },
+ {
+  "id": "pastry4",
+  "kind": "pastry",
+  "target": 4,
+  "name": "Подай 4 выпечки",
+  "coins": 50
+ },
+ {
+  "id": "fast3",
+  "kind": "fast",
+  "target": 3,
+  "name": "3 заказа «Быстро!»",
+  "coins": 60
+ },
+ {
+  "id": "clear2",
+  "kind": "level",
+  "target": 2,
+  "name": "Пройди 2 смены",
+  "coins": 50
+ },
+ {
+  "id": "stars3",
+  "kind": "stars",
+  "target": 3,
+  "name": "Заработай 3 звезды",
+  "fish": 2
+ },
+ {
+  "id": "perfect1",
+  "kind": "perfect",
+  "target": 1,
+  "name": "Смена без ушедших котов",
+  "fish": 2
+ },
+ {
+  "id": "coins150",
+  "kind": "coins",
+  "target": 150,
+  "name": "Заработай 150 монет",
+  "coins": 40
+ },
+ {
+  "id": "tips20",
+  "kind": "tips",
+  "target": 20,
+  "name": "Собери 20 монет чаевых",
+  "coins": 45
+ }
+]

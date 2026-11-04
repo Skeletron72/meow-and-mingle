@@ -11,6 +11,13 @@ var intro_layout: Array[Dictionary] = []    # расстановка новог�
 var upgrades: Array[Dictionary] = []        # функциональные улучшения (data/upgrades.json), по порядку
 var levels: Array[Dictionary] = []          # уровни-смены (data/levels.json), по порядку
 var credits: Array[Dictionary] = []         # титры (data/credits.json)
+var boosters: Array[Dictionary] = []       # бустеры (data/boosters.json)
+var deals: Array[Dictionary] = []          # предложения дня (data/deals.json)
+var daily_gifts: Array[Dictionary] = []    # лента ежедневных подарков, 7 дней (data/daily.json)
+var quest_pool: Array[Dictionary] = []     # шаблоны ежедневных заданий (data/quests.json)
+var legal: Dictionary = {}                 # ссылки на политику, соглашение и поддержку (data/legal.json)
+var shop: Dictionary = {}                  # каталог магазина (data/shop.json)
+var season: Dictionary = {}                # текущий сезон «Мурлык-пасс» (data/season_1.json)
 var story: Array[Dictionary] = []           # сюжетные сцены (data/story.json)
 var chapters: Array[Dictionary] = []        # главы кампании (data/chapters.json)
 var styles: Dictionary = {}                 # палитры стен, пола и плинтусов (data/styles.json)
@@ -33,6 +40,13 @@ func _ready() -> void:
 	repairs = _read_array("res://data/repairs.json")
 	chapters = _read_array("res://data/chapters.json")
 	story = _read_array("res://data/story.json")
+	boosters = _read_array("res://data/boosters.json")
+	deals = _read_array("res://data/deals.json")
+	daily_gifts = _read_array("res://data/daily.json")
+	quest_pool = _read_array("res://data/quests.json")
+	shop = _read_dict("res://data/shop.json")
+	legal = _read_dict("res://data/legal.json")
+	season = _read_dict("res://data/season_1.json")
 	var sf := FileAccess.open("res://data/styles.json", FileAccess.READ)
 	if sf != null:
 		var sp: Variant = JSON.parse_string(sf.get_as_text())
@@ -49,6 +63,15 @@ func _ready() -> void:
 		var parsed: Variant = JSON.parse_string(f.get_as_text())
 		if parsed is Dictionary:
 			street = parsed
+
+
+func _read_dict(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_error("Не удалось открыть %s" % path)
+		return {}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	return parsed if parsed is Dictionary else {}
 
 
 func _read_array(path: String) -> Array[Dictionary]:

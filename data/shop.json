@@ -1,0 +1,71 @@
+{
+ "fish_packs": [
+  {
+   "sku": "fish_50",
+   "rub": 49,
+   "fish": 50
+  },
+  {
+   "sku": "fish_180",
+   "rub": 149,
+   "fish": 180
+  },
+  {
+   "sku": "fish_520",
+   "rub": 399,
+   "fish": 520
+  },
+  {
+   "sku": "fish_1450",
+   "rub": 999,
+   "fish": 1450
+  }
+ ],
+ "starter": {
+  "sku": "starter_pack",
+  "rub": 99,
+  "fish": 100,
+  "boosters": {
+   "patience": 1,
+   "double_tips": 1,
+   "auto": 1
+  },
+  "hours": 72,
+  "min_shifts": 3
+ },
+ "no_ads": {
+  "sku": "no_ads",
+  "rub": 249
+ },
+ "season_pass": {
+  "sku": "season_pass",
+  "rub": 199
+ },
+ "ads": {
+  "shift_double": {
+   "cap": 0
+  },
+  "gift_double": {
+   "cap": 1
+  },
+  "star": {
+   "cap": 6,
+   "per": 2
+  },
+  "offline_double": {
+   "cap": 0
+  },
+  "deal_free": {
+   "cap": 1
+  },
+  "help": {
+   "cap": 0
+  }
+ },
+ "interstitial": {
+  "min_shifts": 10,
+  "min_day": 2,
+  "gap_s": 240
+ },
+ "first_purchase_multiplier": 2
+}

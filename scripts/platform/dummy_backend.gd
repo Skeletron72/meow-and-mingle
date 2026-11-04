@@ -12,6 +12,7 @@ var reviews_requested := 0
 var cloud_text := ""
 var simulate_ads := true
 var simulate_purchases := OS.is_debug_build()
+var restore_skus: Array[String] = []   # что «вернёт» восстановление покупок (тесты)
 
 
 func id() -> String:
@@ -50,13 +51,22 @@ func show_interstitial(_placement: String, cb: Callable) -> void:
 
 func products() -> Array[Dictionary]:
 	return [
-		{"sku": "no_ads", "price": "199 ₽"},
-		{"sku": "starter_pack", "price": "149 ₽"},
+		{"sku": "no_ads", "price": "249 ₽"},
+		{"sku": "starter_pack", "price": "99 ₽"},
+		{"sku": "season_pass", "price": "199 ₽"},
+		{"sku": "fish_50", "price": "49 ₽"},
+		{"sku": "fish_180", "price": "149 ₽"},
+		{"sku": "fish_520", "price": "399 ₽"},
+		{"sku": "fish_1450", "price": "999 ₽"},
 	] as Array[Dictionary]
 
 
 func purchase(sku: String, cb: Callable) -> void:
 	cb.call(simulate_purchases, sku)
+
+
+func restore_purchases(cb: Callable) -> void:
+	cb.call(restore_skus)
 
 
 func cloud_save(text: String) -> void:

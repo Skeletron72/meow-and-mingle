@@ -1,0 +1,40 @@
+[
+ {
+  "day": 1,
+  "coins": 50
+ },
+ {
+  "day": 2,
+  "boosters": {
+   "cat_help": 1
+  }
+ },
+ {
+  "day": 3,
+  "coins": 100
+ },
+ {
+  "day": 4,
+  "fish": 5,
+  "boosters": {
+   "patience": 1
+  }
+ },
+ {
+  "day": 5,
+  "coins": 150
+ },
+ {
+  "day": 6,
+  "boosters": {
+   "double_tips": 1,
+   "auto": 1
+  }
+ },
+ {
+  "day": 7,
+  "fish": 20,
+  "coins": 200,
+  "furniture": "plant"
+ }
+]

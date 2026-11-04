@@ -71,6 +71,40 @@ def main():
     for c in load("cats.json"):
         if not c["starter"] and f"cat:{c['id']}" not in unlock_keys:
             errors.append(f"кот {c['id']}: ничто его не открывает")
+    # мета-игра: бустеры, магазин, подарки, задания, сезон
+    boosters = {b["id"] for b in load("boosters.json")}
+    shop = load("shop.json")
+    def check_reward(where, r):
+        for b in r.get("boosters", {}):
+            if b not in boosters:
+                errors.append(f"{where}: нет бустера {b}")
+        if "furniture" in r and r["furniture"] not in furniture:
+            errors.append(f"{where}: нет мебели {r['furniture']}")
+    for d in load("deals.json"):
+        check_reward("предложение " + d["id"], d)
+        if d["fish"] >= d["was"]:
+            errors.append(f"предложение {d['id']}: цена не ниже «было»")
+    gifts = load("daily.json")
+    if [g["day"] for g in gifts] != list(range(1, 8)):
+        errors.append("лента подарков: нужны дни 1..7 подряд")
+    for g in gifts:
+        check_reward(f"подарок дня {g['day']}", g)
+    kinds = {"serve", "pastry", "fast", "level", "stars", "perfect", "coins", "tips"}
+    for q in load("quests.json"):
+        if q["kind"] not in kinds:
+            errors.append(f"задание {q['id']}: неизвестный вид {q['kind']}")
+    season = load("season_1.json")
+    if len(season["tiers"]) != 30 or [t["tier"] for t in season["tiers"]] != list(range(1, 31)):
+        errors.append("сезон: нужно 30 ступеней подряд")
+    for t in season["tiers"]:
+        check_reward(f"сезон, ступень {t['tier']} (бесплатно)", t["free"])
+        check_reward(f"сезон, ступень {t['tier']} (пасс)", t["premium"])
+    skus = [p["sku"] for p in shop["fish_packs"]] + [shop["starter"]["sku"], shop["no_ads"]["sku"], shop["season_pass"]["sku"]]
+    if len(skus) != len(set(skus)):
+        errors.append("повторяющиеся SKU в shop.json")
+    for b in shop["starter"]["boosters"]:
+        if b not in boosters:
+            errors.append(f"стартовый набор: нет бустера {b}")
     # экономика звёзд
     print(f"{'уровней':>8} {'макс ★':>7} {'средн ★':>8} {'цена задач с after ≤ k':>24}")
     for k in range(0, len(levels) + 1, 5):
@@ -79,6 +113,7 @@ def main():
         if k > 0 and cost > 3 * k + 3:   # +3: звёзды за обучение
             errors.append(f"после {k} уровней задач на {cost}★, а заработать можно максимум {3 * k + 3}")
     total = sum(r["cost"] for r in repairs)
+    print(f"мета: {len(skus)} SKU, {len(load('deals.json'))} предложений дня, {len(load('quests.json'))} шаблонов заданий, сезон {len(season['tiers'])} ступеней")
     print(f"всего задач {len(repairs)}, цена {total}★ из {3 * len(levels) + 3} возможных ({total / (3 * len(levels) + 3):.0%})")
     for e in errors:
         print("ОШИБКА:", e)

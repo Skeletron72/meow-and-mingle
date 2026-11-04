@@ -14,6 +14,15 @@ const SAVE_VERSION := 5
 ## 3 расчистка зала (ремонт за 2★), 4 — не используется (был «первый магазин»), 5 вступление пройдено.
 const INTRO_DONE := 5
 const TUTORIAL_STARS := 3   # звёзды за обучающую смену: на них оплачиваются первые два ремонта
+const META_DEFAULT := {
+	"fish": 0, "boosters": {}, "purchases": [], "first_purchase_done": false,
+	"daily": {"last_day": -1, "streak": 0},
+	"quests": {"day": -1, "items": [], "box": false},
+	"offline": {"pending": 0, "away": 0},
+	"shop": {"deal_day": -1, "deal_taken": false, "starter_shown_day": -1, "starter_start": 0, "ads": {}, "last_interstitial": 0, "star_views": 0},
+	"season": {"id": "", "start_day": -1, "xp": 0, "free": [], "premium": [], "pass": false},
+	"sessions": 0, "notif_asked": false, "return_gift_pending": false, "clock_max": 0, "last_open_day": -1, "return_gift_day": -1,
+}
 const SETTINGS_DEFAULT := {"lang": "auto", "music": 0.8, "sfx": 1.0, "quality": "auto", "analytics": true, "notifications": true}
 
 var coins: int = 0
@@ -32,12 +41,16 @@ var stars_bonus := 0               # звёзды не из уровней (на
 var stars_spent := 0               # потрачено на ремонт
 var repairs: Array[String] = []     # выполненные задачи ремонта (data/repairs.json)
 var unlocks: Array[String] = []     # открытое ремонтом: "drink:cocoa", "pastry:eclair", "source:syrup", "cat:bulka"
+## Мета-состояние удержания и денег (Economy, Daily, Shop): рыбки, бустеры, ежедневка, задания, офлайн-доход, покупки, сезон.
+var meta: Dictionary = META_DEFAULT.duplicate(true)
 var story_seen: Array[String] = []  # показанные сюжетные сцены (data/story.json)
 var style: Dictionary = {}          # выбранные цвета: {"wall": "mint", "floor": "dark", "trim": "red"}
 var shifts_played := 0             # завершённых смен (для подсказок: магазин после 3-й и т. п.)
 var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
 var install_id := ""               # случайный анонимный идентификатор установки (аналитика)
 var first_run_unix := 0
+var suppress_popups := false       # тесты и скриншоты: окна при входе (подарок, офлайн-доход) не показываются
+var away_seconds := 0              # сколько игрока не было до этого запуска (по last_visit_unix из сохранения)
 
 
 func _ready() -> void:
@@ -64,6 +77,7 @@ func new_game() -> void:
 	repairs = []
 	unlocks = []
 	story_seen = []
+	meta = META_DEFAULT.duplicate(true)
 	style = {}
 	shifts_played = 0
 	if install_id == "":
@@ -278,6 +292,29 @@ func style_colors() -> Dictionary:
 	return out
 
 
+## Приводит сохранённое мета-состояние к виду META_DEFAULT: лишнее отбрасывается, недостающее добавляется, типы выравниваются.
+## Словари с пустым образцом (бустеры, счётчики рекламы) принимаются как есть.
+func _sanitize_meta(raw: Variant, def: Dictionary) -> Dictionary:
+	var src: Dictionary = raw if raw is Dictionary else {}
+	var out := {}
+	for k in def:
+		var d: Variant = def[k]
+		if d is Dictionary:
+			if (d as Dictionary).is_empty():
+				out[k] = (src[k] as Dictionary).duplicate(true) if src.get(k) is Dictionary else {}
+			else:
+				out[k] = _sanitize_meta(src.get(k, {}), d)
+		elif d is Array:
+			out[k] = (src[k] as Array).duplicate(true) if src.get(k) is Array else []
+		elif d is bool:
+			out[k] = bool(src.get(k, d))
+		elif d is int:
+			out[k] = int(src.get(k, d))
+		else:
+			out[k] = src.get(k, d)
+	return out
+
+
 func _sanitize_style(raw: Variant) -> Dictionary:
 	var out := {}
 	if raw is Dictionary:
@@ -481,6 +518,7 @@ func save_game() -> void:
 		"repairs": repairs,
 		"unlocks": unlocks,
 		"story_seen": story_seen,
+		"meta": meta,
 		"style": style,
 		"shifts_played": shifts_played,
 		"settings": settings,
@@ -560,6 +598,7 @@ func load_game() -> void:
 	served_total = int(data.get("served_total", 0))
 	cat_progress = data.get("cat_progress", {})
 	last_visit_unix = int(data.get("last_visit_unix", 0))
+	away_seconds = maxi(0, int(Time.get_unix_time_from_system()) - last_visit_unix) if last_visit_unix > 0 else 0
 	layout = _sanitize_layout(data.get("layout", null))
 	TimeOfDay.hour = clampf(float(data.get("hour", 9.0)), 0.0, 24.0)
 	intro_stage = clampi(int(data.get("intro_stage", INTRO_DONE)), 0, INTRO_DONE)
@@ -573,6 +612,7 @@ func load_game() -> void:
 	repairs = _string_array(data.get("repairs", []))
 	unlocks = _string_array(data.get("unlocks", []))
 	story_seen = _string_array(data.get("story_seen", []))
+	meta = _sanitize_meta(data.get("meta", {}), META_DEFAULT)
 	style = _sanitize_style(data.get("style", {}))
 	shifts_played = maxi(int(data.get("shifts_played", 0)), 0)
 	settings = SETTINGS_DEFAULT.duplicate()

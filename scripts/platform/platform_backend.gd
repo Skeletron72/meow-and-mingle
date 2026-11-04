@@ -67,6 +67,11 @@ func request_review() -> void:
 	pass
 
 
+## Разрешение на уведомления (Android 13+). cb(granted: bool). В базе — «разрешено», платформы без запроса ничего не показывают.
+func request_notification_permission(cb: Callable) -> void:
+	cb.call(true)
+
+
 func schedule_notification(_id: String, _seconds: float, _title: String, _body: String) -> void:
 	pass
 

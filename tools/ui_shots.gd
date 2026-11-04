@@ -23,6 +23,7 @@ func _snap(path: String, wait := 0.5, root: Node = null) -> void:
 	f.store_string(JSON.stringify(out))
 func _ready() -> void:
 	var S: String = OS.get_cmdline_user_args()[0]
+	GameState.suppress_popups = true
 	Loc.override = OS.get_environment("MEOW_LANG") if OS.get_environment("MEOW_LANG") != "" else "ru"; Loc.apply("ru")
 	TimeOfDay.set_process(false); Weather.set_process(false); Weather.force(0)
 	GameState.new_game(); GameState.intro_stage = 5

@@ -37,6 +37,19 @@ func apply(code: String) -> void:
 	language_changed.emit(c)
 
 
+## Склонение по числу: forms — [1 монета, 2 монеты, 5 монет] по-русски. В английском — единственное при n = 1, иначе множественное.
+func plural(n: int, forms: Array) -> String:
+	if language == "en":
+		return t(String(forms[0])) if n == 1 else t(String(forms[2]))
+	var m10 := n % 10
+	var m100 := n % 100
+	if m10 == 1 and m100 != 11:
+		return String(forms[0])
+	if m10 >= 2 and m10 <= 4 and (m100 < 10 or m100 >= 20):
+		return String(forms[1])
+	return String(forms[2])
+
+
 ## Перевод строки для кода без доступа к Node.tr() (статические классы).
 func t(text: String) -> String:
 	return TranslationServer.translate(text)

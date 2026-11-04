@@ -52,6 +52,9 @@ var _result: Node2D
 var _tutorial_done_sent := false
 var _tutorial_index := 0
 var _run_started_msec := 0
+var boosters: Array[String] = []   # бустеры на эту смену (выбраны перед началом, списаны со склада)
+var _auto_left := 0               # сколько заказов ещё соберёт «Автосборка»
+var _forgive_left := 0            # сколько ошибок ещё простит «Помощь кота»
 var _idle_msec := 0
 var _shown_coins := 0.0
 
@@ -306,6 +309,8 @@ func _begin_run() -> void:
 	_stats = {"served": 0, "wrong": 0, "left": 0, "times": []}
 	_run_started_msec = Time.get_ticks_msec()
 	Audio.music("shift")
+	_auto_left = 3 if ("auto" in boosters and not tutorial) else 0
+	_forgive_left = 1 if ("cat_help" in boosters and not tutorial) else 0
 	if not tutorial:
 		Platform.track("level_start", {"id": String(level.get("id", "?")), "stars": GameState.level_star_count(String(level.get("id", "?")))})
 	shift_served = 0
@@ -406,7 +411,7 @@ func _spawn_customer() -> void:
 			type = "gourmet"
 		if not menu.is_empty() and (type == "gourmet" or randf() < float(level.get("pastry", 0.0))):
 			pastry_id = menu.pick_random()
-	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else 1.0)
+	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else 1.0) * (1.3 if "patience" in boosters else 1.0)
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
 	cat.setup(def)
@@ -428,8 +433,26 @@ func _on_cat_arrived(e: Dictionary) -> void:
 	e["t0"] = Time.get_ticks_msec()
 	_idle_msec = Time.get_ticks_msec()
 	_make_bubble(e)
+	_try_autofill(e)
 	Fx.burst(_fx, (e["cat"] as CatCustomer).center() + Vector2(0, -44), "sparkle", Color("fff3b0"), 5, 90.0, 40.0, 0.6, 0.8)
 	_update_front()
+	_refresh_cup()
+
+
+## «Автосборка»: первые три заказа смены поднос собирает сам (если поднос пуст и кот первый в очереди).
+func _try_autofill(e: Dictionary) -> void:
+	if _auto_left <= 0 or not _cup.is_empty() or _front() != e:
+		return
+	_auto_left -= 1
+	var order: Dictionary = e["order"]
+	var r: Dictionary = Data.drinks[String(order["drink"])]["recipe"]
+	_cup.base = String(r["base"])
+	_cup.milk = bool(r["milk"])
+	_cup.syrup = bool(r.get("syrup", false))
+	_cup.pastry = String(order["pastry"])
+	_toast(tr("Автосборка!"), Vector2(180, 430))
+	Audio.sfx("pop")
+	Fx.burst(_fx, _tray.position + Vector2(0, -30), "sparkle", Color("ffe9a0"), 8, 130.0, 100.0, 0.7, 1.0)
 	_refresh_cup()
 
 
@@ -722,6 +745,11 @@ func _serve(e: Dictionary = {}) -> void:
 	if tutorial and not ok:
 		_reject_in_tutorial(e)
 		return
+	if not ok and _forgive_left > 0:   # «Помощь кота»: одна ошибка за смену прощается — кот не уходит
+		_forgive_left -= 1
+		_toast(tr("Помощь кота: ошибка прощена"), Vector2(180, 430))
+		_reject_in_tutorial(e)
+		return
 	e["state"] = "done"
 	var total := 0
 	var tip := 0
@@ -738,10 +766,19 @@ func _serve(e: Dictionary = {}) -> void:
 		tip = maxi(1, int(round(price * 0.2)))
 		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
 			tip *= 2   # спешащий щедро благодарит за быструю подачу
+		if "double_tips" in boosters:
+			tip *= 2
 		var target := float(level.get("speed", 10.0))
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
 		total = price + tip + bonus
+		Daily.report("coins", total)
+		Daily.report("tips", tip)
+		if bonus >= 5:
+			Daily.report("fast")
 		GameState.register_served()
+		Daily.report("serve")
+		if pastry_id != "":
+			Daily.report("pastry")
 		var entry := -1 if tutorial else GameState.add_like(String(e["def"]["id"]))
 		if entry >= 0:
 			_toast(tr("Новая запись: %s (+%d)") % [String(e["def"]["name"]), int(GameState.LIKE_REWARD[entry])], Vector2(180, 430))
@@ -878,6 +915,12 @@ func _finish_run() -> void:
 			mask |= 4
 	var new_stars := GameState.record_level(String(level.get("id", "l1")), mask)
 	Platform.track("level_end", {"id": String(level.get("id", "l1")), "mask": mask, "acc": snappedf(accuracy, 0.01), "avg": snappedf(avg, 0.1), "served": served, "lost": int(_stats["left"]), "wrong": int(_stats["wrong"]), "len": int((Time.get_ticks_msec() - _run_started_msec) / 1000)})
+	if mask & 1 != 0:
+		Daily.report("level")
+		if int(_stats["left"]) == 0 and int(_stats["wrong"]) == 0:
+			Daily.report("perfect")
+	Daily.report("stars", new_stars)
+	Shop.add_season_xp(new_stars * 10, "stars")
 	var bonus := new_stars * 10
 	if bonus > 0:
 		GameState.add_coins(bonus)
@@ -898,8 +941,8 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	var w := 336.0
 	var cx := x + Ui.PAGE_PAD_X
 	var cw := w - 2.0 * Ui.PAGE_PAD_X
-	var top := 96.0
-	var h := 466.0
+	var top := 64.0
+	var h := 522.0   # + строка кнопки «×2 за рекламу» / «Помощь кота»
 	Ui.panel(Rect2(x, top, w, h), Ui.UI_WOOD, _result)
 	var done := mask & 1 != 0
 	var y := top + Ui.PAGE_PAD_TOP
@@ -935,10 +978,46 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	Ui.label("Заработано: %d" % shift_earned + ("  (звёзды +%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
 	Ui.button("Ещё раз", Rect2(cx, by - Ui.BTN_H - Ui.BTN_GAP, cw, Ui.BTN_H), "play", _result).pressed.connect(_restart_run)
-	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_end_shift)
+	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_leave_results)
+	# реклама за награду: после смены — монеты ×2; после проваленной — бустер «Помощь кота»
+	var extra_y := by - 2.0 * (Ui.BTN_H + Ui.BTN_GAP)
+	if done and shift_earned > 0 and Shop.ad_ready("shift_double"):
+		var b := Ui.button(tr("Заработок ×2 (реклама)"), Rect2(cx, extra_y, cw, Ui.BTN_H), "coin", _result)
+		b.pressed.connect(_double_earnings.bind(b))
+	elif not done and Shop.ad_ready("help"):
+		var b2 := Ui.button(tr("Помощь кота (реклама)"), Rect2(cx, extra_y, cw, Ui.BTN_H), "cat", _result)
+		b2.pressed.connect(_help_by_ad.bind(b2))
+
+
+func _double_earnings(btn: Button) -> void:
+	btn.disabled = true
+	Shop.show_ad("shift_double", func(ok: bool) -> void:
+		if ok:
+			Economy.earn_coins(shift_earned, "shift_double")
+			_toast(tr("Монеты удвоены: +%d") % shift_earned, Vector2(180, 40))
+			btn.queue_free()
+		else:
+			btn.disabled = false)
+
+
+func _help_by_ad(btn: Button) -> void:
+	btn.disabled = true
+	Shop.show_ad("help", func(ok: bool) -> void:
+		if ok:
+			Economy.add_booster("cat_help", 1, "ad")
+			_toast(tr("Помощь кота получена!"), Vector2(180, 40))
+			btn.queue_free()
+		else:
+			btn.disabled = false)
+
+
+## «В кафе»: между сменами иногда показывается принудительная реклама (не раньше 10-й смены; правила — Shop.maybe_interstitial).
+func _leave_results() -> void:
+	Shop.maybe_interstitial(_end_shift)
 
 
 func _restart_run() -> void:
+	boosters.clear()   # бустеры были на одну смену
 	if _result != null:
 		_result.queue_free()
 		_result = null

@@ -24,6 +24,9 @@ TimeOfDay="*res://autoload/time_of_day.gd"
 Weather="*res://autoload/weather.gd"
 Platform="*res://autoload/platform.gd"
 GameState="*res://autoload/game_state.gd"
+Economy="*res://autoload/economy.gd"
+Daily="*res://autoload/daily.gd"
+Shop="*res://autoload/shop.gd"
 Audio="*res://autoload/audio.gd"
 
 [shader_globals]

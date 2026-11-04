@@ -111,6 +111,9 @@ var _repair_card: RepairCard
 var _door_wanted := false
 var _star_btn: Button
 var _story_playing := false
+var _badge: ColorRect
+var _popup_queue: Array[Callable] = []
+var _popup_busy := false
 var _repair_board: RepairBoard
 
 
@@ -151,6 +154,7 @@ func _ready() -> void:
 	_apply_safe_area()
 	get_viewport().size_changed.connect(_apply_safe_area)
 	Audio.music("city")
+	_start_session_popups.call_deferred()
 	_build_fade()
 	_build_menu()
 	_start_intro_if_needed()
@@ -514,6 +518,13 @@ func _build_ui() -> void:
 	_clock_btn.pressed.connect(_skip_hour)
 	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)
 	gear.pressed.connect(_open_menu)
+	_badge = ColorRect.new()   # красная точка на шестерёнке: есть что забрать (задания, пропуск, подарок)
+	_badge.color = Color("e0432f")
+	_badge.position = Vector2(338, 10)
+	_badge.size = Vector2(12, 12)
+	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_badge.visible = false
+	_ui.add_child(_badge)
 	_star_btn = Ui.button("★0", Rect2(232, 8, 60, 48), "", _ui, false, Ui.UI_CREAM)   # доска ремонта: сколько звёзд свободно
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		_star_btn.add_theme_color_override(c, Color("b87a10"))
@@ -540,16 +551,23 @@ func _build_menu() -> void:
 	_menu.add_child(dim)
 	var pc := OS.has_feature("pc")
 	# главная
-	var main := _page("main", Ui.column_h(8 if pc else 7), "Меню")
+	var main := _page("main", Ui.column_h(9 if pc else 8), "Меню")
 	_page_button(main, 0, "Продолжить", "play").pressed.connect(_close_menu)
 	_page_button(main, 1, "Ремонт", "brush").pressed.connect(_open_repairs_from_menu)
-	_page_button(main, 2, "Украшение", "flower").pressed.connect(_open_decorate)
-	_page_button(main, 3, "Улучшения", "cart").pressed.connect(_open_shop)
-	_page_button(main, 4, "Коты", "cat").pressed.connect(_open_cat_book)
-	_page_button(main, 5, "Дневник", "home").pressed.connect(_open_diary)
-	_page_button(main, 6, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
+	_page_button(main, 2, "Задания", "check").pressed.connect(_open_meta.bind("quests"))
+	_page_button(main, 3, "Магазин", "coin").pressed.connect(_open_meta.bind("shop"))
+	_page_button(main, 4, "Украшение", "flower").pressed.connect(_open_decorate)
+	_page_button(main, 5, "Улучшения", "cart").pressed.connect(_open_shop)
+	_page_button(main, 6, "Ещё", "home").pressed.connect(_menu_page.bind("more"))
+	_page_button(main, 7, "Настройки", "gear").pressed.connect(_menu_page.bind("settings"))
 	if pc:
-		_page_button(main, 7, "Выход", "exit").pressed.connect(get_tree().quit)
+		_page_button(main, 8, "Выход", "exit").pressed.connect(get_tree().quit)
+	# «Ещё»: коты, дневник, сезонный пропуск
+	var more := _page("more", Ui.column_h(4), "Ещё")
+	_page_button(more, 0, "Коты", "cat").pressed.connect(_open_cat_book)
+	_page_button(more, 1, "Дневник", "home").pressed.connect(_open_diary)
+	_page_button(more, 2, "Мурлык-пасс", "flower").pressed.connect(_open_meta.bind("season"))
+	_page_button(more, 3, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
 	# настройки
 	var settings := _page("settings", Ui.column_h(7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
@@ -565,14 +583,21 @@ func _build_menu() -> void:
 	_page_button(settings, 5, "Аккаунт", "home").pressed.connect(_menu_page.bind("account"))
 	_page_button(settings, 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
 	# аккаунт: статистика, конфиденциальность, титры и спрятанный сброс
-	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(4), "Аккаунт")
+	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(5), "Аккаунт")
 	var ac: Rect2 = account.get_meta("content")
 	_account_stats = Ui.label("\n\n", Rect2(ac.position, Vector2(ac.size.x, 84)), Ui.FONT_SIZE, Ui.INK, account, HORIZONTAL_ALIGNMENT_CENTER, true)
 	_privacy_btn = _page_button(account, 0, "Аналитика: вкл", "check", false, 92.0)
 	_privacy_btn.pressed.connect(_cycle_setting.bind("analytics"))
 	_page_button(account, 1, "Титры", "cat", false, 92.0).pressed.connect(_open_credits)
-	_page_button(account, 2, "Сбросить прогресс", "trash", true, 92.0).pressed.connect(_menu_page.bind("confirm"))
-	_page_button(account, 3, "Назад", "undo", false, 92.0).pressed.connect(_menu_page.bind("settings"))
+	_page_button(account, 2, "Документы", "home", false, 92.0).pressed.connect(_menu_page.bind("docs"))
+	_page_button(account, 3, "Сбросить прогресс", "trash", true, 92.0).pressed.connect(_menu_page.bind("confirm"))
+	_page_button(account, 4, "Назад", "undo", false, 92.0).pressed.connect(_menu_page.bind("settings"))
+	# документы: политика конфиденциальности, соглашение, поддержка (адреса — data/legal.json; площадкам нужна ссылка внутри игры)
+	var docs := _page("docs", Ui.column_h(4), "Документы")
+	_page_button(docs, 0, "Конфиденциальность", "check").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["privacy_url"])))
+	_page_button(docs, 1, "Соглашение", "check").pressed.connect(func() -> void: OS.shell_open(String(Data.legal["terms_url"])))
+	_page_button(docs, 2, "Поддержка", "cat").pressed.connect(func() -> void: OS.shell_open("mailto:" + String(Data.legal["support_email"])))
+	_page_button(docs, 3, "Назад", "undo").pressed.connect(_menu_page.bind("account"))
 	# подтверждение сброса
 	var confirm := _page("confirm", 56.0 + Ui.BTN_GAP + Ui.column_h(2), "Сбросить прогресс?")
 	var cc: Rect2 = confirm.get_meta("content")
@@ -1261,6 +1286,129 @@ func _refresh_star_button() -> void:
 		_star_btn.set_meta("blink", t)
 
 
+## Экраны мета-игры (магазин, задания, пропуск) поверх меню: закрыл — вернулся в меню.
+func _open_meta(which: String) -> void:
+	if GameState.intro_stage < GameState.INTRO_DONE:
+		Ui.toast(_menu, tr("Сначала откроем кафе"), Vector2(180, 560))
+		return
+	var s: ListScreen
+	match which:
+		"shop":
+			s = MetaScreens.open_shop(self)
+		"quests":
+			s = MetaScreens.open_quests(self)
+		_:
+			s = MetaScreens.open_season(self)
+	s.layer = 12
+	s.closed.connect(_refresh_badges)
+
+
+## Красная точка на шестерёнке: подарок, задания или награды пропуска ждут.
+func _refresh_badges() -> void:
+	if _badge == null:
+		return
+	_badge.visible = GameState.intro_stage >= GameState.INTRO_DONE and (Daily.gift_ready() or Daily.claimable_count() > 0 or Shop.season_claimable() > 0)
+
+
+# ---------------------------------------------------------------- окна при входе: подарок, офлайн-доход, предложения
+
+## Ставит окно в очередь: окна идут по одному (подарок → офлайн-доход → подарок за возвращение → предложение → уведомления).
+func _queue_popup(f: Callable) -> void:
+	_popup_queue.append(f)
+	if not _popup_busy:
+		_next_popup()
+
+
+func _next_popup() -> void:
+	if _popup_queue.is_empty():
+		_popup_busy = false
+		_refresh_badges()
+		return
+	_popup_busy = true
+	var f: Callable = _popup_queue.pop_front()
+	f.call()
+
+
+func _popup_done() -> void:
+	_refresh_badges()
+	_coins_label.text = str(GameState.coins)
+	get_tree().create_timer(0.35).timeout.connect(_next_popup)
+
+
+## Что показать при запуске города (только после вступления и не во время смены).
+func _start_session_popups() -> void:
+	if GameState.intro_stage < GameState.INTRO_DONE or GameState.suppress_popups:
+		return
+	Daily.start_session()
+	if Daily.gift_ready():
+		_queue_popup(_show_gift)
+	if Daily.offline_pending() > 0:
+		_queue_popup(_show_offline)
+	if bool(GameState.meta["return_gift_pending"]):
+		_queue_popup(_show_return_gift)
+	# возврат из фона (мобильные): те же окна
+	Daily.offline_ready.connect(func(_c: int) -> void: _queue_popup(_show_offline))
+	Daily.return_gift_ready.connect(func() -> void: _queue_popup(_show_return_gift))
+	var offer := Shop.offer_to_show()
+	if offer != "":
+		_queue_popup(_show_offer.bind(offer))
+	if Daily.should_ask_notifications():
+		_queue_popup(_show_notif_ask)
+	_refresh_badges()
+
+
+func _show_gift() -> void:
+	var g := GiftPopup.new()
+	add_child(g)
+	g.finished.connect(_popup_done)
+
+
+func _show_offline() -> void:
+	var n := Daily.offline_pending()
+	if n <= 0:
+		_popup_done()
+		return
+	var p := InfoPopup.open(self, "С возвращением!", tr("Пока тебя не было, кафе заработало %d монет.") % n, [tr("Забрать"), tr("×2 за рекламу")] as Array[String], ["check", "play"] as Array[String])
+	p.chosen.connect(func(i: int) -> void:
+		if i == 1:
+			Shop.show_ad("offline_double", func(ok: bool) -> void:
+				Daily.claim_offline(ok)
+				if not ok:
+					Ui.toast(_ui, tr("Реклама недоступна — забрано без удвоения"), Vector2(180, 150))
+				_popup_done())
+		else:
+			Daily.claim_offline(false)
+			_popup_done())
+
+
+func _show_return_gift() -> void:
+	var p := InfoPopup.open(self, "Мы скучали!", tr("Тебя не было несколько дней. Держи подарок: 5 рыбок и два бустера."), [tr("Забрать")] as Array[String], ["check"] as Array[String])
+	p.chosen.connect(func(_i: int) -> void:
+		Daily.claim_return_gift()
+		_popup_done())
+
+
+func _show_offer(sku: String) -> void:
+	Shop.mark_offer_shown(sku)
+	var st: Dictionary = Data.shop["starter"]
+	var p := InfoPopup.open(self, "Стартовый набор", tr("%d рыбок и 3 бустера всего за %s. Предложение действует %d ч.") % [int(st["fish"]), Shop.price_text("starter_pack"), int(ceil(float(Shop.starter_seconds_left()) / 3600.0))],
+		[tr("Купить за %s") % Shop.price_text("starter_pack"), tr("Не сейчас")] as Array[String], ["cart", "undo"] as Array[String])
+	p.chosen.connect(func(i: int) -> void:
+		if i == 0:
+			Shop.buy("starter_pack", func(ok: bool, _s: String) -> void:
+				Ui.toast(_ui, tr("Спасибо за покупку!") if ok else tr("Покупка не прошла"), Vector2(180, 150))
+				_popup_done())
+		else:
+			_popup_done())
+
+
+func _show_notif_ask() -> void:
+	var p := InfoPopup.open(self, "Напоминания", tr("Напоминать о подарках и заработке кафе? Не чаще раза в день."), [tr("Включить"), tr("Не нужно")] as Array[String], ["check", "undo"] as Array[String])
+	p.chosen.connect(func(i: int) -> void:
+		Daily.answer_notifications(i == 0)
+		_popup_done())
+
+
 func _open_repairs_from_menu() -> void:
 	_close_menu()
 	_open_repairs()
@@ -1553,6 +1701,16 @@ func _start_level(index: int) -> void:
 	if not GameState.level_unlocked(index):
 		return
 	_close_levels()
+	if Economy.boosters_total() > 0 and GameState.intro_stage >= GameState.INTRO_DONE:   # есть бустеры — сначала выбор
+		var prep := ShiftPrep.new()
+		prep.level = Data.levels[index]
+		add_child(prep)
+		prep.start.connect(func(picked: Array[String]) -> void:
+			for id in picked:
+				Economy.use_booster(id)
+			_open_shift(false, Data.levels[index], picked))
+		prep.cancelled.connect(_open_levels)
+		return
 	_open_shift(false, Data.levels[index])
 
 
@@ -1561,7 +1719,7 @@ func _start_tutorial() -> void:
 	_open_shift(true)
 
 
-func _open_shift(tutorial: bool, level := {}) -> void:
+func _open_shift(tutorial: bool, level := {}, picked: Array[String] = []) -> void:
 	if _shift_layer != null:
 		return
 	_player.stop()
@@ -1574,6 +1732,7 @@ func _open_shift(tutorial: bool, level := {}) -> void:
 	var shift: Node2D = load(Nav.BREW).instantiate()
 	shift.embedded = true
 	shift.level = level
+	shift.boosters = picked
 	shift.modulate = TimeOfDay.indoor()
 	if tutorial:
 		shift.tutorial = true

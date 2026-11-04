@@ -76,6 +76,37 @@ static func shelf_icon(kind: String) -> ImageTexture:
 		"..orrhrrwwrrro..", "..orrrrwwwwrro..", "..orrrrrwwrrro..", "..orrrrrrrrrdo..", "..odrrrrrrrddo..", "...oddddddddo...", "....oooooooo....", "................"], pal)
 
 
+## Рыбка — значок премиум-валюты (16×16): тело-эллипс, хвост, глаз, тёмная обводка; рисуется кодом, смотрит влево.
+static func fish() -> ImageTexture:
+	var img := image(16, 16)
+	var mask := {}
+	for y in 16:
+		for x in 16:
+			var dx := (x - 7.0) / 6.2
+			var dy := (y - 8.0) / 4.2
+			var body := dx * dx + dy * dy <= 1.0
+			var tail := x >= 12 and x <= 15 and absf(y - 8.0) <= (x - 10.5) * 1.1
+			if body or tail:
+				mask[Vector2i(x, y)] = true
+	var ol := Color("2f4a63")
+	for pos in mask:
+		var p: Vector2i = pos
+		var col := Color("5fb4d9") if p.y < 8 else Color("8fd0ea")
+		if p.x >= 12:
+			col = Color("3f86a8")
+		put(img, p.x, p.y, col)
+	for pos in mask:
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var q: Vector2i = pos + d
+			if not mask.has(q) and q.x >= 0 and q.y >= 0 and q.x < 16 and q.y < 16:
+				put(img, q.x, q.y, ol)
+	put(img, 3, 7, Color.WHITE)
+	put(img, 3, 8, Color("2f4a63"))
+	put(img, 7, 6, Color("a9e0f3"))
+	put(img, 8, 6, Color("a9e0f3"))
+	return texture(img)
+
+
 static func texture(img: Image) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
