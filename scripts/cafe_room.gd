@@ -338,21 +338,29 @@ func _build_counter() -> void:
 
 
 func _draw() -> void:
+	# цвета зала — по выбранным вариантам ремонта (стены, пол, плинтус); без выбора — как были
+	var pal := GameState.style_colors()
+	var wall_c: Color = pal.get("wall", WALL_COLOR)
+	var stripe_c: Color = pal.get("stripe", WALL_STRIPE)
+	var base_c: Color = pal.get("base", BASEBOARD)
+	var floor_a: Color = pal.get("a", FLOOR_A)
+	var floor_b: Color = pal.get("b", FLOOR_B)
+	var edge_c: Color = pal.get("edge", FLOOR_EDGE)
 	# стена: полосы по две клетки, совпадают с сеткой
-	draw_rect(Rect2(0, 0, ROOM_SIZE.x, ORIGIN.y), WALL_COLOR)
+	draw_rect(Rect2(0, 0, ROOM_SIZE.x, ORIGIN.y), wall_c)
 	for c in range(0, COLS, 2):
-		draw_rect(Rect2(ORIGIN.x + c * T, 0, T, ORIGIN.y - T / 2.0), WALL_STRIPE)
-	draw_rect(Rect2(0, ORIGIN.y - T / 2.0, ROOM_SIZE.x, T / 2.0), BASEBOARD)
-	draw_rect(Rect2(0, ORIGIN.y - 4, ROOM_SIZE.x, 4), BASEBOARD.darkened(0.35))
+		draw_rect(Rect2(ORIGIN.x + c * T, 0, T, ORIGIN.y - T / 2.0), stripe_c)
+	draw_rect(Rect2(0, ORIGIN.y - T / 2.0, ROOM_SIZE.x, T / 2.0), base_c)
+	draw_rect(Rect2(0, ORIGIN.y - 4, ROOM_SIZE.x, 4), base_c.darkened(0.35))
 	# пол: шахматка по клеткам
 	for r in ROWS:
 		for c in COLS:
-			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + r * T, T, T), FLOOR_A if (r + c) % 2 == 0 else FLOOR_B)
+			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + r * T, T, T), floor_a if (r + c) % 2 == 0 else floor_b)
 	# передний ряд — подоконник витрины, кроме проёма входа
 	for c in COLS:
 		if not ENTRANCE_CELLS.has_point(Vector2i(c, FRONT_ROW)):
-			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, T), FLOOR_EDGE)
-			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, 4), FLOOR_EDGE.lightened(0.2))
+			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, T), edge_c)
+			draw_rect(Rect2(ORIGIN.x + c * T, ORIGIN.y + FRONT_ROW * T, T, 4), edge_c.lightened(0.2))
 	# коврик в проёме входа — ровно по его клеткам
 	var mat := Rect2(ORIGIN.x + ENTRANCE_CELLS.position.x * T, ORIGIN.y + ENTRANCE_CELLS.position.y * T, ENTRANCE_CELLS.size.x * T, T)
 	draw_rect(mat.grow(-4), Color("5b3d27"))
@@ -364,7 +372,7 @@ func _draw() -> void:
 	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, false), Rect2(0, 0, 20, 320), false, Color(0, 0, 0, 0.28))
 	draw_texture_rect(PixelArt.dither_gradient(10, 160, true, true), Rect2(300, 0, 20, 320), false, Color(0, 0, 0, 0.28))
 	# рамка разреза здания
-	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), FLOOR_EDGE, false, 4.0)
+	draw_rect(Rect2(Vector2.ZERO, ROOM_SIZE), edge_c, false, 4.0)
 
 
 ## Служебка в углу зала. Закрыта — чулан с досчатой крышей и заколоченной дверью; открыта — разрез: пол внутри, стены, проём.

@@ -24,6 +24,7 @@ func _ready() -> void:
 	_test_repairs()
 	await _test_menu()
 	_test_s2()
+	_test_content()
 	if _failed:
 		get_tree().quit(1)
 		return
@@ -166,15 +167,73 @@ func _test_save() -> void:
 
 func _test_repairs() -> void:
 	GameState.new_game()
-	_check(Data.repairs.size() == 2 and GameState.repair_def("shutters")["cost"] == 1 and GameState.repair_def("cleanup")["cost"] == 2, "в data/repairs.json две задачи: ставни (1★) и расчистка (2★)")
+	_check(Data.repairs.size() == 30, "в data/repairs.json 30 задач ремонта (%d)" % Data.repairs.size())
+	_check(GameState.repair_def("shutters")["cost"] == 1 and GameState.repair_def("cleanup")["cost"] == 2, "ставни 1★, расчистка 2★")
+	# граф задач: у каждого требования есть задача, цикла нет, у глав по 10 задач
+	var ids := {}
+	for r in Data.repairs:
+		ids[String(r["id"])] = true
+	var per_chapter := {}
+	for r in Data.repairs:
+		per_chapter[int(r["chapter"])] = int(per_chapter.get(int(r["chapter"]), 0)) + 1
+		for q in r["requires"]:
+			_check(ids.has(String(q)), "задача «%s»: требование «%s» существует" % [r["id"], q])
+	_check(per_chapter == {1: 10, 2: 10, 3: 10}, "по 10 задач в главах 1–3 (%s)" % [per_chapter])
+	var order := []   # порядок списка = порядок выполнения: требования всегда раньше
+	for r in Data.repairs:
+		for q in r["requires"]:
+			_check(order.has(String(q)), "«%s» стоит в списке после требования «%s»" % [r["id"], q])
+		order.append(String(r["id"]))
+	var total := 0
+	for r in Data.repairs:
+		total += int(r["cost"])
+	_check(total == 55, "всего 55★ на ремонт (%d)" % total)
 	_check(not GameState.do_repair("shutters"), "без звёзд ремонт не оплатить")
-	GameState.level_stars = {"l1": 7}   # три звезды с уровня
-	_check(GameState.stars_total() == 3 and GameState.stars_free() == 3, "звёзды уровней считаются")
-	_check(GameState.do_repair("shutters") and GameState.stars_free() == 2, "ставни куплены")
-	_check(not GameState.do_repair("shutters") and GameState.stars_free() == 2, "второй раз не списывается")
+	GameState.stars_bonus = 100
+	_check(not GameState.do_repair("wall_paint"), "закрытая задача (нет требований) не выполняется")
+	_check(GameState.do_repair("shutters") and GameState.stars_free() == 99, "ставни куплены")
+	_check(not GameState.do_repair("shutters") and GameState.stars_free() == 99, "второй раз не списывается")
 	_check(GameState.stage_after_tutorial() == 3, "после ставней — расчистка")
 	GameState.do_repair("cleanup")
-	_check(GameState.stage_after_tutorial() == GameState.INTRO_DONE and GameState.stars_free() == 0, "всё оплачено — вступление пройдено")
+	_check(GameState.stage_after_tutorial() == GameState.INTRO_DONE and GameState.stars_free() == 97, "всё оплачено — вступление пройдено")
+	# задача с выбором: стены → мятные
+	_check(GameState.repair_state("wall_paint") == "locked", "стены закрыты, пока не пройден первый уровень (after=1)")
+	GameState.level_stars = {"l1": 1}
+	_check(GameState.repair_state("wall_paint") == "open", "после первого уровня стены открыты")
+	var pal0 := GameState.style_colors()
+	_check(pal0["wall"] == Color("cdb892"), "по умолчанию стены кремовые")
+	var done := []
+	GameState.repair_done.connect(func(id: String) -> void: done.append(id))
+	_check(GameState.do_repair("wall_paint", "mint") and GameState.style["wall"] == "mint" and done == ["wall_paint"], "стены перекрашены в мятный, сигнал отправлен")
+	_check(GameState.style_colors()["wall"] == Color("b3d4bd"), "цвет стен из палитры")
+	# мебель в награду: цветок появляется в зале и не мешает проходу
+	var before := GameState.layout.size()
+	GameState.layout = Data.default_layout.duplicate(true)
+	before = GameState.layout.size()
+	GameState.level_stars = {"l1": 1, "l2": 1}
+	_check(GameState.do_repair("plant_hall") and GameState.layout.size() == before + 1 and GameState.layout.back()["id"] == "plant", "цветок поставлен в зал")
+	var room := CafeRoom.new()
+	room.layout = GameState.layout
+	var bad := 0
+	for i in GameState.layout.size():
+		var it: Dictionary = GameState.layout[i]
+		if room.check_place(String(it["id"]), int(it["c"]), int(it["r"]), i) != "":
+			bad += 1
+	room.free()
+	_check(bad == 0, "после наград мебель стоит корректно (ошибок: %d)" % bad)
+	# разблокировки и улучшения; повторная покупка улучшения за монеты закрывает задачу без звёзд
+	GameState.level_stars = {}
+	for i in 12:
+		GameState.level_stars["l%d" % (i + 1)] = 1
+	GameState.stars_bonus = 100
+	_check(GameState.repair_state("case_task") == "locked", "витрина закрыта до шкафчика")
+	GameState.new_game()
+	_check(GameState.has_unlock("upgrade:milk_pitcher") == false and not GameState.has_unlock("drink:cocoa"), "в новой игре какао закрыто")
+	GameState.upgrades = ["milk_pitcher", "display_case"]
+	GameState.repairs = ["shutters", "cleanup", "wall_paint", "floor", "plant_hall", "rug_hall", "window_hall", "menu_board", "table_hall", "bowl", "trim", "recipe_cocoa", "shelf"]
+	GameState.sync_repairs()
+	_check(GameState.has_repair("case_task"), "витрина уже куплена за монеты — задача закрыта без звёзд")
+	_check(GameState.has_unlock("upgrade:display_case") and GameState.has_unlock("upgrade:milk_pitcher"), "upgrade:… проверяется по улучшениям")
 	GameState.new_game()
 
 
@@ -286,3 +345,81 @@ func _test_s2() -> void:
 	for sec in cfg.get_sections():
 		if sec.begins_with("preset.") and not sec.ends_with(".options"):
 			_check(String(cfg.get_value(sec, "exclude_filter")).contains("assets/packs"), "пресет «%s»: исходники паков не попадают в сборку" % cfg.get_value(sec, "name"))
+
+
+## S3: напитки, выпечка, рецепты с сиропом, меню дня, типы посетителей, 30 уровней.
+func _test_content() -> void:
+	GameState.new_game()
+	_check(Data.drinks.size() == 7 and Data.pastries.size() == 5, "7 напитков и 5 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
+	# рецепты не совпадают друг с другом
+	var seen := {}
+	for id in Data.drinks:
+		var r: Dictionary = Data.drinks[id]["recipe"]
+		var key := "%s/%s/%s" % [r["base"], r["milk"], r.get("syrup", false)]
+		_check(not seen.has(key), "рецепт напитка «%s» уникален" % id)
+		seen[key] = true
+	# чашка собирает все 7 напитков
+	var cup := CupState.new()
+	for id in Data.drinks:
+		var r: Dictionary = Data.drinks[id]["recipe"]
+		cup.clear()
+		cup.add("base", String(r["base"]))
+		if bool(r["milk"]):
+			cup.add("milk", "milk")
+		if bool(r.get("syrup", false)):
+			cup.add("syrup", "syrup")
+		_check(cup.drink_id() == String(id), "чашка собирает «%s» (получили «%s»)" % [id, cup.drink_id()])
+	cup.clear()
+	_check(cup.add("syrup", "syrup") != "", "сироп без основы нельзя")
+	# условия открытия
+	_check(_same_set(GameState.drink_ids(), ["espresso", "tea"]), "новая игра: эспрессо и чай")
+	GameState.upgrades = ["milk_pitcher"]
+	_check("latte" in GameState.drink_ids() and not ("raf" in GameState.drink_ids()), "молочник открыл латте, раф ещё нет")
+	GameState.unlocks = ["drink:raf", "source:syrup", "drink:sea_tea", "drink:cocoa"]
+	_check(_same_set(GameState.drink_ids(), ["espresso", "tea", "latte", "raf", "sea_tea", "cocoa"]), "рецепты из ремонта добавили раф, облепиховый чай и какао (%s)" % [GameState.drink_ids()])
+	GameState.upgrades = ["milk_pitcher", "matcha_kit", "display_case"]
+	_check(GameState.drink_ids().size() == 7, "все 7 напитков открыты")
+	_check(GameState.pastry_ids().size() == 3, "выпечка: до открытия рецептов — три вида")
+	GameState.unlocks.append_array(["pastry:syrniki", "pastry:eclair"])
+	_check(GameState.pastry_ids().size() == 5, "выпечка: пять видов после сырников и эклеров")
+	GameState.upgrades = ["milk_pitcher"]
+	_check(GameState.pastry_ids().is_empty(), "без витрины выпечки нет")
+	# коты: стартовые + открытые ремонтом
+	GameState.new_game()
+	var starters := GameState.cats_available().size()
+	_check(starters == 3, "в начале приходят трое котов (%d)" % starters)
+	# 30 уровней
+	_check(Data.levels.size() == 30, "30 уровней (%d)" % Data.levels.size())
+	var per_chapter := {}
+	var last_speed := 0.0
+	for lv in Data.levels:
+		per_chapter[int(lv["chapter"])] = int(per_chapter.get(int(lv["chapter"]), 0)) + 1
+		for d in lv["pool"]:
+			_check(Data.drinks.has(String(d)), "уровень %s: напиток «%s» существует" % [lv["id"], d])
+		for p in lv["pastry_menu"]:
+			_check(Data.pastries.has(String(p)), "уровень %s: выпечка «%s» существует" % [lv["id"], p])
+		_check((lv["pastry_menu"] as Array).size() <= 3, "уровень %s: в меню дня не больше трёх видов выпечки" % lv["id"])
+		var types: Dictionary = lv["types"]
+		_check(float(types["rushed"]) + float(types["gourmet"]) <= 0.8, "уровень %s: типов посетителей не больше 80%%" % lv["id"])
+		_check(int(lv["queue"]) >= 1 and int(lv["queue"]) <= 3 and int(lv["customers"]) >= 6 and float(lv["speed"]) >= 4.0 and float(lv["accuracy"]) >= 0.6 and float(lv["accuracy"]) <= 0.98, "уровень %s: параметры в допустимых пределах" % lv["id"])
+		last_speed = float(lv["speed"])
+	_check(per_chapter == {1: 10, 2: 10, 3: 10}, "по 10 уровней в главах 1–3")
+	_check(Data.chapters.size() == 3, "три главы в data/chapters.json")
+	# звёзд хватает на весь ремонт: максимум 90 против 55
+	var max_stars := Data.levels.size() * 3
+	var cost := 0
+	for r in Data.repairs:
+		cost += int(r["cost"])
+	_check(max_stars >= cost + 20, "звёзд хватает с запасом: максимум %d, ремонт %d" % [max_stars, cost])
+	# ремонт никогда не требует пройти больше уровней, чем есть в главе до него
+	for r in Data.repairs:
+		_check(int(r["after"]) <= Data.levels.size(), "задача «%s»: уровень открытия существует" % r["id"])
+
+
+func _same_set(a: Array, b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for x in a:
+		if not (x in b):
+			return false
+	return true

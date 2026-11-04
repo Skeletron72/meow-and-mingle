@@ -1,6 +1,114 @@
 [
-	{"id": "espresso", "name": "Эспрессо", "price": 8, "brew_time": 0.0, "recipe": {"base": "coffee", "milk": false}, "col": 2, "row": 1},
-	{"id": "latte", "name": "Латте", "price": 12, "brew_time": 0.0, "recipe": {"base": "coffee", "milk": true}, "col": 4, "row": 1},
-	{"id": "tea", "name": "Чай", "price": 7, "brew_time": 0.0, "recipe": {"base": "tea", "milk": false}, "col": 0, "row": 0},
-	{"id": "matcha_latte", "name": "Матча-латте", "price": 14, "brew_time": 0.0, "recipe": {"base": "tea", "milk": true}, "col": 0, "row": 2}
+	{
+		"id": "espresso",
+		"name": "Эспрессо",
+		"price": 8,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": false,
+			"syrup": false
+		},
+		"col": 2,
+		"row": 1,
+		"needs": []
+	},
+	{
+		"id": "tea",
+		"name": "Чай",
+		"price": 7,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": false,
+			"syrup": false
+		},
+		"col": 0,
+		"row": 0,
+		"needs": []
+	},
+	{
+		"id": "latte",
+		"name": "Латте",
+		"price": 12,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": false
+		},
+		"col": 4,
+		"row": 1,
+		"needs": [
+			"upgrade:milk_pitcher"
+		]
+	},
+	{
+		"id": "matcha_latte",
+		"name": "Матча-латте",
+		"price": 14,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": true,
+			"syrup": false
+		},
+		"col": 0,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"upgrade:matcha_kit"
+		]
+	},
+	{
+		"id": "cocoa",
+		"name": "Какао",
+		"price": 11,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "cocoa",
+			"milk": false,
+			"syrup": false
+		},
+		"col": 4,
+		"row": 0,
+		"needs": [
+			"drink:cocoa"
+		]
+	},
+	{
+		"id": "sea_tea",
+		"name": "Облепиховый чай",
+		"price": 10,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": false,
+			"syrup": true
+		},
+		"col": 0,
+		"row": 1,
+		"needs": [
+			"source:syrup",
+			"drink:sea_tea"
+		]
+	},
+	{
+		"id": "raf",
+		"name": "Раф",
+		"price": 16,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": true
+		},
+		"col": 2,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"drink:raf"
+		]
+	}
 ]

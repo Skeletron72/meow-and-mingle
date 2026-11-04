@@ -4,6 +4,7 @@ extends Node
 
 signal coins_changed(value: int)
 signal setting_changed(key: String)
+signal repair_done(id: String)   # задача ремонта выполнена и применена (город перерисовывает зал)
 
 const SAVE_PATH := "user://save.json"
 const SAVE_BAK := "user://save.bak"
@@ -30,6 +31,8 @@ var keepsakes: Array[String] = []   # найденные в коробках п�
 var stars_bonus := 0               # звёзды не из уровней (награда за обучение и т. п.)
 var stars_spent := 0               # потрачено на ремонт
 var repairs: Array[String] = []     # выполненные задачи ремонта (data/repairs.json)
+var unlocks: Array[String] = []     # открытое ремонтом: "drink:cocoa", "pastry:eclair", "source:syrup", "cat:bulka"
+var style: Dictionary = {}          # выбранные цвета: {"wall": "mint", "floor": "dark", "trim": "red"}
 var shifts_played := 0             # завершённых смен (для подсказок: магазин после 3-й и т. п.)
 var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
 var install_id := ""               # случайный анонимный идентификатор установки (аналитика)
@@ -58,6 +61,8 @@ func new_game() -> void:
 	stars_bonus = 0
 	stars_spent = 0
 	repairs = []
+	unlocks = []
+	style = {}
 	shifts_played = 0
 	if install_id == "":
 		install_id = "%08x%08x" % [randi(), randi()]
@@ -137,16 +142,147 @@ func repair_def(id: String) -> Dictionary:
 	return {}
 
 
-## Оплата ремонта звёздами. false — не хватает или уже сделано (ничего не списано).
-func do_repair(id: String) -> bool:
+func has_unlock(key: String) -> bool:
+	if key.begins_with("upgrade:"):
+		return has_upgrade(key.substr(8))
+	return key in unlocks
+
+
+## Сколько уровней пройдено (хотя бы одна звезда): по этому числу открываются задачи ремонта.
+func levels_cleared() -> int:
+	var n := 0
+	for lv in Data.levels:
+		if level_star_count(String(lv["id"])) >= 1:
+			n += 1
+	return n
+
+
+## Состояние задачи: "done", "open" (можно делать, даже если не хватает звёзд), "locked" (не выполнено условие).
+func repair_state(id: String) -> String:
+	if has_repair(id):
+		return "done"
 	var def := repair_def(id)
-	if def.is_empty() or has_repair(id) or stars_free() < int(def["cost"]):
+	if def.is_empty():
+		return "locked"
+	for r in def.get("requires", []):
+		if not has_repair(String(r)):
+			return "locked"
+	if levels_cleared() < int(def.get("after", 0)):
+		return "locked"
+	return "open"
+
+
+func _requires_done(def: Dictionary) -> bool:
+	for r in def.get("requires", []):
+		if not has_repair(String(r)):
+			return false
+	return true
+
+
+## Задачи, которые сейчас можно оплатить звёздами (по порядку списка).
+func open_repairs() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for r in Data.repairs:
+		if repair_state(String(r["id"])) == "open":
+			out.append(r)
+	return out
+
+
+## Оплата ремонта звёздами и применение его эффектов. variant — выбранный вариант (для задач с выбором). false — ничего не списано.
+func do_repair(id: String, variant := "") -> bool:
+	var def := repair_def(id)
+	if def.is_empty() or has_repair(id) or repair_state(id) != "open" or stars_free() < int(def["cost"]):
 		return false
+	var variants: Array = def.get("variants", [])
+	if not variants.is_empty():
+		var ok := false
+		for v in variants:
+			ok = ok or String(v["id"]) == variant
+		if not ok:
+			variant = String(variants[0]["id"])
 	stars_spent += int(def["cost"])
 	repairs.append(id)
+	for e in def.get("effects", []):
+		_apply_effect(e, variant)
 	save_game()
-	Platform.track("repair_done", {"id": id, "stars_left": stars_free()})
+	Platform.track("repair_done", {"id": id, "variant": variant, "stars_left": stars_free()})
+	repair_done.emit(id)
 	return true
+
+
+func _apply_effect(e: Dictionary, variant: String) -> void:
+	match String(e["kind"]):
+		"furniture":
+			place_free(String(e["id"]))
+		"style":
+			style[String(e["key"])] = variant
+		"upgrade":
+			if not has_upgrade(String(e["id"])):
+				upgrades.append(String(e["id"]))
+		"unlock":
+			if not (String(e["key"]) in unlocks):
+				unlocks.append(String(e["key"]))
+		"coins":
+			coins += int(e["amount"])
+			coins_changed.emit(coins)
+
+
+## Ставит предмет в зал бесплатно (награда ремонта) на ближайшее к центру место; нет места — возвращает его цену монетами.
+func place_free(id: String) -> bool:
+	if not Data.furniture.has(id):
+		return false
+	var room := CafeRoom.new()
+	room.layout = layout
+	var spot := room.find_free_spot(id)
+	room.free()
+	if spot.x < 0:
+		coins += int(Data.furniture[id].get("price", 0))
+		coins_changed.emit(coins)
+		return false
+	layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
+	return true
+
+
+## Задачи, которые игрок уже получил другим путём (купил улучшение за монеты), закрываем без звёзд.
+func sync_repairs() -> void:
+	var changed := true
+	while changed:
+		changed = false
+		for r in Data.repairs:
+			var id := String(r["id"])
+			if has_repair(id) or not _requires_done(r):   # уровень не важен: улучшение уже есть
+				continue
+			var effects: Array = r.get("effects", [])
+			var ups := effects.filter(func(e: Dictionary) -> bool: return String(e["kind"]) == "upgrade")
+			if ups.is_empty() or not ups.all(func(e: Dictionary) -> bool: return has_upgrade(String(e["id"]))):
+				continue
+			repairs.append(id)   # улучшение уже куплено: задача считается сделанной, остальные эффекты применяем
+			for e in effects:
+				if String(e["kind"]) != "upgrade":
+					_apply_effect(e, "")
+			changed = true
+
+
+## Цвета зала по выбранным вариантам: {"wall", "stripe", "base", "a", "b", "edge"} (Color).
+func style_colors() -> Dictionary:
+	var out := {}
+	for key in ["wall", "floor", "trim"]:
+		var table: Dictionary = Data.styles.get(key, {})
+		var pick := String(style.get(key, ""))
+		var variant: Dictionary = table.get(pick, table.get(table.keys()[0], {})) if not table.is_empty() else {}
+		for k in variant:
+			if String(variant[k]) != "":
+				out[k] = Color(String(variant[k]))
+	return out
+
+
+func _sanitize_style(raw: Variant) -> Dictionary:
+	var out := {}
+	if raw is Dictionary:
+		for key in raw:
+			if Data.styles.has(String(key)) and (Data.styles[String(key)] as Dictionary).has(String(raw[key])):
+				out[String(key)] = String(raw[key])
+	return out
 
 
 ## Какая стадия вступления идёт после обучающей смены: ставни, расчистка или сразу свободная игра.
@@ -194,26 +330,50 @@ func buy_upgrade(id: String) -> bool:
 		if String(u["id"]) == id:
 			spend_coins(int(u["price"]))
 	upgrades.append(id)
+	sync_repairs()
 	save_game()
 	Platform.track("upgrade_buy", {"id": id, "coins_left": coins})
 	return true
 
 
-## Напитки, которые сейчас можно заказать и приготовить.
+func _needs_met(item: Dictionary) -> bool:
+	for k in item.get("needs", []):
+		if not has_unlock(String(k)):
+			return false
+	return true
+
+
+## Напитки, которые сейчас можно заказать и приготовить (все условия `needs` из drinks.json выполнены).
 func drink_ids() -> Array[String]:
 	var out: Array[String] = []
 	for id in Data.drinks:
-		var recipe: Dictionary = Data.drinks[id]["recipe"]
-		if bool(recipe["milk"]) and not has_upgrade("milk_pitcher"):
-			continue
-		if String(id) == "matcha_latte" and not has_upgrade("matcha_kit"):
-			continue
-		out.append(String(id))
+		if _needs_met(Data.drinks[id]):
+			out.append(String(id))
 	return out
 
 
 func pastries_unlocked() -> bool:
 	return has_upgrade("display_case")
+
+
+## Выпечка в продаже: пусто, пока нет витрины; иначе все, чьи условия выполнены (по порядку).
+func pastry_ids() -> Array[String]:
+	var out: Array[String] = []
+	if not pastries_unlocked():
+		return out
+	for id in Data.pastries:
+		if _needs_met(Data.pastries[id]):
+			out.append(String(id))
+	return out
+
+
+## Коты, которые приходят в кафе: трое первых всегда, остальные — после задач ремонта ("cat:id").
+func cats_available() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for c in Data.cats:
+		if bool(c.get("starter", false)) or has_unlock("cat:%s" % String(c["id"])):
+			out.append(c)
+	return out
 
 
 ## Множитель цены напитка от улучшений (кофемашина Pro).
@@ -269,6 +429,8 @@ func save_game() -> void:
 		"stars_bonus": stars_bonus,
 		"stars_spent": stars_spent,
 		"repairs": repairs,
+		"unlocks": unlocks,
+		"style": style,
 		"shifts_played": shifts_played,
 		"settings": settings,
 		"install_id": install_id,
@@ -358,6 +520,8 @@ func load_game() -> void:
 	stars_bonus = maxi(int(data.get("stars_bonus", 0)), 0)
 	stars_spent = maxi(int(data.get("stars_spent", 0)), 0)
 	repairs = _string_array(data.get("repairs", []))
+	unlocks = _string_array(data.get("unlocks", []))
+	style = _sanitize_style(data.get("style", {}))
 	shifts_played = maxi(int(data.get("shifts_played", 0)), 0)
 	settings = SETTINGS_DEFAULT.duplicate()
 	var raw_settings: Variant = data.get("settings", {})
@@ -368,6 +532,7 @@ func load_game() -> void:
 	install_id = String(data.get("install_id", install_id))
 	first_run_unix = int(data.get("first_run_unix", first_run_unix))
 	Weather.set_mode(clampi(int(data.get("weather_mode", Weather.AUTO)), Weather.AUTO, Weather.Kind.SNOW))
+	sync_repairs()
 	_apply_settings_side_effects()
 
 

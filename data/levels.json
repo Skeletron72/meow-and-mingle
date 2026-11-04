@@ -1,8 +1,884 @@
 [
-	{"id": "l1", "name": "Первая смена", "customers": 6, "interval": [8.0, 11.0], "patience": 42.0, "queue": 2, "speed": 11.0, "accuracy": 0.8, "pool": ["espresso", "tea"], "pastry": 0.0},
-	{"id": "l2", "name": "Утренний поток", "customers": 8, "interval": [6.0, 9.0], "patience": 38.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": ["espresso", "tea"], "pastry": 0.0},
-	{"id": "l3", "name": "Молочная пенка", "customers": 8, "interval": [6.0, 8.0], "patience": 36.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": [], "pastry": 0.0},
-	{"id": "l4", "name": "Сладкий час", "customers": 10, "interval": [5.0, 8.0], "patience": 34.0, "queue": 3, "speed": 10.0, "accuracy": 0.85, "pool": [], "pastry": 0.6},
-	{"id": "l5", "name": "Час пик", "customers": 12, "interval": [4.0, 6.0], "patience": 30.0, "queue": 3, "speed": 9.0, "accuracy": 0.85, "pool": [], "pastry": 0.5},
-	{"id": "l6", "name": "Вечерний аврал", "customers": 14, "interval": [3.5, 5.5], "patience": 28.0, "queue": 3, "speed": 8.5, "accuracy": 0.85, "pool": [], "pastry": 0.5}
+	{
+		"id": "l1",
+		"chapter": 1,
+		"name": "Первая смена",
+		"customers": 6,
+		"interval": [
+			9.0,
+			12.0
+		],
+		"patience": 44.0,
+		"queue": 2,
+		"speed": 7.5,
+		"accuracy": 0.8,
+		"pool": [
+			"espresso",
+			"tea"
+		],
+		"pastry_menu": [],
+		"pastry": 0.0,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l2",
+		"chapter": 1,
+		"name": "Тёплое утро",
+		"customers": 6,
+		"interval": [
+			8.7,
+			11.6
+		],
+		"patience": 43.1,
+		"queue": 2,
+		"speed": 7.5,
+		"accuracy": 0.81,
+		"pool": [
+			"espresso",
+			"tea"
+		],
+		"pastry_menu": [],
+		"pastry": 0.0,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l3",
+		"chapter": 1,
+		"name": "Двое в очереди",
+		"customers": 7,
+		"interval": [
+			8.3,
+			11.2
+		],
+		"patience": 42.2,
+		"queue": 2,
+		"speed": 7.5,
+		"accuracy": 0.81,
+		"pool": [
+			"espresso",
+			"tea"
+		],
+		"pastry_menu": [],
+		"pastry": 0.0,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l4",
+		"chapter": 1,
+		"name": "Кофе и чай",
+		"customers": 7,
+		"interval": [
+			8.0,
+			10.8
+		],
+		"patience": 41.3,
+		"queue": 3,
+		"speed": 8.5,
+		"accuracy": 0.82,
+		"pool": [
+			"espresso",
+			"tea"
+		],
+		"pastry_menu": [
+			"croissant"
+		],
+		"pastry": 0.3,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l5",
+		"chapter": 1,
+		"name": "Обед в кафе",
+		"customers": 8,
+		"interval": [
+			7.7,
+			10.4
+		],
+		"patience": 40.4,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.82,
+		"pool": [
+			"espresso",
+			"tea",
+			"latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut"
+		],
+		"pastry": 0.3,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l6",
+		"chapter": 1,
+		"name": "Молочная пенка",
+		"customers": 8,
+		"interval": [
+			7.3,
+			10.1
+		],
+		"patience": 39.6,
+		"queue": 3,
+		"speed": 9.5,
+		"accuracy": 0.83,
+		"pool": [
+			"latte",
+			"espresso"
+		],
+		"pastry_menu": [
+			"croissant",
+			"cheesecake"
+		],
+		"pastry": 0.35,
+		"types": {
+			"rushed": 0.0,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l7",
+		"chapter": 1,
+		"name": "Тучка заходит",
+		"customers": 9,
+		"interval": [
+			7.0,
+			9.7
+		],
+		"patience": 38.7,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.83,
+		"pool": [
+			"espresso",
+			"latte",
+			"tea"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut",
+			"cheesecake"
+		],
+		"pastry": 0.4,
+		"types": {
+			"rushed": 0.08,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l8",
+		"chapter": 1,
+		"name": "Сухарик спешит",
+		"customers": 9,
+		"interval": [
+			6.7,
+			9.3
+		],
+		"patience": 37.8,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.84,
+		"pool": [
+			"espresso",
+			"tea",
+			"latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut"
+		],
+		"pastry": 0.4,
+		"types": {
+			"rushed": 0.2,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l9",
+		"chapter": 1,
+		"name": "Проверка",
+		"customers": 10,
+		"interval": [
+			6.3,
+			8.9
+		],
+		"patience": 36.9,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.84,
+		"pool": [
+			"espresso",
+			"tea",
+			"latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut",
+			"cheesecake"
+		],
+		"pastry": 0.45,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l10",
+		"chapter": 1,
+		"name": "Субботний аврал",
+		"customers": 12,
+		"interval": [
+			5.4,
+			7.7
+		],
+		"patience": 36.0,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.85,
+		"pool": [
+			"espresso",
+			"tea",
+			"latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut",
+			"cheesecake"
+		],
+		"pastry": 0.5,
+		"types": {
+			"rushed": 0.2,
+			"gourmet": 0.0
+		},
+		"boss": true
+	},
+	{
+		"id": "l11",
+		"chapter": 2,
+		"name": "Новое меню",
+		"customers": 10,
+		"interval": [
+			7.0,
+			9.5
+		],
+		"patience": 40.0,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.84,
+		"pool": [
+			"espresso",
+			"tea",
+			"latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"syrniki"
+		],
+		"pastry": 0.5,
+		"types": {
+			"rushed": 0.1,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l12",
+		"chapter": 2,
+		"name": "Какао для всех",
+		"customers": 10,
+		"interval": [
+			6.8,
+			9.2
+		],
+		"patience": 39.1,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.84,
+		"pool": [
+			"cocoa",
+			"latte",
+			"tea"
+		],
+		"pastry_menu": [
+			"croissant",
+			"donut"
+		],
+		"pastry": 0.45,
+		"types": {
+			"rushed": 0.1,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l13",
+		"chapter": 2,
+		"name": "Сырники Маруси",
+		"customers": 11,
+		"interval": [
+			6.5,
+			8.9
+		],
+		"patience": 38.2,
+		"queue": 3,
+		"speed": 9.0,
+		"accuracy": 0.85,
+		"pool": [
+			"latte",
+			"cocoa",
+			"espresso"
+		],
+		"pastry_menu": [
+			"syrniki",
+			"croissant"
+		],
+		"pastry": 0.55,
+		"types": {
+			"rushed": 0.12,
+			"gourmet": 0.0
+		},
+		"boss": false
+	},
+	{
+		"id": "l14",
+		"chapter": 2,
+		"name": "Облепиховый день",
+		"customers": 11,
+		"interval": [
+			6.3,
+			8.6
+		],
+		"patience": 37.3,
+		"queue": 3,
+		"speed": 9.5,
+		"accuracy": 0.85,
+		"pool": [
+			"sea_tea",
+			"tea",
+			"cocoa"
+		],
+		"pastry_menu": [
+			"syrniki",
+			"donut"
+		],
+		"pastry": 0.5,
+		"types": {
+			"rushed": 0.12,
+			"gourmet": 0.1
+		},
+		"boss": false
+	},
+	{
+		"id": "l15",
+		"chapter": 2,
+		"name": "Раф по-маминому",
+		"customers": 12,
+		"interval": [
+			6.0,
+			8.3
+		],
+		"patience": 36.4,
+		"queue": 3,
+		"speed": 11.5,
+		"accuracy": 0.86,
+		"pool": [
+			"raf",
+			"latte",
+			"sea_tea"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki"
+		],
+		"pastry": 0.55,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.1
+		},
+		"boss": false
+	},
+	{
+		"id": "l16",
+		"chapter": 2,
+		"name": "Утро с эклерами",
+		"customers": 12,
+		"interval": [
+			5.8,
+			8.0
+		],
+		"patience": 35.6,
+		"queue": 3,
+		"speed": 10.5,
+		"accuracy": 0.86,
+		"pool": [
+			"raf",
+			"espresso",
+			"cocoa"
+		],
+		"pastry_menu": [
+			"eclair",
+			"croissant",
+			"syrniki"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.12
+		},
+		"boss": false
+	},
+	{
+		"id": "l17",
+		"chapter": 2,
+		"name": "Баюн заказывает",
+		"customers": 13,
+		"interval": [
+			5.5,
+			7.7
+		],
+		"patience": 34.7,
+		"queue": 3,
+		"speed": 12.0,
+		"accuracy": 0.87,
+		"pool": [
+			"sea_tea",
+			"raf",
+			"latte"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"cheesecake"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.2
+		},
+		"boss": false
+	},
+	{
+		"id": "l18",
+		"chapter": 2,
+		"name": "Очередь за угол",
+		"customers": 13,
+		"interval": [
+			5.3,
+			7.4
+		],
+		"patience": 33.8,
+		"queue": 3,
+		"speed": 9.5,
+		"accuracy": 0.87,
+		"pool": [
+			"espresso",
+			"raf",
+			"cocoa",
+			"tea"
+		],
+		"pastry_menu": [
+			"croissant",
+			"eclair",
+			"donut"
+		],
+		"pastry": 0.55,
+		"types": {
+			"rushed": 0.25,
+			"gourmet": 0.15
+		},
+		"boss": false
+	},
+	{
+		"id": "l19",
+		"chapter": 2,
+		"name": "Проба рецептов",
+		"customers": 14,
+		"interval": [
+			5.0,
+			7.1
+		],
+		"patience": 32.9,
+		"queue": 3,
+		"speed": 11.0,
+		"accuracy": 0.88,
+		"pool": [
+			"raf",
+			"sea_tea",
+			"cocoa",
+			"latte"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"cheesecake"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.2,
+			"gourmet": 0.2
+		},
+		"boss": false
+	},
+	{
+		"id": "l20",
+		"chapter": 2,
+		"name": "Ярмарка",
+		"customers": 16,
+		"interval": [
+			4.3,
+			6.1
+		],
+		"patience": 32.0,
+		"queue": 3,
+		"speed": 10.5,
+		"accuracy": 0.88,
+		"pool": [
+			"raf",
+			"sea_tea",
+			"cocoa",
+			"latte",
+			"espresso"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"donut"
+		],
+		"pastry": 0.65,
+		"types": {
+			"rushed": 0.25,
+			"gourmet": 0.2
+		},
+		"boss": true
+	},
+	{
+		"id": "l21",
+		"chapter": 3,
+		"name": "Свет в окнах",
+		"customers": 12,
+		"interval": [
+			6.0,
+			8.0
+		],
+		"patience": 38.0,
+		"queue": 3,
+		"speed": 10.5,
+		"accuracy": 0.86,
+		"pool": [
+			"latte",
+			"raf",
+			"tea"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki"
+		],
+		"pastry": 0.55,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.15
+		},
+		"boss": false
+	},
+	{
+		"id": "l22",
+		"chapter": 3,
+		"name": "Матча для Рыжика",
+		"customers": 12,
+		"interval": [
+			5.8,
+			7.8
+		],
+		"patience": 37.1,
+		"queue": 3,
+		"speed": 10.0,
+		"accuracy": 0.86,
+		"pool": [
+			"matcha_latte",
+			"latte",
+			"tea"
+		],
+		"pastry_menu": [
+			"croissant",
+			"eclair"
+		],
+		"pastry": 0.55,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.15
+		},
+		"boss": false
+	},
+	{
+		"id": "l23",
+		"chapter": 3,
+		"name": "Тихий вечер",
+		"customers": 13,
+		"interval": [
+			5.6,
+			7.5
+		],
+		"patience": 36.2,
+		"queue": 3,
+		"speed": 10.0,
+		"accuracy": 0.87,
+		"pool": [
+			"matcha_latte",
+			"cocoa",
+			"sea_tea"
+		],
+		"pastry_menu": [
+			"syrniki",
+			"cheesecake"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.15,
+			"gourmet": 0.2
+		},
+		"boss": false
+	},
+	{
+		"id": "l24",
+		"chapter": 3,
+		"name": "Письма из ящика",
+		"customers": 13,
+		"interval": [
+			5.3,
+			7.3
+		],
+		"patience": 35.3,
+		"queue": 3,
+		"speed": 11.0,
+		"accuracy": 0.87,
+		"pool": [
+			"raf",
+			"matcha_latte",
+			"espresso"
+		],
+		"pastry_menu": [
+			"eclair",
+			"donut",
+			"syrniki"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.2,
+			"gourmet": 0.2
+		},
+		"boss": false
+	},
+	{
+		"id": "l25",
+		"chapter": 3,
+		"name": "Дымка ждёт",
+		"customers": 14,
+		"interval": [
+			5.1,
+			7.0
+		],
+		"patience": 34.4,
+		"queue": 3,
+		"speed": 11.5,
+		"accuracy": 0.88,
+		"pool": [
+			"matcha_latte",
+			"sea_tea",
+			"raf"
+		],
+		"pastry_menu": [
+			"syrniki",
+			"eclair",
+			"cheesecake"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.2,
+			"gourmet": 0.25
+		},
+		"boss": false
+	},
+	{
+		"id": "l26",
+		"chapter": 3,
+		"name": "Ночная смена",
+		"customers": 14,
+		"interval": [
+			4.9,
+			6.8
+		],
+		"patience": 33.6,
+		"queue": 3,
+		"speed": 10.0,
+		"accuracy": 0.88,
+		"pool": [
+			"espresso",
+			"raf",
+			"cocoa",
+			"matcha_latte"
+		],
+		"pastry_menu": [
+			"croissant",
+			"eclair",
+			"donut"
+		],
+		"pastry": 0.6,
+		"types": {
+			"rushed": 0.25,
+			"gourmet": 0.2
+		},
+		"boss": false
+	},
+	{
+		"id": "l27",
+		"chapter": 3,
+		"name": "Гости с вещами",
+		"customers": 15,
+		"interval": [
+			4.7,
+			6.5
+		],
+		"patience": 32.7,
+		"queue": 3,
+		"speed": 11.0,
+		"accuracy": 0.89,
+		"pool": [
+			"raf",
+			"latte",
+			"sea_tea",
+			"cocoa"
+		],
+		"pastry_menu": [
+			"syrniki",
+			"eclair",
+			"cheesecake"
+		],
+		"pastry": 0.65,
+		"types": {
+			"rushed": 0.25,
+			"gourmet": 0.25
+		},
+		"boss": false
+	},
+	{
+		"id": "l28",
+		"chapter": 3,
+		"name": "Дождливый четверг",
+		"customers": 15,
+		"interval": [
+			4.4,
+			6.3
+		],
+		"patience": 31.8,
+		"queue": 3,
+		"speed": 10.5,
+		"accuracy": 0.89,
+		"pool": [
+			"matcha_latte",
+			"raf",
+			"cocoa",
+			"tea"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"donut"
+		],
+		"pastry": 0.65,
+		"types": {
+			"rushed": 0.25,
+			"gourmet": 0.25
+		},
+		"boss": false
+	},
+	{
+		"id": "l29",
+		"chapter": 3,
+		"name": "Проверка мамы",
+		"customers": 16,
+		"interval": [
+			4.2,
+			6.0
+		],
+		"patience": 30.9,
+		"queue": 3,
+		"speed": 11.0,
+		"accuracy": 0.9,
+		"pool": [
+			"raf",
+			"matcha_latte",
+			"sea_tea",
+			"cocoa",
+			"latte"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"cheesecake"
+		],
+		"pastry": 0.7,
+		"types": {
+			"rushed": 0.3,
+			"gourmet": 0.3
+		},
+		"boss": false
+	},
+	{
+		"id": "l30",
+		"chapter": 3,
+		"name": "Открытие!",
+		"customers": 18,
+		"interval": [
+			3.6,
+			5.2
+		],
+		"patience": 30.0,
+		"queue": 3,
+		"speed": 10.5,
+		"accuracy": 0.9,
+		"pool": [
+			"raf",
+			"matcha_latte",
+			"sea_tea",
+			"cocoa",
+			"latte",
+			"espresso"
+		],
+		"pastry_menu": [
+			"eclair",
+			"syrniki",
+			"cheesecake"
+		],
+		"pastry": 0.7,
+		"types": {
+			"rushed": 0.3,
+			"gourmet": 0.3
+		},
+		"boss": true
+	}
 ]

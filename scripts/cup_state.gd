@@ -4,16 +4,18 @@ extends RefCounted
 
 var base: String = ""     # "coffee" | "tea" | ""
 var milk: bool = false
+var syrup: bool = false
 var pastry: String = ""   # id из pastries.json или ""
 
 
 func is_empty() -> bool:
-	return base == "" and not milk and pastry == ""
+	return base == "" and not milk and not syrup and pastry == ""
 
 
 func clear() -> void:
 	base = ""
 	milk = false
+	syrup = false
 	pastry = ""
 
 
@@ -26,6 +28,10 @@ func add(kind: String, id: String) -> String:
 			if base == "":
 				return "Сначала кофе или чай"
 			milk = true
+		"syrup":
+			if base == "":
+				return "Сначала кофе или чай"
+			syrup = true
 		"pastry":
 			pastry = id
 	return ""
@@ -37,7 +43,7 @@ func drink_id() -> String:
 		return ""
 	for id in Data.drinks:
 		var r: Dictionary = Data.drinks[id]["recipe"]
-		if r["base"] == base and bool(r["milk"]) == milk:
+		if r["base"] == base and bool(r["milk"]) == milk and bool(r.get("syrup", false)) == syrup:
 			return id
 	return ""
 

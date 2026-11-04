@@ -18,7 +18,7 @@ STR = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 
 # Только для разработчиков или рисуются как картинка — не переводятся.
-SKIP_FILES = ("street_zone.gd", "street_building.gd", "street_prop.gd", "pixel_art.gd", "fx.gd")
+SKIP_FILES = ("perf_overlay.gd", "street_zone.gd", "street_building.gd", "street_prop.gd", "pixel_art.gd", "fx.gd")
 SKIP_LINE = re.compile(r"push_error|push_warning|_get_configuration_warnings|assert\(|print\(")
 # Название кафе на вывеске рисуется пиксельным шрифтом, а в игре «Тёплая Лапка» — имя собственное, в английском тексте остаётся как есть.
 
@@ -43,7 +43,7 @@ def code_strings():
 
 def data_strings():
     out = {}
-    keys = {"name", "flavor", "desc", "line", "title", "caption", "text", "label", "lines"}
+    keys = {"blurb", "name", "flavor", "desc", "line", "title", "caption", "text", "label", "lines"}
     def walk(o, f):
         if isinstance(o, dict):
             for k, v in o.items():

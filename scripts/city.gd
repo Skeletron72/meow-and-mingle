@@ -109,6 +109,8 @@ var _diary_page: Control
 var _intro: Intro                       # интро (ставни и расчистка), пока intro_stage < 5
 var _repair_card: RepairCard
 var _door_wanted := false
+var _star_btn: Button
+var _repair_board: RepairBoard
 
 
 func _ready() -> void:
@@ -510,6 +512,13 @@ func _build_ui() -> void:
 	_clock_btn.pressed.connect(_skip_hour)
 	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)
 	gear.pressed.connect(_open_menu)
+	_star_btn = Ui.button("★0", Rect2(232, 8, 60, 48), "", _ui, false, Ui.UI_CREAM)   # доска ремонта: сколько звёзд свободно
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_star_btn.add_theme_color_override(c, Color("b87a10"))
+	_star_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
+	_star_btn.pressed.connect(_open_repairs)
+	GameState.repair_done.connect(_on_repair_done)
+	_refresh_star_button()
 	_btn_shift = Ui.button("Смена", Rect2(88, 568, 184, 56), "play", _ui)
 	_btn_shift.visible = false   # появляется, только когда кот у стойки
 	_btn_shift.pressed.connect(_start_shift)
@@ -882,6 +891,7 @@ func _finish_intro() -> void:
 	GameState.intro_stage = GameState.INTRO_DONE
 	GameState.save_game()
 	Platform.track("ftue_step", {"step": "intro_done", "t": Platform.session_seconds()})
+	_refresh_star_button()
 	Ui.toast(_ui, tr("Иди к стойке — там смена!"), Vector2(180, 150))
 	TimeOfDay.set_process(true)
 	if _intro != null:
@@ -1229,6 +1239,49 @@ func _sleep() -> void:
 
 
 ## Купили улучшение: дверь и лестница оживают.
+## Звёзды на кнопке; когда хватает на открытую задачу — кнопка мигает (подсказка «пора в ремонт»).
+func _refresh_star_button() -> void:
+	if _star_btn == null:
+		return
+	_star_btn.visible = GameState.intro_stage >= GameState.INTRO_DONE
+	Ui.set_button_text(_star_btn, "★%d" % GameState.stars_free())
+	if _star_btn.has_meta("blink"):
+		(_star_btn.get_meta("blink") as Tween).kill()
+		_star_btn.remove_meta("blink")
+	_star_btn.modulate = Color.WHITE
+	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())
+	if affordable and _star_btn.visible:
+		var t := _star_btn.create_tween().set_loops()
+		t.tween_property(_star_btn, "modulate", Color(1.25, 1.15, 0.7), 0.5)
+		t.tween_property(_star_btn, "modulate", Color.WHITE, 0.5)
+		_star_btn.set_meta("blink", t)
+
+
+func _open_repairs() -> void:
+	if _repair_board != null or _shift_layer != null or _levels_layer != null or GameState.intro_stage < GameState.INTRO_DONE:
+		return
+	_player.stop()
+	_repair_board = RepairBoard.new()
+	add_child(_repair_board)
+	_repair_board.tree_exited.connect(func() -> void:
+		_repair_board = null
+		_refresh_star_button())
+
+
+## Ремонт выполнен: зал перерисовывается (цвета, новая мебель), открытые улучшения применяются.
+func _on_repair_done(id: String) -> void:
+	var effects: Array = GameState.repair_def(id).get("effects", [])
+	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) in ["furniture", "style"]):
+		_room.set_layout(GameState.layout)
+		_room.queue_redraw()
+		_set_space(_space, Vector2i(-1, -1))
+	for e in effects:
+		if String(e["kind"]) == "upgrade":
+			_on_upgrade_bought(String(e["id"]))
+	_refresh_star_button()
+	_coins_label.text = str(GameState.coins)
+
+
 func _on_upgrade_bought(id: String) -> void:
 	if id == "back_room" or id == "upstairs":
 		_room.refresh_staff()
@@ -1501,6 +1554,7 @@ func _end_shift(served: int, earned: int) -> void:
 	if served > 0:
 		GameState.register_shift()
 	GameState.save_game()
+	_refresh_star_button()
 	if served > 0:
 		Ui.toast(_ui, tr("Смена: подано %d, +%d") % [served, earned], Vector2(180, 150))
 	if GameState.shifts_played == 3 and served > 0 and GameState.upgrades.is_empty():   # третья смена: пора в магазин улучшений

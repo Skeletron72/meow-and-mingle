@@ -52,6 +52,30 @@ static func line(img: Image, a: Vector2i, b: Vector2i, c: Color) -> void:
 			p.y += sy
 
 
+## Рисунок из строк («пиксель-арт текстом»): palette — символ → цвет, «.» — прозрачно. Все строки одной длины.
+static func from_rows(rows: Array, palette: Dictionary) -> ImageTexture:
+	var img := image(String(rows[0]).length(), rows.size())
+	for y in rows.size():
+		var row := String(rows[y])
+		for x in row.length():
+			var ch := row.substr(x, 1)
+			if palette.has(ch):
+				put(img, x, y, palette[ch])
+	return texture(img)
+
+
+## Иконки источников на прилавке: пакет молока и бутылка сиропа (16×16, обводка и свет — как у остальных спрайтов).
+static func shelf_icon(kind: String) -> ImageTexture:
+	var pal := {"o": Color("3b2a3d"), "w": Color("f4ecd8"), "s": Color("d3c5a6"), "b": Color("5b8fd9"), "r": Color("c0392b"), "d": Color("8a2a20"), "h": Color("ee7a68"), "g": Color("e8c15a")}
+	if kind == "milk":
+		return from_rows([
+			"................", "....oooooooo....", "...obbbbbbbbo...", "..obbbbbbbbbbo..", "..oooooooooooo..", "..owwwwwwwwwso..", "..owwwwwwwwwso..", "..owwbbbbbwwso..",
+			"..owwbwwwbwwso..", "..owwbbbbbwwso..", "..owwwwwwwwwso..", "..owwwwwwwwwso..", "..owwwwwwwwwso..", "..osssssssssso..", "..oooooooooooo..", "................"], pal)
+	return from_rows([
+		"................", ".......oo.......", "......oggo......", "......oggo......", ".....oooooo.....", "....orrrrrro....", "...orrhrrrrro...", "..orrhrrrrrrro..",
+		"..orrhrrwwrrro..", "..orrrrwwwwrro..", "..orrrrrwwrrro..", "..orrrrrrrrrdo..", "..odrrrrrrrddo..", "...oddddddddo...", "....oooooooo....", "................"], pal)
+
+
 static func texture(img: Image) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 

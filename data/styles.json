@@ -1,0 +1,60 @@
+{
+ "wall": {
+  "cream": {
+   "wall": "cdb892",
+   "stripe": "d8c6a3",
+   "base": "a98763"
+  },
+  "mint": {
+   "wall": "b3d4bd",
+   "stripe": "c4e0cb",
+   "base": "7f9d86"
+  },
+  "rose": {
+   "wall": "d9b3b3",
+   "stripe": "e5c6c6",
+   "base": "a57777"
+  },
+  "sky": {
+   "wall": "b3c8d9",
+   "stripe": "c6d9e8",
+   "base": "7f92a6"
+  }
+ },
+ "floor": {
+  "wood": {
+   "a": "7c5a3a",
+   "b": "86633f",
+   "edge": "5b3d27"
+  },
+  "dark": {
+   "a": "5a4332",
+   "b": "634a37",
+   "edge": "3d2a1d"
+  },
+  "light": {
+   "a": "b89a72",
+   "b": "c2a57d",
+   "edge": "8a6f4f"
+  },
+  "green": {
+   "a": "5f7a52",
+   "b": "68855a",
+   "edge": "3f5236"
+  }
+ },
+ "trim": {
+  "wood": {
+   "base": ""
+  },
+  "white": {
+   "base": "efe6d6"
+  },
+  "red": {
+   "base": "a8433a"
+  },
+  "dark": {
+   "base": "4a3426"
+  }
+ }
+}

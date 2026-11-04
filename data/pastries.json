@@ -1,5 +1,46 @@
 [
-	{"id": "croissant", "name": "Круассан", "price": 6, "col": 1, "row": 4},
-	{"id": "cheesecake", "name": "Чизкейк", "price": 8, "col": 0, "row": 5},
-	{"id": "donut", "name": "Пончик", "price": 7, "col": 2, "row": 6}
+	{
+		"id": "croissant",
+		"name": "Круассан",
+		"price": 6,
+		"col": 1,
+		"row": 4,
+		"needs": []
+	},
+	{
+		"id": "cheesecake",
+		"name": "Чизкейк",
+		"price": 8,
+		"col": 0,
+		"row": 5,
+		"needs": []
+	},
+	{
+		"id": "donut",
+		"name": "Пончик",
+		"price": 7,
+		"col": 2,
+		"row": 6,
+		"needs": []
+	},
+	{
+		"id": "syrniki",
+		"name": "Сырники",
+		"price": 9,
+		"col": 3,
+		"row": 6,
+		"needs": [
+			"pastry:syrniki"
+		]
+	},
+	{
+		"id": "eclair",
+		"name": "Эклер",
+		"price": 10,
+		"col": 3,
+		"row": 5,
+		"needs": [
+			"pastry:eclair"
+		]
+	}
 ]

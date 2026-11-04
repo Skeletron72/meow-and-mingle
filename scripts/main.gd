@@ -33,6 +33,7 @@ var shift_earned := 0
 var streak := 0         # подряд верных заказов
 var level: Dictionary = {}   # данные уровня из data/levels.json; пусто — обучение или тест
 var tutorial := false
+const RUSHED_PATIENCE := 0.65
 var tutorial_orders: Array[Dictionary] = []   # {"cat": id кота, "drink": id, "pastry": id|""} — по порядку
 var tutorial_sources: Array[String] = []      # id источников, которые показаны (пусто — все)
 
@@ -121,11 +122,14 @@ func _build_counter() -> void:
 	counter.part = BrewArt.Part.COUNTER
 	add_child(counter)
 	# кофемашина и растение на столешнице; из машины идёт пар
-	var machine := _sprite(_atlas(FURN, Rect2(131, 67, 11, 13)), Vector2(46, 288), 4.0)
+	# кофемашина и растение стоят на боковых полках над прилавком; на их месте на прилавке — молоко и сироп (когда открыты)
+	var machine := _sprite(_atlas(FURN, Rect2(131, 67, 11, 13)), Vector2(44, 200), 4.0)
 	machine.offset = Vector2(0, -6.5)
-	Fx.steam(self, Vector2(46, 252), 5).emitting = true
-	var plant := _sprite(_atlas(FURN, Rect2(97, 80, 14, 16)), Vector2(324, 284), 4.0)
+	machine.z_index = 1
+	Fx.steam(self, Vector2(44, 160), 5).emitting = true
+	var plant := _sprite(_atlas(FURN, Rect2(97, 80, 14, 16)), Vector2(320, 200), 4.0)
 	plant.offset = Vector2(0, -8)
+	plant.z_index = 1
 	_bin = BrewArt.Bin.new()
 	_bin.position = BIN_POS
 	add_child(_bin)
@@ -138,10 +142,10 @@ func _build_table() -> void:
 	var bases: Array[Dictionary] = [
 		{"kind": "base", "id": "coffee", "title": "Кофе", "tex": _drink_tex("espresso")},
 		{"kind": "base", "id": "tea", "title": "Чай", "tex": _drink_tex("tea")},
-		{"kind": "milk", "id": "milk", "title": "Молоко", "tex": _cell(0, 4)},
+		{"kind": "base", "id": "cocoa", "title": "Какао", "tex": _drink_tex("cocoa")},
 	]
 	var pastries: Array[Dictionary] = []
-	for id in Data.pastries:
+	for id in _pastry_menu():
 		pastries.append({"kind": "pastry", "id": id, "title": String(Data.pastries[id]["name"]), "tex": _pastry_tex(id)})
 	_lay_row(bases, 448.0)
 	_lay_row(pastries, 564.0)
@@ -149,7 +153,10 @@ func _build_table() -> void:
 	for s in _sources:
 		_table.plates.append(s["center"])
 	_table.queue_redraw()
+	_build_shelves()
 	for s in _sources:
+		if s.has("icon"):   # источники на полках уже нарисованы
+			continue
 		var rest := (s["center"] as Vector2) - BrewArt.content_offset(s["tex"], String(s["kind"]) != "pastry") * 4.0   # рисунок по центру тарелки
 		s["rest"] = rest
 		var icon := _sprite(s["tex"], rest, 4.0)
@@ -165,16 +172,56 @@ func _build_table() -> void:
 		bob.tween_callback(func() -> void: icon.position.y = rest_y)
 
 
-## Какие источники на столе: в обучении — заданные, иначе по купленным улучшениям (молочник, витрина).
+## Какие источники на столе: в обучении — заданные, иначе по купленным улучшениям и открытому ремонтом (молочник, витрина, какао, сироп).
 func _source_available(it: Dictionary) -> bool:
 	if tutorial:
 		return tutorial_sources.is_empty() or String(it["id"]) in tutorial_sources
 	match String(it["kind"]):
 		"milk":
 			return GameState.has_upgrade("milk_pitcher")
+		"syrup":
+			return GameState.has_unlock("source:syrup")
 		"pastry":
 			return GameState.pastries_unlocked()
+		"base":
+			return String(it["id"]) != "cocoa" or GameState.has_unlock("drink:cocoa")
 	return true
+
+
+## «Меню дня»: до трёх видов выпечки на столе — из списка уровня (pastry_menu), иначе первые доступные.
+func _pastry_menu() -> Array[String]:
+	var have := GameState.pastry_ids()
+	var out: Array[String] = []
+	var wanted: Array = level.get("pastry_menu", [])
+	for id in wanted:
+		if String(id) in have and out.size() < 3:
+			out.append(String(id))
+	if out.is_empty():
+		for id in have:
+			if out.size() < 3:
+				out.append(id)
+	return out
+
+
+## Молоко и сироп стоят на прилавке по краям (на столе — только основы и выпечка: в ряд помещаются три тарелки); кофемашина и растение — на полках над ними.
+func _build_shelves() -> void:
+	var defs: Array[Dictionary] = [
+		{"kind": "milk", "id": "milk", "title": "Молоко", "tex": PixelArt.shelf_icon("milk"), "x": 44.0},
+		{"kind": "syrup", "id": "syrup", "title": "Сироп", "tex": PixelArt.shelf_icon("syrup"), "x": 316.0},
+	]
+	for d in defs:
+		if not _source_available(d):
+			continue
+		var c := Vector2(float(d["x"]), 300.0)   # на столешнице у края прилавка
+		var s: Dictionary = d.duplicate()
+		s["center"] = c
+		s["shelf"] = true
+		s["rect"] = Rect2(c - Vector2(34, 36), Vector2(68, 100))
+		var icon := _sprite(s["tex"], c, 4.0)
+		icon.z_index = 5
+		s["icon"] = icon
+		s["rest"] = c
+		_sources.append(s)
 
 
 ## Раскладывает источники ряда по тарелкам; скрытые в обучении пропускаются, остальные центрируются.
@@ -302,11 +349,34 @@ func _update_front() -> void:
 	_order = f["order"] if _awaiting else {}
 
 
+## Напитки, которые гость может заказать на этом уровне: доступные игроку и из списка уровня (pool), которые есть на столе.
+func _orderable_drinks() -> Array[String]:
+	var avail := GameState.drink_ids()
+	var pool: Array = level.get("pool", [])
+	if not pool.is_empty():
+		avail = avail.filter(func(id: String) -> bool: return id in pool)
+	avail = avail.filter(func(id: String) -> bool: return _drink_makeable(id))
+	return avail if not avail.is_empty() else (["espresso"] as Array[String])
+
+
+## Напиток можно собрать из того, что есть на столе (основа, молоко, сироп).
+func _drink_makeable(id: String) -> bool:
+	var r: Dictionary = Data.drinks[id]["recipe"]
+	if String(r["base"]) == "cocoa" and not GameState.has_unlock("drink:cocoa"):
+		return false
+	if bool(r["milk"]) and not GameState.has_upgrade("milk_pitcher"):
+		return false
+	if bool(r.get("syrup", false)) and not GameState.has_unlock("source:syrup"):
+		return false
+	return true
+
+
 func _spawn_customer() -> void:
 	var slot := _free_slot()
 	if slot < 0:
 		return
-	var def: Dictionary = Data.cats.pick_random()
+	var def: Dictionary = GameState.cats_available().pick_random()
+	var type := "normal"   # normal / rushed (терпение ×0,65, чаевые ×2 за быструю подачу) / gourmet (напиток + выпечка, цена ×2)
 	var drink_id := ""
 	var pastry_id := ""
 	if tutorial:
@@ -317,23 +387,27 @@ func _spawn_customer() -> void:
 			if String(c["id"]) == String(o.get("cat", "")):
 				def = c
 	else:
-		var avail := GameState.drink_ids()
-		var pool: Array = level.get("pool", [])
-		if not pool.is_empty():
-			avail = avail.filter(func(id: String) -> bool: return id in pool)
-		drink_id = (avail if not avail.is_empty() else GameState.drink_ids()).pick_random()
-		if GameState.pastries_unlocked() and randf() < float(level.get("pastry", 0.0)):
-			pastry_id = Data.pastries.keys().pick_random()
+		var avail := _orderable_drinks()
+		drink_id = avail.pick_random()
+		var menu := _pastry_menu()
+		var tp: Dictionary = level.get("types", {})
+		var roll := randf()
+		if roll < float(tp.get("rushed", 0.0)):
+			type = "rushed"
+		elif roll < float(tp.get("rushed", 0.0)) + float(tp.get("gourmet", 0.0)):
+			type = "gourmet"
+		if not menu.is_empty() and (type == "gourmet" or randf() < float(level.get("pastry", 0.0))):
+			pastry_id = menu.pick_random()
 		var busy := _queue.map(func(e: Dictionary) -> String: return String(e["def"]["id"]))   # одинаковых котов подряд не пускаем
-		var others := Data.cats.filter(func(c: Dictionary) -> bool: return not (String(c["id"]) in busy))
+		var others := GameState.cats_available().filter(func(c: Dictionary) -> bool: return not (String(c["id"]) in busy))
 		if not others.is_empty():
 			def = others.pick_random()
-	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15)
+	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else 1.0)
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
 	cat.setup(def)
 	cat.position = Vector2(CAT_SPAWN_X, CAT_POS.y)
-	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id}, "patience": patience, "max": patience, "slot": slot,
+	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id}, "patience": patience, "max": patience, "type": type, "slot": slot,
 		"state": "walk", "t0": 0, "bubble": null, "bar": null, "mood": 0, "tick": 0.0}
 	_queue.append(e)
 	cat.arrived.connect(_on_cat_arrived.bind(e))
@@ -398,6 +472,11 @@ func _make_bubble(e: Dictionary) -> void:
 		b.add_child(fill)
 		e["bar"] = fill
 	e["bubble"] = b
+	var kind := String(e.get("type", "normal"))
+	if kind != "normal":   # метка типа в углу чека: «!» — спешит, «x2» — гурман
+		var mark := Ui.label("!" if kind == "rushed" else "x2", Rect2(14, -40, 44, 28), Ui.FONT_SIZE, Color("e0432f") if kind == "rushed" else Color("c2891a"), b, HORIZONTAL_ALIGNMENT_RIGHT)
+		mark.add_theme_color_override("font_outline_color", Ui.CREAM)
+		mark.add_theme_constant_override("outline_size", Ui.PX * 2)
 	Fx.rise_in(b, 24.0, 0.3, 2.0)
 	for i in icons.size():   # значки подпрыгивают друг за другом (твин живёт на самой иконке и умирает вместе с ней)
 		var icon := icons[i]
@@ -610,6 +689,8 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 		"coffee": color = Color("5b3320")
 		"tea": color = Color("f0b84a")
 		"milk": color = Color("fffaf0")
+		"cocoa": color = Color("6b3f2a")
+		"syrup": color = Color("c0392b")
 	if kind == "pastry":
 		Audio.sfx("pop")
 		Fx.burst(_fx, at, "sparkle", Color("ffe9a0"), 7, 130.0, 100.0, 0.7, 1.0)
@@ -648,7 +729,11 @@ func _serve(e: Dictionary = {}) -> void:
 		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
 		if pastry_id != "":
 			price += int(Data.pastries[pastry_id]["price"])
+		if String(e.get("type", "normal")) == "gourmet":
+			price *= 2   # гурман платит вдвое
 		tip = maxi(1, int(round(price * 0.2)))
+		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
+			tip *= 2   # спешащий щедро благодарит за быструю подачу
 		var target := float(level.get("speed", 10.0))
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
 		total = price + tip + bonus
@@ -911,9 +996,11 @@ func _next_step() -> Dictionary:
 	var recipe: Dictionary = drink["recipe"]
 	if _cup.base == "":
 		var id := String(recipe["base"])
-		return {"text": "Перетащи %s на поднос" % ("кофе" if id == "coffee" else "чай"), "source": id}
+		return {"text": "Перетащи %s на поднос" % {"coffee": "кофе", "tea": "чай", "cocoa": "какао"}.get(id, id), "source": id}
 	if bool(recipe["milk"]) and not _cup.milk:
 		return {"text": "Добавь молока", "source": "milk"}
+	if bool(recipe.get("syrup", false)) and not _cup.syrup:
+		return {"text": "Добавь сироп", "source": "syrup"}
 	if String(_order["pastry"]) != "" and _cup.pastry != String(_order["pastry"]):
 		return {"text": "Добавь выпечку", "source": String(_order["pastry"])}
 	return {"text": "Не то налили? Тащи поднос в корзину", "target": BIN_POS, "ready": false}

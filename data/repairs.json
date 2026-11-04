@@ -1,4 +1,636 @@
 [
- {"id": "shutters", "name": "Поднять ставни", "cost": 1, "icon": "home"},
- {"id": "cleanup", "name": "Расчистить зал", "cost": 2, "icon": "brush"}
+ {
+  "id": "shutters",
+  "chapter": 1,
+  "zone": "facade",
+  "name": "Поднять ставни",
+  "cost": 1,
+  "requires": [],
+  "after": 0,
+  "effects": [],
+  "blurb": "Кафе открыто для гостей",
+  "icon": "home"
+ },
+ {
+  "id": "cleanup",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Расчистить зал",
+  "cost": 2,
+  "requires": [
+   "shutters"
+  ],
+  "after": 0,
+  "effects": [],
+  "blurb": "Свет, чистота и находки в коробках",
+  "icon": "brush"
+ },
+ {
+  "id": "wall_paint",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Покрасить стены",
+  "cost": 2,
+  "requires": [
+   "cleanup"
+  ],
+  "after": 1,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "wall"
+   }
+  ],
+  "blurb": "Новый цвет стен зала",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "mint",
+    "name": "Мятные"
+   },
+   {
+    "id": "rose",
+    "name": "Розовые"
+   },
+   {
+    "id": "sky",
+    "name": "Голубые"
+   }
+  ]
+ },
+ {
+  "id": "floor",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Перестелить пол",
+  "cost": 2,
+  "requires": [
+   "cleanup"
+  ],
+  "after": 2,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "floor"
+   }
+  ],
+  "blurb": "Новый пол в зале",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "dark",
+    "name": "Тёмный"
+   },
+   {
+    "id": "light",
+    "name": "Светлый"
+   },
+   {
+    "id": "green",
+    "name": "Зелёный"
+   }
+  ]
+ },
+ {
+  "id": "plant_hall",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Цветок у входа",
+  "cost": 1,
+  "requires": [
+   "cleanup"
+  ],
+  "after": 1,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "plant"
+   }
+  ],
+  "blurb": "Уют: растение в зале",
+  "icon": "flower"
+ },
+ {
+  "id": "rug_hall",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Коврик в зал",
+  "cost": 1,
+  "requires": [
+   "wall_paint"
+  ],
+  "after": 3,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "rug"
+   }
+  ],
+  "blurb": "Мягкий коврик",
+  "icon": "home"
+ },
+ {
+  "id": "window_hall",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Новое окно",
+  "cost": 1,
+  "requires": [
+   "wall_paint"
+  ],
+  "after": 3,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "window"
+   }
+  ],
+  "blurb": "Больше света днём",
+  "icon": "home"
+ },
+ {
+  "id": "menu_board",
+  "chapter": 1,
+  "zone": "counter",
+  "name": "Меню на доске",
+  "cost": 1,
+  "requires": [
+   "window_hall"
+  ],
+  "after": 4,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "board"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:suharik"
+   }
+  ],
+  "blurb": "К вам заглянет Сухарик",
+  "icon": "check"
+ },
+ {
+  "id": "table_hall",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Большой стол",
+  "cost": 2,
+  "requires": [
+   "floor"
+  ],
+  "after": 5,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "table_big"
+   }
+  ],
+  "blurb": "Ещё одно место для гостей",
+  "icon": "home"
+ },
+ {
+  "id": "bowl",
+  "chapter": 1,
+  "zone": "hall",
+  "name": "Миска для котов",
+  "cost": 1,
+  "requires": [
+   "rug_hall"
+  ],
+  "after": 6,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "bowl"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:bulka"
+   }
+  ],
+  "blurb": "Придёт Булка",
+  "icon": "cat"
+ },
+ {
+  "id": "trim",
+  "chapter": 2,
+  "zone": "hall",
+  "name": "Плинтусы и рамки",
+  "cost": 1,
+  "requires": [
+   "table_hall"
+  ],
+  "after": 10,
+  "effects": [
+   {
+    "kind": "style",
+    "key": "trim"
+   }
+  ],
+  "blurb": "Цвет плинтуса",
+  "icon": "brush",
+  "variants": [
+   {
+    "id": "white",
+    "name": "Белый"
+   },
+   {
+    "id": "red",
+    "name": "Красный"
+   },
+   {
+    "id": "dark",
+    "name": "Тёмный"
+   }
+  ]
+ },
+ {
+  "id": "recipe_cocoa",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Мамин рецепт какао",
+  "cost": 2,
+  "requires": [
+   "table_hall"
+  ],
+  "after": 10,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "drink:cocoa"
+   }
+  ],
+  "blurb": "Новый напиток: какао",
+  "icon": "check"
+ },
+ {
+  "id": "shelf",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Шкафчик с банками",
+  "cost": 2,
+  "requires": [
+   "recipe_cocoa"
+  ],
+  "after": 11,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "cabinet"
+   }
+  ],
+  "blurb": "Место для банок и сиропов",
+  "icon": "home"
+ },
+ {
+  "id": "recipe_syrup",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Сиропы на полке",
+  "cost": 2,
+  "requires": [
+   "shelf"
+  ],
+  "after": 12,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "source:syrup"
+   },
+   {
+    "kind": "unlock",
+    "key": "drink:raf"
+   },
+   {
+    "kind": "unlock",
+    "key": "drink:sea_tea"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:bayun"
+   }
+  ],
+  "blurb": "Сироп, раф и облепиховый чай; придёт Баюн",
+  "icon": "check"
+ },
+ {
+  "id": "case_task",
+  "chapter": 2,
+  "zone": "counter",
+  "name": "Витрина для выпечки",
+  "cost": 2,
+  "requires": [
+   "shelf"
+  ],
+  "after": 12,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "case"
+   },
+   {
+    "kind": "upgrade",
+    "id": "display_case"
+   }
+  ],
+  "blurb": "Откроет выпечку",
+  "icon": "cart"
+ },
+ {
+  "id": "syrniki",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Сырники от Маруси",
+  "cost": 2,
+  "requires": [
+   "case_task"
+  ],
+  "after": 14,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "pastry:syrniki"
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:marusya"
+   }
+  ],
+  "blurb": "Новая выпечка; придёт Маруся",
+  "icon": "check"
+ },
+ {
+  "id": "eclair",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Эклеры",
+  "cost": 2,
+  "requires": [
+   "syrniki"
+  ],
+  "after": 16,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "pastry:eclair"
+   }
+  ],
+  "blurb": "Новая выпечка: эклер",
+  "icon": "check"
+ },
+ {
+  "id": "oven",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Духовка",
+  "cost": 2,
+  "requires": [
+   "case_task"
+  ],
+  "after": 15,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "oven"
+   }
+  ],
+  "blurb": "Тёплый запах из кухни",
+  "icon": "home"
+ },
+ {
+  "id": "stove",
+  "chapter": 2,
+  "zone": "kitchen",
+  "name": "Плита",
+  "cost": 2,
+  "requires": [
+   "oven"
+  ],
+  "after": 17,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "stove"
+   }
+  ],
+  "blurb": "Большая плита",
+  "icon": "home"
+ },
+ {
+  "id": "ucounter",
+  "chapter": 2,
+  "zone": "counter",
+  "name": "Большая стойка",
+  "cost": 3,
+  "requires": [
+   "stove",
+   "eclair"
+  ],
+  "after": 19,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "ucounter"
+   }
+  ],
+  "blurb": "Стойка, как у мамы",
+  "icon": "home"
+ },
+ {
+  "id": "back_room",
+  "chapter": 3,
+  "zone": "back",
+  "name": "Открыть коморку",
+  "cost": 3,
+  "requires": [
+   "ucounter"
+  ],
+  "after": 20,
+  "effects": [
+   {
+    "kind": "upgrade",
+    "id": "back_room"
+   }
+  ],
+  "blurb": "Дверь за прилавком",
+  "icon": "home"
+ },
+ {
+  "id": "boxes",
+  "chapter": 3,
+  "zone": "back",
+  "name": "Разобрать коробки",
+  "cost": 1,
+  "requires": [
+   "back_room"
+  ],
+  "after": 21,
+  "effects": [
+   {
+    "kind": "coins",
+    "amount": 60
+   }
+  ],
+  "blurb": "Найдётся 60 монет",
+  "icon": "brush"
+ },
+ {
+  "id": "matcha",
+  "chapter": 3,
+  "zone": "kitchen",
+  "name": "Набор для матчи",
+  "cost": 2,
+  "requires": [
+   "back_room"
+  ],
+  "after": 21,
+  "effects": [
+   {
+    "kind": "upgrade",
+    "id": "matcha_kit"
+   }
+  ],
+  "blurb": "Матча-латте для Рыжика",
+  "icon": "cart"
+ },
+ {
+  "id": "stairs",
+  "chapter": 3,
+  "zone": "back",
+  "name": "Лестница наверх",
+  "cost": 4,
+  "requires": [
+   "boxes"
+  ],
+  "after": 22,
+  "effects": [
+   {
+    "kind": "upgrade",
+    "id": "upstairs"
+   }
+  ],
+  "blurb": "Второй этаж открыт",
+  "icon": "home"
+ },
+ {
+  "id": "letters",
+  "chapter": 3,
+  "zone": "upstairs",
+  "name": "Мамины письма",
+  "cost": 2,
+  "requires": [
+   "stairs"
+  ],
+  "after": 23,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "cat:dymka"
+   }
+  ],
+  "blurb": "Письма и новый гость — Дымка",
+  "icon": "check"
+ },
+ {
+  "id": "rug2",
+  "chapter": 3,
+  "zone": "upstairs",
+  "name": "Ковёр наверху",
+  "cost": 1,
+  "requires": [
+   "stairs"
+  ],
+  "after": 24,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "rug"
+   }
+  ],
+  "blurb": "Уют в жилой зоне",
+  "icon": "home"
+ },
+ {
+  "id": "plant2",
+  "chapter": 3,
+  "zone": "upstairs",
+  "name": "Ещё цветы",
+  "cost": 1,
+  "requires": [
+   "letters"
+  ],
+  "after": 25,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "plant"
+   }
+  ],
+  "blurb": "Зелень в доме",
+  "icon": "flower"
+ },
+ {
+  "id": "table2",
+  "chapter": 3,
+  "zone": "upstairs",
+  "name": "Столик для писем",
+  "cost": 1,
+  "requires": [
+   "rug2"
+  ],
+  "after": 26,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "table_small"
+   }
+  ],
+  "blurb": "Куда класть письма",
+  "icon": "home"
+ },
+ {
+  "id": "lights",
+  "chapter": 3,
+  "zone": "hall",
+  "name": "Тёплые окна",
+  "cost": 2,
+  "requires": [
+   "plant2"
+  ],
+  "after": 27,
+  "effects": [
+   {
+    "kind": "furniture",
+    "id": "window"
+   }
+  ],
+  "blurb": "Свет вечером на улицу",
+  "icon": "home"
+ },
+ {
+  "id": "reopening",
+  "chapter": 3,
+  "zone": "facade",
+  "name": "Праздник открытия",
+  "cost": 4,
+  "requires": [
+   "lights",
+   "matcha"
+  ],
+  "after": 29,
+  "effects": [
+   {
+    "kind": "coins",
+    "amount": 100
+   },
+   {
+    "kind": "unlock",
+    "key": "cat:usov"
+   }
+  ],
+  "blurb": "Придёт строгий Профессор Усов",
+  "icon": "play"
+ }
 ]

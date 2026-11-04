@@ -1,5 +1,32 @@
 [
-	{"id": "pryanik", "name": "Пряник", "fav_drink": "latte", "window": null, "chapters": 7, "sprite": "cat-waiter-front.png", "tint": "#e9c9a0"},
-	{"id": "tucha", "name": "Тучка", "fav_drink": "espresso", "window": null, "chapters": 7, "sprite": "cat-black-front.png", "tint": "#ffffff"},
-	{"id": "ryzhik", "name": "Рыжик", "fav_drink": "matcha_latte", "window": null, "chapters": 7, "sprite": "cat-orange-front.png", "tint": "#ffffff"}
+	{
+		"id": "pryanik",
+		"name": "Пряник",
+		"fav_drink": "latte",
+		"window": null,
+		"chapters": 7,
+		"sprite": "cat-waiter-front.png",
+		"tint": "#e9c9a0",
+		"starter": true
+	},
+	{
+		"id": "tucha",
+		"name": "Тучка",
+		"fav_drink": "espresso",
+		"window": null,
+		"chapters": 7,
+		"sprite": "cat-black-front.png",
+		"tint": "#ffffff",
+		"starter": true
+	},
+	{
+		"id": "ryzhik",
+		"name": "Рыжик",
+		"fav_drink": "matcha_latte",
+		"window": null,
+		"chapters": 7,
+		"sprite": "cat-orange-front.png",
+		"tint": "#ffffff",
+		"starter": true
+	}
 ]
