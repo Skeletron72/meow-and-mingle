@@ -31,10 +31,20 @@ const TABLE_GRAIN := Color("9a6a3c")
 const TABLE_L := Color("dcae74")
 const PLATE := Color("f4ecd8")
 const PLATE_RIM := Color("d4c6a6")
+const RACK := Color("46605f")        # плитка за полками
+const RACK_D := Color("3a504f")
+const RACK_L := Color("587a77")
+const SHELF_TOP := Color("dcae74")
+const SHELF_FRONT := Color("c0884f")
+const SHELF_FRONT_L := Color("d9a468")
+const SHELF_FRONT_D := Color("94633a")
+const SHELF_STRIDE := 84.0           # полка целиком: предмет 56 + верхняя грань 4 + передняя планка 20 + обводка 4
+const SHELF_RACK_Y := 388.0          # верх стеллажа (под фасадом прилавка)
 
 var part := Part.WALL
-var plates: Array[Vector2] = []   # центры тарелок на столе (кратны G)
-var plate_radius := 40.0
+var plates: Array[Vector2] = []   # центры блюдец под выпечкой на полках (кратны G)
+var plate_radius := 36.0
+var shelves: Array[float] = []    # верх каждой полки-ряда (кратен G): предметы стоят на ней, подписи — на передней планке
 
 
 func _draw() -> void:
@@ -189,26 +199,26 @@ func _draw_counter() -> void:
 
 
 func _draw_table() -> void:
-	# стол — плитка 16×16 пикселей арта (64 px): ряды досок со стыками вразбежку
-	_r(0, TABLE_Y, 360, 244, TABLE)
-	for i in 4:
-		var y := TABLE_Y + i * 64.0
-		_r(0, y, 360, 64, TABLE if i % 2 == 0 else TABLE_B)
-		_r(0, y, 360, 4, TABLE_SEAM)
-		for j in 4:
-			_r(36.0 + (i % 2) * 64.0 + j * 128.0, y, 4, 64, TABLE_SEAM)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
-	for _i in 36:   # волокна дерева
-		_r(snappedf(rng.randf_range(0, 330), G), snappedf(rng.randf_range(TABLE_Y + 12, 636), G), snappedf(rng.randf_range(8, 28), G), 4, TABLE_GRAIN)
-	_r(0, TABLE_Y, 360, 8, TABLE_L)
-	_r(0, TABLE_Y + 8, 360, 4, TABLE_SEAM)
-	for c in plates:   # тарелки: тень, обводка, борт, дно
-		_disc(c + Vector2(0, 8), plate_radius + G, Color(0, 0, 0, 0.22))
-		_disc(c, plate_radius + G, OUTLINE)
-		_disc(c, plate_radius, PLATE_RIM)
-		_disc(c, plate_radius - 4.0, PLATE)
-		_disc(c + Vector2(0, 4), plate_radius - 12.0, PLATE.darkened(0.04))
+	# стеллаж: тёмная плитка с мелким дизерингом, на нём полки с передней планкой под подписи
+	_r(0, SHELF_RACK_Y, 360, 640.0 - SHELF_RACK_Y, RACK)
+	for y in range(int(SHELF_RACK_Y), 640, 16):   # швы плитки: ряды по 16, стыки вразбежку
+		_r(0, y, 360, 4, RACK_D)
+		var off := 0.0 if int((y - SHELF_RACK_Y) / 16.0) % 2 == 0 else 32.0
+		for x in range(int(off), 360, 64):
+			_r(x, y + 4, 4, 12, RACK_D)
+	draw_texture_rect(PixelArt.dither_gradient(90, 6, false, false), Rect2(0, SHELF_RACK_Y, 360, 24), false, Color(0, 0, 0, 0.55))   # тень прилавка
+	for top in shelves:
+		var y := top + 56.0
+		_r(0, y + 28.0, 360, 8, Color(0, 0, 0, 0.22))   # тень полки на плитке
+		_r(0, y, 360, 4, SHELF_TOP)
+		_r(0, y + 4, 360, 20, SHELF_FRONT)
+		_r(0, y + 4, 360, 4, SHELF_FRONT_L)
+		_r(0, y + 20, 360, 4, SHELF_FRONT_D)
+		_r(0, y + 24, 360, 4, OUTLINE)
+	for c in plates:   # блюдца под выпечкой: плоский овал на верхней грани полки
+		_ellipse(c + Vector2(0, 0), plate_radius + G, 8.0, OUTLINE)
+		_ellipse(c + Vector2(0, -G), plate_radius, 8.0, PLATE_RIM)
+		_ellipse(c + Vector2(0, -G), plate_radius - 8.0, 4.0, PLATE)
 
 
 ## Подвесная лампа: узел стоит в точке подвеса (у верха кадра), шнур идёт от потолка; качается шагами по 4 px,

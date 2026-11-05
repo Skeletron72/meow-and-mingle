@@ -83,6 +83,23 @@ static func extra_icon(kind: String) -> ImageTexture:
 
 
 
+const JAR_PAL := {"o": Color("3b2a3d"), "w": Color("fffbee"), "c": Color("e3d2b0"), "l": Color("d9f1fb"), "b": Color("8ad0ee"), "B": Color("4d8fc7"),
+	"n": Color("c88050"), "N": Color("8a502c"), "y": Color("e8c15a"), "Y": Color("b58a2c")}
+const JAR_ROWS := {
+	"ice": ["................", "................", ".......oooo.....", "...oooowwwbo....", "..owwwbwbbBooo..", "..owbbBwbbwwwbo.", "..owbbBbBBwbbBo.", "..obBBBooowbbBo.", ".owwwwwwwwbBBBo.", ".olwwlllllllllo.", "..owlllllllllo..", "..olbbbbbbbblo..", "...olbbbbbblo...", "....olbbbblo....", ".....oooooo.....", "................"],
+	"cinnamon": [".....oo.oo......", "....onNonNo.....", "....onNonNoo....", "....onNonNnNo...", "...oonNonNnNo...", "..oYYYYYYYYYYo..", "..oyyyyyyyyyyo..", "..oNnNNNNNNNNo..", "..oNnNNNNNNNNo..", "..oNnNwwwwwNNo..", "..oNnNwNNNwNNo..", "..oNnNwwNwwNNo..", "..oNnNcccccNNo..", "..oNnNNNNNNNNo..", "..oNNNNNNNNNNo..", "...oooooooooo..."],
+	"cream": [".......oo.......", "......owwo......", ".....owwwco.....", "....oowwwwoo....", "...owwwcwwcwo...", "...owwwwwwwwo...", "..owwcwwwwwcwo..", "..owwwwwwwwcwo..", ".ooccccccccccoo.", "owwwwwwwwwwwwwwo", "occwccccccccccco", ".ocwcccccccccco.", "..occcccccccco..", "..occcccccccco..", "...ooccccccoo...", ".....oooooo....."],
+}
+
+
+## Баночки источников на полке стола (16×16, как молоко и сироп): лёд в миске, банка корицы, миска сливок. kind: ice | cinnamon | cream.
+static func extra_jar(kind: String) -> ImageTexture:
+	var key := "jar_" + kind
+	if not _extra_cache.has(key):
+		_extra_cache[key] = from_rows(JAR_ROWS[kind], JAR_PAL)
+	return _extra_cache[key]
+
+
 ## Иконки источников на прилавке: пакет молока и бутылка сиропа (16×16, обводка и свет — как у остальных спрайтов).
 static func shelf_icon(kind: String) -> ImageTexture:
 	var pal := {"o": Color("3b2a3d"), "w": Color("f4ecd8"), "s": Color("d3c5a6"), "b": Color("5b8fd9"), "r": Color("c0392b"), "d": Color("8a2a20"), "h": Color("ee7a68"), "g": Color("e8c15a")}

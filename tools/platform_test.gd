@@ -1023,7 +1023,7 @@ func _test_boosters_in_shift() -> void:
 	m._spawn_customer()
 	var e: Dictionary = m._queue[0]
 	var plain := float(Data.levels[2]["patience"])
-	_check(float(e["max"]) >= plain * 0.85 * 1.3 - 0.01 and float(e["max"]) <= plain * 1.15 * 1.3 + 0.01 or String(e["type"]) == "rushed", "«Заморозка терпения»: терпение +30%% (%.1f при базе %.1f)" % [float(e["max"]), plain])
+	_check(float(e["max"]) >= plain * 0.85 * 1.3 * m._patience_bonus() - 0.01 and float(e["max"]) <= plain * 1.15 * 1.3 * m._patience_bonus() + 0.01 or String(e["type"]) == "rushed", "«Заморозка терпения»: терпение +30%% (%.1f при базе %.1f)" % [float(e["max"]), plain])
 	await get_tree().create_timer(2.6).timeout
 	_check(m._cup.matches(e["order"]) and m._auto_left == 2, "автосборка: поднос собран по заказу первого кота")
 	# ошибка прощается один раз: поднос с неверным заказом не прогоняет кота
@@ -1383,7 +1383,7 @@ func _test_depth() -> void:
 	m.level["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 0.0, "critic": 0.0}
 	add_child(m)
 	await get_tree().process_frame
-	_check(m._rail_n == 3, "на рейке три добавки (%d)" % m._rail_n)
+	_check(m._rail_n == 3, "на полке три баночки-добавки (%d)" % m._rail_n)
 	var ids := []
 	for s in m._sources:
 		ids.append(String(s["id"]))
