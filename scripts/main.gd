@@ -40,6 +40,8 @@ const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 �
 const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
 const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+var _paused := false        # открыта шпаргалка рецептов: терпение, остывание и приход гостей стоят
+var _pause_started := 0
 var _cozy_coins := 0.0     # чаевые за смену, которые принёс Уют (для строки в итогах)
 var _riddle_seen := false   # загадочный гость приходит раз за смену
 var _cup_age := 0.0         # сколько секунд горячий напиток стоит на подносе
@@ -96,7 +98,7 @@ func _ready() -> void:
 	_cup.allow_double = GameState.has_upgrade("espresso_pro") and not tutorial
 	_tray.position = TRAY_HOME
 	add_child(_tray)
-	_cup_hint = _label("Собери заказ на подносе", Rect2(8, 344, 292, 32), Color("fff1d6"), null, true)
+	_cup_hint = _label("Собери заказ на подносе", Rect2(64, 344, 240, 32), Color("fff1d6"), null, true)
 	_cup_hint.add_theme_color_override("font_outline_color", Ui.INK)
 	_cup_hint.add_theme_constant_override("outline_size", Ui.PX * 2)
 	_fx = Node2D.new()
@@ -308,6 +310,10 @@ func _build_hud() -> void:
 	_served_label.add_theme_constant_override("outline_size", Ui.PX * 2)
 	_served_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_served_label.z_index = 81
+	if not tutorial:   # шпаргалка рецептов: одно касание, смена на паузе
+		var book := Ui.button("", Rect2(8, 340, 52, 44), "book", self)
+		book.z_index = 60
+		book.pressed.connect(_open_book)
 	var end_btn := Ui.button("", Rect2(296, 6, 56, 48), "exit", self)
 	end_btn.z_index = 82
 	end_btn.visible = not tutorial   # обучающую смену нельзя бросить
@@ -768,6 +774,8 @@ func _refresh_progress() -> void:
 # ---------------------------------------------------------------- перетаскивание
 
 func _input(event: InputEvent) -> void:
+	if _paused:
+		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_begin_drag(get_global_mouse_position())
@@ -1305,7 +1313,39 @@ func _update_warmth() -> void:
 			_toast(tr("Напиток остыл — заварить заново?"), Vector2(180, 430))
 
 
+## Шпаргалка: открытые напитки с составом. Пока она открыта, смена стоит; при закрытии время ожидания каждого кота сдвигается на длину паузы.
+func _open_book() -> void:
+	if _paused or _run_over or _result != null or tutorial:
+		return
+	_paused = true
+	_pause_started = Time.get_ticks_msec()
+	var book := RecipeBook.new()
+	var ids: Array[String] = []
+	for id in GameState.drink_ids():
+		if _drink_makeable(id):
+			ids.append(id)
+	book.drink_ids = ids
+	book.cell_tex = _drink_tex
+	book.base_tex = func(id: String) -> Texture2D: return _drink_tex({"coffee": "espresso", "tea": "tea", "cocoa": "cocoa"}[id])
+	book.closed.connect(_resume)
+	add_child(book)
+	Platform.track("recipe_book", {"drinks": ids.size()})
+
+
+func _resume() -> void:
+	if not _paused:
+		return
+	var gap := Time.get_ticks_msec() - _pause_started
+	for q in _queue:
+		q["t0"] = int(q["t0"]) + gap
+	_run_started_msec += gap
+	_idle_msec += gap
+	_paused = false
+
+
 func _process(delta: float) -> void:
+	if _paused:
+		return
 	if not _run_over and _result == null:
 		if not _cup.is_empty() and _cup.is_hot() and _cool_limit() > 0.0:
 			_cup_age += delta

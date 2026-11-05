@@ -808,5 +808,6 @@
  "Уют %d из %d: чаевые +%d%%, терпение гостей +%d%%": "Coziness %d of %d: tips +%d%%, guest patience +%d%%",
  "Уют %d (чаевые +%d%%)": "Coziness %d (tips +%d%%)",
  "Откроется: %s": "Opens with: %s",
- "Бонус за Уют %d: +%d": "Coziness bonus %d: +%d"
+ "Бонус за Уют %d: +%d": "Coziness bonus %d: +%d",
+ "Начинки — и на выпечку: бросай на правую половину подноса.": "Toppings go on pastry too: drop them on the right half of the tray."
 }

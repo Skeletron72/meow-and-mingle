@@ -44,6 +44,7 @@ func _ready() -> void:
 	await _test_new_types()
 	await _test_depth()
 	await _test_shelves_and_pastry()
+	await _test_recipe_book()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1571,5 +1572,37 @@ func _test_shelves_and_pastry() -> void:
 	m2._serve(e2)
 	_check(m2._cozy_coins > 0.0, "Уют дал часть чаевых, она посчитана для итогов (%.2f)" % m2._cozy_coins)
 	m2.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+## Шпаргалка рецептов: пауза смены и возврат времени ожидания.
+func _test_recipe_book() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = Data.levels[5].duplicate(true)
+	m.level["interval"] = [60.0, 60.0]
+	add_child(m)
+	await get_tree().create_timer(2.5).timeout
+	_check(m._awaiting, "гость пришёл к стойке")
+	var e: Dictionary = m._front()
+	var left_before: float = e["patience"]
+	var t0_before: int = e["t0"]
+	m._open_book()
+	_check(m._paused, "книга открыта — смена на паузе")
+	await get_tree().create_timer(0.6).timeout
+	_check(absf(float(e["patience"]) - left_before) < 0.01, "на паузе терпение не убывает (%.2f → %.2f)" % [left_before, float(e["patience"])])
+	var book: RecipeBook
+	for c in m.get_children():
+		if c is RecipeBook:
+			book = c
+	_check(book != null and book.drink_ids.size() >= 2, "в книге открытые напитки (%d)" % (book.drink_ids.size() if book != null else -1))
+	for id in book.drink_ids:
+		_check(book.ingredient_textures(id).size() >= 1, "у напитка «%s» есть состав" % id)
+	book.close()
+	await get_tree().process_frame
+	_check(not m._paused and int(e["t0"]) > t0_before, "после закрытия смена идёт, время ожидания сдвинуто")
+	m.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()

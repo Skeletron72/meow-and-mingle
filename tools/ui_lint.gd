@@ -199,6 +199,19 @@ func _run_all(lang: String) -> void:
 		m2._make_bubble(q)
 		await get_tree().process_frame
 		_scan(lang, "чек: %s" % id, q["bubble"])
+	# шпаргалка рецептов: все 27 напитков, все страницы
+	var rbook := RecipeBook.new()
+	for id in Data.drinks:
+		rbook.drink_ids.append(String(id))
+	rbook.cell_tex = m2._drink_tex
+	rbook.base_tex = func(bid: String) -> Texture2D: return m2._drink_tex({"coffee": "espresso", "tea": "tea", "cocoa": "cocoa"}[bid])
+	city.add_child(rbook)
+	for pg in rbook.page_count():
+		rbook._page = pg
+		rbook._build()
+		await get_tree().process_frame
+		_scan(lang, "шпаргалка рецептов, стр. %d" % (pg + 1), rbook)
+	rbook.queue_free()
 	m2.queue_free()
 	m._stats["served"] = 9
 	m.shift_earned = 123
