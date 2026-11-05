@@ -877,14 +877,12 @@ func _fix_auto_layout() -> void:
 			layout.remove_at(same[same.size() - 1])
 	var room := CafeRoom.new()
 	room.layout = layout
-	# миска и цветок из наград стояли посреди прохода или за витриной: миску — в угол у стены, цветок — к стене служебки
+	# цветок из награды стоял посреди прохода или за витриной — к стене служебки (пиалу на стол ставит _sanitize_layout)
 	for i in layout.size():
 		var it: Dictionary = layout[i]
 		var cell := Vector2i(int(it["c"]), int(it["r"]))
 		var want := Vector2i(-1, -1)
-		if String(it["id"]) == "bowl" and cell in [Vector2i(4, 2), Vector2i(4, 3), Vector2i(5, 2), Vector2i(0, 3)]:
-			want = Vector2i(0, 5)
-		elif String(it["id"]) == "plant" and cell in [Vector2i(5, 1), Vector2i(5, 2), Vector2i(4, 3)]:
+		if String(it["id"]) == "plant" and cell in [Vector2i(5, 1), Vector2i(5, 2), Vector2i(4, 3)]:
 			want = Vector2i(5, 3)
 		if want.x >= 0 and room.check_place(String(it["id"]), want.x, want.y, i) == "":
 			it["c"] = want.x
@@ -915,6 +913,7 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	room.layout = out
 	var counter_item := {}
+	var tops: Array[Dictionary] = []
 	for item in raw:
 		if not (item is Dictionary) or not Data.furniture.has(String(item.get("id", ""))):
 			continue
@@ -928,6 +927,9 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 		if CafeRoom.is_counter(fid):   # прилавок ставим последним: его ряды (бариста и гости) проверяются по уже стоящей мебели
 			if counter_item.is_empty():
 				counter_item = fixed
+			continue
+		if CafeRoom.is_top(fid):   # декор на стол — после всех столов
+			tops.append(fixed)
 			continue
 		if U_TO_SKIN.has(fid):   # большая П-образная стойка была второй стойкой в зале — теперь это вид прилавка
 			_pending_counter = String(U_TO_SKIN[fid])
@@ -950,5 +952,15 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 				coins += int(Data.furniture[oid].get("price", 0))
 				out.remove_at(k)
 	out.insert(0, {"id": cid, "c": spot.x, "r": spot.y, "flip": bool(counter_item.get("flip", false))})
+	for t in tops:   # пиала стояла на полу (раньше это была миска) или стол переехал — ставим на свободный стол, нет стола — в монеты
+		var tid := String(t["id"])
+		if room.check_place(tid, int(t["c"]), int(t["r"])) == "":
+			out.append(t)
+		else:
+			var ts := room.find_free_spot(tid)
+			if ts.x >= 0:
+				out.append({"id": tid, "c": ts.x, "r": ts.y, "flip": bool(t["flip"])})
+			else:
+				coins += int(Data.furniture[tid].get("price", 0))
 	room.free()
 	return out

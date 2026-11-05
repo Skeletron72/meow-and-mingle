@@ -37,7 +37,6 @@
  "Прилавок": "Counter",
  "Стойка": "Bar",
  "Коврик": "Rug",
- "Миска": "Bowl",
  "Окно": "Window",
  "Меню": "Menu",
  "Первая смена": "First shift",
@@ -278,8 +277,6 @@
  "Это кафе? Мне срочно эспрессо! Ну, не срочно… но быстро!": "Is this a café? I need an espresso urgently! Well, not urgently… but fast!",
  "Сейчас-сейчас! Тучка, подвинься!": "Coming, coming! Stormy, move over!",
  "Я не мешаю. Я — облачко.": "I'm not in the way. I'm a cloud.",
- "Миска для котов": "A bowl for the cats",
- "Какая красивая миска! А какао у вас есть?": "What a lovely bowl! Do you have cocoa?",
  "Скоро будет. Мамин рецепт я ещё ищу.": "Soon. I'm still looking for Mom's recipe.",
  "Тогда я зайду завтра. И послезавтра. Я упорный.": "Then I'll come tomorrow. And the day after. I'm persistent.",
  "Конец главы 1": "End of chapter 1",
@@ -845,5 +842,9 @@
  "Нет места для стойки": "No room for the bar",
  "Прилавок заменён": "Counter replaced",
  "Мамина": "Mom's",
- "За прилавком нужно место для бариста": "The barista needs room behind the counter"
+ "За прилавком нужно место для бариста": "The barista needs room behind the counter",
+ "Пиала": "Bowl",
+ "Пиала с печеньем": "Bowl of Cookies",
+ "Печенье в пиале — это всем? А какао у вас есть?": "Cookies in a bowl — for everyone? And do you have cocoa?",
+ "Это ставится на стол": "This goes on a table"
 }

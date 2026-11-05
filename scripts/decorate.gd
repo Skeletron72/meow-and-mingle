@@ -279,6 +279,13 @@ func _drop() -> void:
 		_room.preview_move(_sel, _drag_start.x, _drag_start.y)
 		_toast_at(_drag_err, n.position + Vector2(0, -60))
 	elif _drag_cell != _drag_start:
+		var moved_id := String(GameState.layout[_sel]["id"])
+		if CafeRoom.base_id(moved_id) in CafeRoom.TABLES:   # пиалы и прочий декор на столе едут вместе со столом
+			var old := CafeRoom.cells(moved_id, _drag_start.x, _drag_start.y)
+			for it in GameState.layout:
+				if CafeRoom.is_top(String(it["id"])) and old.has_point(Vector2i(int(it["c"]), int(it["r"]))):
+					it["c"] = int(it["c"]) + _drag_cell.x - _drag_start.x
+					it["r"] = int(it["r"]) + _drag_cell.y - _drag_start.y
 		GameState.layout[_sel]["c"] = _drag_cell.x
 		GameState.layout[_sel]["r"] = _drag_cell.y
 		_room.rebuild()  # переносит и спрайт (его смещение зависит от клетки), и сетку путей
@@ -392,6 +399,15 @@ func _remove_selected() -> void:
 		return
 	var price := int(CafeRoom.item_def(String(item["id"]))["price"])
 	var at := _room.node_for(_sel).position
+	if CafeRoom.base_id(String(item["id"])) in CafeRoom.TABLES:   # убрали стол — убираем и то, что на нём стояло (с возвратом цены)
+		var area := CafeRoom.cells(String(item["id"]), int(item["c"]), int(item["r"]))
+		for k in range(GameState.layout.size() - 1, -1, -1):
+			var t: Dictionary = GameState.layout[k]
+			if k != _sel and CafeRoom.is_top(String(t["id"])) and area.has_point(Vector2i(int(t["c"]), int(t["r"]))):
+				price += int(CafeRoom.item_def(String(t["id"]))["price"])
+				GameState.layout.remove_at(k)
+				if k < _sel:
+					_sel -= 1
 	GameState.layout.remove_at(_sel)
 	_room.rebuild()
 	_refresh_cozy()

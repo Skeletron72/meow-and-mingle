@@ -6,5 +6,5 @@
 	{"id": "stool", "c": 5, "r": 4, "flip": false},
 	{"id": "plant", "c": 5, "r": 0, "flip": false},
 	{"id": "rug", "c": 0, "r": 4, "flip": false},
-	{"id": "bowl", "c": 4, "r": 3, "flip": false}
+	{"id": "bowl", "c": 3, "r": 4, "flip": false}
 ]

@@ -220,9 +220,9 @@
 	},
 	{
 		"id": "bowl",
-		"name": "Миска",
+		"name": "Пиала",
 		"price": 25,
-		"slot": "floor",
+		"slot": "top",
 		"rect": [
 			114,
 			82,
@@ -233,7 +233,6 @@
 			1,
 			1
 		],
-		"flat": true,
 		"style": "cozy",
 		"cozy": 1
 	},
@@ -517,9 +516,9 @@
 	},
 	{
 		"id": "bowl_loft",
-		"name": "Миска",
+		"name": "Пиала",
 		"price": 45,
-		"slot": "floor",
+		"slot": "top",
 		"rect": [
 			114,
 			82,
@@ -530,7 +529,6 @@
 			1,
 			1
 		],
-		"flat": true,
 		"base": "bowl",
 		"style": "loft",
 		"tint": "#a9b9d0",
@@ -820,9 +818,9 @@
 	},
 	{
 		"id": "bowl_japan",
-		"name": "Миска",
+		"name": "Пиала",
 		"price": 45,
-		"slot": "floor",
+		"slot": "top",
 		"rect": [
 			114,
 			82,
@@ -833,7 +831,6 @@
 			1,
 			1
 		],
-		"flat": true,
 		"base": "bowl",
 		"style": "japan",
 		"tint": "#bfe3b0",
@@ -1123,9 +1120,9 @@
 	},
 	{
 		"id": "bowl_winter",
-		"name": "Миска",
+		"name": "Пиала",
 		"price": 45,
-		"slot": "floor",
+		"slot": "top",
 		"rect": [
 			114,
 			82,
@@ -1136,7 +1133,6 @@
 			1,
 			1
 		],
-		"flat": true,
 		"base": "bowl",
 		"style": "winter",
 		"tint": "#d6e8ff",

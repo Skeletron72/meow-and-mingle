@@ -214,7 +214,7 @@
   "id": "bowl",
   "chapter": 1,
   "zone": "hall",
-  "name": "Миска для котов",
+  "name": "Пиала с печеньем",
   "cost": 1,
   "requires": [
    "rug_hall"
@@ -225,8 +225,8 @@
     "kind": "furniture",
     "id": "bowl",
     "at": [
-     0,
-     5
+     3,
+     4
     ]
    },
    {

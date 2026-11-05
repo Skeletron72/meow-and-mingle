@@ -143,7 +143,7 @@ func _test_grid_alignment() -> void:
 		var top := CafeRoom.cell_pos(2, 1, CafeRoom.is_wall(String(id)))
 		var foot_x := top.x + area.size.x * CafeRoom.T / 2.0
 		_check(absf(rect.get_center().x - foot_x) <= CafeRoom.S, "%s: центр спрайта уехал от центра клеток больше чем на пиксель арта" % id)
-		if not CafeRoom.is_flat(String(id)):
+		if not CafeRoom.is_flat(String(id)) and not CafeRoom.is_top(String(id)):
 			_check(is_equal_approx(rect.end.y, top.y + area.size.y * CafeRoom.T), "%s: низ спрайта не по низу клеток" % id)
 		_check(rect.size.x <= area.size.x * CafeRoom.T and fmod(rect.position.x, 2.0) == 0.0, "%s: спрайт шире клеток или сдвинут на пол-пикселя арта" % id)
 

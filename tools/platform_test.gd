@@ -49,6 +49,7 @@ func _ready() -> void:
 	await _test_points()
 	await _test_collisions()
 	_test_reward_layout()
+	await _test_table_decor()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1868,7 +1869,10 @@ func _test_reward_layout() -> void:
 	_check(boards == 1, "доска меню одна (%d)" % boards)
 	for it in GameState.layout:   # миска — в углу у стены, цветок у входа — у стены, не в проходе
 		if String(it["id"]) == "bowl":
-			_check(Vector2i(int(it["c"]), int(it["r"])) == Vector2i(0, 5), "миска для котов в углу у стены (%d,%d)" % [int(it["c"]), int(it["r"])])
+			var rm := CafeRoom.new()
+			rm.layout = GameState.layout
+			_check(rm.host_table(Vector2i(int(it["c"]), int(it["r"]))) >= 0, "пиала с печеньем стоит на столе, а не на полу (%d,%d)" % [int(it["c"]), int(it["r"])])
+			rm.free()
 		if String(it["id"]) == "plant":
 			_check(int(it["c"]) in [0, 5, 9] or int(it["r"]) == 5, "цветок у стены (%d,%d)" % [int(it["c"]), int(it["r"])])
 	_check(counters == 1 and String(GameState.layout[0]["id"]) == "counter_mama", "«Стойка, как у мамы» — новый вид прилавка, прилавок один")
@@ -1900,3 +1904,47 @@ func _test_reward_layout() -> void:
 			_check(int(it["r"]) == 0, "«%s» перенесена к задней стене (ряд %d)" % [it["id"], int(it["r"])])
 	GameState.new_game()
 	GameState.save_game()
+
+
+## Декор на стол (пиала): только на стол, едет со столом, убирается вместе с ним (с возвратом цены).
+func _test_table_decor() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.layout = Data.default_layout.duplicate(true)
+	GameState.coins = 0
+	var d: Node2D = load(Nav.DECORATE).instantiate()
+	add_child(d)
+	await get_tree().process_frame
+	var room: CafeRoom = d._room
+	_check(room.check_place("bowl", 1, 5) != "" and room.check_place("bowl", 2, 5) == "", "пиала на полу не ставится, на стол — да")
+	var t := -1
+	var b := -1
+	for i in GameState.layout.size():
+		if String(GameState.layout[i]["id"]) == "table_big":
+			t = i
+		if String(GameState.layout[i]["id"]) == "bowl":
+			b = i
+	_check(t >= 0 and b >= 0 and room.host_table(Vector2i(int(GameState.layout[b]["c"]), int(GameState.layout[b]["r"]))) == t, "в раскладке пиала стоит на большом столе")
+	_check(room.node_for(b).position.y > room.node_for(t).position.y, "пиала рисуется поверх стола")
+	var before := Vector2i(int(GameState.layout[b]["c"]), int(GameState.layout[b]["r"]))
+	d._select(t)
+	d._drag_start = Vector2i(int(GameState.layout[t]["c"]), int(GameState.layout[t]["r"]))
+	d._drag_cell = d._drag_start + Vector2i(-2, 0)
+	d._drag_err = room.check_place("table_big", d._drag_cell.x, d._drag_cell.y, t)
+	d._dragging = true
+	d._drop()
+	_check(Vector2i(int(GameState.layout[b]["c"]), int(GameState.layout[b]["r"])) == before + Vector2i(-2, 0), "стол переехал — пиала вместе с ним")
+	var n0 := GameState.layout.size()
+	d._select(t)
+	d._remove_selected()
+	_check(GameState.layout.size() == n0 - 2 and GameState.coins == int(Data.furniture["table_big"]["price"]) + int(Data.furniture["bowl"]["price"]), "убрали стол — пиала ушла с ним, цена обоих вернулась")
+	d.queue_free()
+	await get_tree().process_frame
+	# старое сохранение: миска стояла на полу — пиала встаёт на стол
+	var fixed := GameState._sanitize_layout([{"id": "table_small", "c": 7, "r": 4, "flip": false}, {"id": "bowl", "c": 0, "r": 5, "flip": false}])
+	var ok := false
+	for it in fixed:
+		if String(it["id"]) == "bowl":
+			ok = Vector2i(int(it["c"]), int(it["r"])) == Vector2i(7, 4)
+	_check(ok, "миска с пола из старого сохранения переехала на стол")
+	GameState.new_game()

@@ -95,9 +95,18 @@ static func is_flat(id: String) -> bool:
 	return bool(item_def(id).get("flat", false))
 
 
-## Занимает ли предмет клетки (кот не пройдёт). Настенное и плоское (коврик, миска) — нет.
+## Декор на стол (пиала с печеньем): ставится в клетку стола, рисуется на столешнице и переезжает вместе со столом.
+static func is_top(id: String) -> bool:
+	return String(item_def(id).get("slot", "floor")) == "top"
+
+
+const TABLES := ["table_big", "table_small"]
+const TOP_LIFT := 18.0   # низ декора над низом своей клетки: на столешнице, а не на полу
+
+
+## Занимает ли предмет клетки (кот не пройдёт). Настенное, плоское (коврик) и декор на столе — нет.
 static func is_solid(id: String) -> bool:
-	return not is_wall(id) and not is_flat(id)
+	return not is_wall(id) and not is_flat(id) and not is_top(id)
 
 
 static func tiles(id: String) -> Vector2i:
@@ -137,6 +146,8 @@ static func sprite_rect(id: String, c: int, r: int) -> Rect2:
 	var y := top.y + (t.y * T - sz.y)
 	if is_flat(id):
 		y = top.y + floorf((t.y * T - sz.y) / 2.0 / S) * S
+	elif is_top(id):
+		y = top.y + t.y * T - TOP_LIFT - sz.y
 	return Rect2(x, y, sz.x, sz.y)
 
 
@@ -251,8 +262,14 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		n.add_child(w)
 		_windows.append(w)
 		w.apply(_day, _night)
+	if is_top(id):   # на столешнице; по глубине — сразу после стола (иначе стол нарисуется поверх)
+		var host := host_table(Vector2i(c, r))
+		if host >= 0:
+			var hid := String(layout[host]["id"])
+			n.position.y = foot_pos(hid, int(layout[host]["c"]), int(layout[host]["r"])).y + 1.0
+			sp.position = top_rect(id, c, r).position - n.position
 	var layer: Node2D = _wall_layer if is_wall(id) else (_flat_layer if is_flat(id) else actors)
-	if external_actors != null and is_solid(id):
+	if external_actors != null and (is_solid(id) or is_top(id)):
 		layer = external_actors
 		n.position += position   # слой мира стоит в нуле, комната — со смещением
 		n.set_meta("interior", true)
@@ -337,6 +354,31 @@ func _has_item(id: String) -> bool:
 	return false
 
 
+## Где декор на столе рисуется: по центру своей клетки, низ — на столешнице (у большого стола — в своей половине, у маленького — посередине).
+func top_rect(id: String, c: int, r: int) -> Rect2:
+	var rect := sprite_rect(id, c, r)
+	var host := host_table(Vector2i(c, r))
+	if host < 0:
+		return rect
+	var hid := String(layout[host]["id"])
+	var hr := sprite_rect(hid, int(layout[host]["c"]), int(layout[host]["r"]))
+	var rows := tiles(hid).y
+	var row := r - int(layout[host]["r"])
+	var surface := hr.size.y * 0.72   # столешница — верхние ~3/4 спрайта стола, ниже ножки
+	var bottom := hr.position.y + surface * (row + 0.75) / float(rows)
+	rect.position.y = snappedf(bottom - rect.size.y, S)
+	return rect
+
+
+## Стол (любой раскраски), который стоит в клетке cell; -1 — нет.
+func host_table(cell: Vector2i, ignore := -1) -> int:
+	for i in layout.size():
+		var id := String(layout[i]["id"])
+		if i != ignore and base_id(id) in TABLES and cells(id, int(layout[i]["c"]), int(layout[i]["r"])).has_point(cell):
+			return i
+	return -1
+
+
 ## Прилавок ли это (сам «counter» или его раскраска стиля).
 static func is_counter(id: String) -> bool:
 	return String(item_def(id).get("base", id)) == COUNTER_ID
@@ -402,7 +444,7 @@ func counter_rect() -> Rect2:
 
 ## Прямоугольник предмета для выбора: у прилавка — вместе с кофемашиной.
 func _item_rect(id: String, c: int, r: int, flip := false) -> Rect2:
-	var rect := sprite_rect(id, c, r)
+	var rect := top_rect(id, c, r) if is_top(id) else sprite_rect(id, c, r)
 	if is_counter(id):
 		var foot := foot_pos(id, c, r)
 		var mx := foot.x + (-_machine_dx(id) - MACHINE_SRC.size.x * S if flip else _machine_dx(id))
@@ -531,6 +573,14 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 		for i in layout.size():
 			var other := String(layout[i]["id"])
 			if i != ignore and is_wall(other) and area.intersects(cells(other, int(layout[i]["c"]), int(layout[i]["r"]))):
+				return tr("Тут занято")
+		return ""
+	if is_top(id):   # декор на стол: только в клетку стола, по одному на клетку
+		if host_table(Vector2i(c, r)) < 0:
+			return tr("Это ставится на стол")
+		for i in layout.size():
+			var o := String(layout[i]["id"])
+			if i != ignore and is_top(o) and int(layout[i]["c"]) == c and int(layout[i]["r"]) == r:
 				return tr("Тут занято")
 		return ""
 	if area.position.x < 0 or area.end.x > COLS or area.position.y < 0 or area.end.y > FRONT_ROW:
@@ -664,8 +714,15 @@ func _preferred_cells(id: String, ignore: int) -> Array[Vector2i]:
 	if base == "plant":   # углы и края зала
 		out.assign([Vector2i(5, 3), Vector2i(9, 4), Vector2i(9, 5), Vector2i(5, 4), Vector2i(6, 5)])   # у стены служебки, в углах
 		return out
-	if base == "bowl":   # миска для котов — на полу в углу у стены, не в проходе
-		out.assign([Vector2i(0, 5), Vector2i(1, 5), Vector2i(9, 5), Vector2i(5, 4)])
+	if is_top(id):   # декор на стол: свободные клетки столов, сначала большие
+		for big in [true, false]:
+			for i in layout.size():
+				var tid := String(layout[i]["id"])
+				if i != ignore and base_id(tid) in TABLES and (base_id(tid) == "table_big") == big:
+					var a := cells(tid, int(layout[i]["c"]), int(layout[i]["r"]))
+					for y in range(a.position.y, a.end.y):
+						for x in range(a.position.x, a.end.x):
+							out.append(Vector2i(x, y))
 		return out
 	if base in ["table_big", "table_small"]:   # в зале: середина пола, не у самой витрины
 		var cand2: Array[Vector2i] = []
