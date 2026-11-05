@@ -47,6 +47,7 @@ func _ready() -> void:
 	await _test_recipe_book()
 	await _test_ad_points()
 	await _test_points()
+	await _test_collisions()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1206,7 +1207,7 @@ func _test_decor_styles() -> void:
 	for c in d._cards:
 		if (c["holder"] as Control).visible:
 			visible_cards += 1
-	_check(visible_cards == 18, "в каталоге 18 предметов стиля «Уют» (15 + 3 золотых; спонсорские скрыты до 3-й смены) (%d)" % visible_cards)
+	_check(visible_cards == 17, "в каталоге 17 предметов стиля «Уют» (14 + 3 золотых; прилавок уже стоит, спонсорские скрыты до 3-й смены) (%d)" % visible_cards)
 	GameState.unlocks = ["style:loft", "style:japan"]
 	_check(d.available_styles().size() == 3, "после ремонта открыты «Лофт» и «Японский»")
 	d._cycle_style()
@@ -1214,7 +1215,7 @@ func _test_decor_styles() -> void:
 	for c in d._cards:
 		if (c["holder"] as Control).visible:
 			visible_cards += 1
-	_check(d._style == "loft" and visible_cards == 15, "переключили на «Лофт»: 15 раскрасок")
+	_check(d._style == "loft" and visible_cards == 14, "переключили на «Лофт»: 14 раскрасок (раскраски прилавка скрыты)")
 	d.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()
@@ -1762,5 +1763,66 @@ func _test_points() -> void:
 	m._serve(e2)
 	_check(m._points == 100 and m._points_lost == 100, "ошибка: очков нет, 100 потеряно — максимум уже не взять (%d/%d)" % [m._points, m._points_lost])
 	m.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+## Коллизии: вся громоздкая мебель, прилавок и коробки интро непроходимы; перед прилавком проход; карман за прилавком закрыт; прилавок обязателен.
+func _test_collisions() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.city_inside = true
+	GameState.layout = Data.default_layout.duplicate(true)
+	var city: Node2D = load(Nav.CITY).instantiate()
+	add_child(city)
+	await get_tree().process_frame
+	var nav: WorldNav = city._nav
+	var room: CafeRoom = city._room
+	var rc := nav.interior_cells().position
+	for it in GameState.layout:
+		var id := String(it["id"])
+		for y in range(CafeRoom.cells(id, int(it["c"]), int(it["r"])).position.y, CafeRoom.cells(id, int(it["c"]), int(it["r"])).end.y):
+			for x in range(CafeRoom.cells(id, int(it["c"]), int(it["r"])).position.x, CafeRoom.cells(id, int(it["c"]), int(it["r"])).end.x):
+				if CafeRoom.is_solid(id):
+					_check(not nav.is_walkable(rc + Vector2i(x, y)), "«%s»: клетка (%d,%d) непроходима" % [id, x, y])
+					_check(nav.is_blocked(WorldNav.feet_at(rc + Vector2i(x, y))), "«%s»: кот не может стоять в клетке (%d,%d)" % [id, x, y])
+				elif CafeRoom.is_flat(id):
+					_check(nav.is_walkable(rc + Vector2i(x, y)), "«%s» (плоский): по нему ходят" % id)
+	var front := room.counter_front()
+	for x in range(front.position.x, front.end.x):
+		_check(nav.is_walkable(rc + Vector2i(x, front.position.y)), "перед прилавком (%d,%d) можно стоять" % [x, front.position.y])
+	_check(room.in_counter_zone(CafeRoom.feet_at(front.position)) and not room.in_counter_zone(CafeRoom.feet_at(Vector2i(8, 5))), "зона прилавка — ряд перед ним")
+	var counter := room.counter_cells()
+	_check(not nav.is_walkable(rc + Vector2i(counter.position.x, counter.position.y - 1)), "карман за прилавком закрыт (до него не дойти)")
+	# прилавок обязателен: пропал из сохранения — вернулся
+	var fixed := GameState._sanitize_layout([{"id": "stool", "c": 5, "r": 3, "flip": false}])
+	var has := false
+	for it in fixed:
+		has = has or CafeRoom.is_counter(String(it["id"]))
+	_check(has, "прилавок вернулся в раскладку, если его не было")
+	# прилавок можно переставить: меняется и зона обслуживания
+	var idx := room.counter_index()
+	_check(room.check_place("counter", 0, 1, idx) == "" and room.check_place("counter", 4, 5, idx) != "", "прилавок: на месте можно, у входа нельзя")
+	_check(room.check_place("counter", 2, 3, idx) != "", "прилавок поверх стола нельзя")
+	_check(room.check_place("counter", 0, 0, idx) == "", "прилавок можно сдвинуть к стене (перед ним ряд свободен)")
+	city.queue_free()
+	await get_tree().process_frame
+	# коробки пролога: клетка каждой — преграда, пока не открыта
+	GameState.new_game()
+	GameState.intro_stage = 3
+	GameState.city_inside = true
+	var c2: Node2D = load(Nav.CITY).instantiate()
+	add_child(c2)
+	await get_tree().process_frame
+	var nav2: WorldNav = c2._nav
+	var rc2 := nav2.interior_cells().position
+	for d in Intro.OBJECTS:
+		if String(d["kind"]) != "box":
+			continue
+		var cell := CafeRoom.cell_at(d["pos"])
+		_check(not nav2.is_walkable(rc2 + cell), "коробка %s: клетка (%d,%d) непроходима" % [d["id"], cell.x, cell.y])
+		var node: Node2D = c2._intro._nodes[String(d["id"])]
+		_check(node.get_parent() == c2._actors, "коробка %s сортируется по глубине вместе с котами" % d["id"])
+	c2.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()

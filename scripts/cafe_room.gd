@@ -19,11 +19,13 @@ const ORIGIN := Vector2(0, 96)       # левый верх пола в коор�
 const ROOM_SIZE := Vector2(320, 320) # 10×10 клеток: ровно по габариту фасада кафе (Building4 при масштабе 2)
 const FEET_DY := 10.0                # лапки кота ниже центра клетки
 
-# Стойка кофейни — неподвижная, у стены над клетками (0..2, 0). Отсюда начинается смена.
-const COUNTER_SRC := Rect2(17, 112, 46, 16)
-const COUNTER_CELLS := Rect2i(0, 0, 3, 1)          # здесь стоит кот у стойки; мебель ставить нельзя
-const COUNTER_SPRITE := Rect2(0, 48, 96, 48)       # прилавок + кофемашина, для тапа
-const WALL_RESERVED := Rect2i(0, 1, 3, 2)          # стена над стойкой занята
+# Прилавок — обязательная, но передвигаемая мебель (id "counter" в раскладке, убрать нельзя). На нём стоит кофемашина. Смена начинается у его лицевой
+# стороны: клетки ряда ПЕРЕД прилавком (counter_front) держим свободными — там встаёт кот и очередь.
+const COUNTER_ID := "counter"
+const MACHINE_SRC := Rect2(131, 67, 11, 13)
+const MACHINE_DX := 21.0   # кофемашина в третьей клетке прилавка (при отражении — в первой): сдвиг от центра узла
+const MACHINE_DY := -48.0
+const DEFAULT_COUNTER := Vector2i(0, 1)
 ## Служебка: маленькая комната в углу зала, отделённая стенами (левая стена — колонка 6, передняя — ряд 3, в передней стене проём STAFF_DOOR).
 ## Внутри — лестница наверх и пара коробок. Пока не куплено «Коморка», это закрытый чулан с заколоченной дверью.
 const STAFF_CELLS := Rect2i(6, 0, 4, 4)            # весь блок вместе со стенами: мебель сюда не ставят
@@ -74,7 +76,6 @@ func _init() -> void:
 	add_child(_wall_layer)
 	add_child(_flat_layer)
 	add_child(actors)
-	_build_counter()
 	_build_lights()
 
 
@@ -232,6 +233,16 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		drop.modulate = Color(0, 0, 0, 0.30)
 		n.add_child(drop)
 	n.add_child(sp)
+	if is_counter(id):   # кофемашина стоит на прилавке и двигается вместе с ним
+		var machine := Sprite2D.new()
+		machine.texture = FURN_TEX
+		machine.region_enabled = true
+		machine.region_rect = MACHINE_SRC
+		machine.centered = false
+		machine.scale = Vector2(S, S)
+		machine.flip_h = sp.flip_h
+		machine.position = Vector2(-MACHINE_DX - MACHINE_SRC.size.x * S if sp.flip_h else MACHINE_DX, MACHINE_DY)
+		n.add_child(machine)
 	if String(def.get("base", id)) == "window":
 		var w := WindowGlow.new()
 		w.position = sp.position
@@ -324,23 +335,67 @@ func _has_item(id: String) -> bool:
 	return false
 
 
-func _build_counter() -> void:
-	var sp := Sprite2D.new()
-	sp.texture = FURN_TEX
-	sp.region_enabled = true
-	sp.region_rect = COUNTER_SRC
-	sp.centered = false
-	sp.scale = Vector2(S, S)
-	sp.position = Vector2(ORIGIN.x + (3 * T - COUNTER_SRC.size.x * S) / 2.0, ORIGIN.y - COUNTER_SRC.size.y * S)
-	_wall_layer.add_child(sp)
-	var machine := Sprite2D.new()
-	machine.texture = FURN_TEX
-	machine.region_enabled = true
-	machine.region_rect = Rect2(131, 67, 11, 13)
-	machine.centered = false
-	machine.scale = Vector2(S, S)
-	machine.position = Vector2(ORIGIN.x + 2 * T + (T - 11 * S) / 2.0, ORIGIN.y - 48.0)
-	_wall_layer.add_child(machine)
+## Прилавок ли это (сам «counter» или его раскраска стиля).
+static func is_counter(id: String) -> bool:
+	return id == COUNTER_ID or String(item_def(id).get("base", "")) == COUNTER_ID
+
+
+## Номер прилавка в раскладке (-1 — нет; такого не бывает: GameState.ensure_counter возвращает его на место).
+func counter_index() -> int:
+	for i in layout.size():
+		if is_counter(String(layout[i]["id"])):
+			return i
+	return -1
+
+
+## Клетки, которые занимает прилавок.
+func counter_cells() -> Rect2i:
+	var i := counter_index()
+	if i < 0:
+		return Rect2i(DEFAULT_COUNTER, Vector2i(3, 1))
+	return cells(String(layout[i]["id"]), int(layout[i]["c"]), int(layout[i]["r"]))
+
+
+## Ряд клеток перед прилавком: здесь стоит кот, начинающий смену, и очередь гостей. Мебель сюда не ставят.
+func counter_front() -> Rect2i:
+	var a := counter_cells()
+	return Rect2i(a.position.x, a.end.y, a.size.x, 1)
+
+
+## Только столешница прилавка (без кофемашины) и сама кофемашина — для чехла и пыли в интро.
+func counter_body_rect() -> Rect2:
+	var i := counter_index()
+	if i < 0:
+		return Rect2()
+	return sprite_rect(String(layout[i]["id"]), int(layout[i]["c"]), int(layout[i]["r"]))
+
+
+func machine_rect() -> Rect2:
+	var i := counter_index()
+	if i < 0:
+		return Rect2()
+	var id := String(layout[i]["id"])
+	var foot := foot_pos(id, int(layout[i]["c"]), int(layout[i]["r"]))
+	var flip := bool(layout[i].get("flip", false))
+	return Rect2(foot.x + (-MACHINE_DX - MACHINE_SRC.size.x * S if flip else MACHINE_DX), foot.y + MACHINE_DY, MACHINE_SRC.size.x * S, MACHINE_SRC.size.y * S)
+
+
+## Прямоугольник прилавка вместе с кофемашиной (в координатах комнаты) — для тапа и выбора.
+func counter_rect() -> Rect2:
+	var i := counter_index()
+	if i < 0:
+		return Rect2()
+	return _item_rect(String(layout[i]["id"]), int(layout[i]["c"]), int(layout[i]["r"]), bool(layout[i].get("flip", false)))
+
+
+## Прямоугольник предмета для выбора: у прилавка — вместе с кофемашиной.
+func _item_rect(id: String, c: int, r: int, flip := false) -> Rect2:
+	var rect := sprite_rect(id, c, r)
+	if is_counter(id):
+		var foot := foot_pos(id, c, r)
+		var mx := foot.x + (-MACHINE_DX - MACHINE_SRC.size.x * S if flip else MACHINE_DX)
+		rect = rect.merge(Rect2(mx, foot.y + MACHINE_DY, MACHINE_SRC.size.x * S, MACHINE_SRC.size.y * S))
+	return rect
 
 
 func _draw() -> void:
@@ -461,8 +516,6 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if is_wall(id):
 		if area.position.x < 0 or area.end.x > COLS or area.position.y < WALL_FIRST_ROW or area.end.y > WALL_ROWS:
 			return tr("Это вешается на стену")
-		if area.intersects(WALL_RESERVED):
-			return tr("Тут занято")
 		for i in layout.size():
 			var other := String(layout[i]["id"])
 			if i != ignore and is_wall(other) and area.intersects(cells(other, int(layout[i]["c"]), int(layout[i]["r"]))):
@@ -473,8 +526,20 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if area.intersects(STAFF_CELLS):
 		return tr("Тут служебка")
 	var solid := is_solid(id)
-	if solid and (area.intersects(SPAWN_CELLS) or area.intersects(COUNTER_CELLS)):
+	if solid and area.intersects(SPAWN_CELLS):
 		return tr("Не загораживайте проход")
+	if solid and not is_counter(id):   # перед прилавком — проход
+		var ci := counter_index()
+		if ci >= 0 and ci != ignore and area.intersects(counter_front()):
+			return tr("Не загораживайте проход")
+	if is_counter(id):   # лицевая сторона прилавка внутри зала и не занята
+		var front := Rect2i(area.position.x, area.end.y, area.size.x, 1)
+		if front.end.y > FRONT_ROW or front.intersects(STAFF_CELLS) or front.intersects(SPAWN_CELLS):
+			return tr("Перед прилавком нужен проход")
+		for i in layout.size():
+			var o := String(layout[i]["id"])
+			if i != ignore and is_solid(o) and front.intersects(cells(o, int(layout[i]["c"]), int(layout[i]["r"]))):
+				return tr("Перед прилавком нужен проход")
 	for i in layout.size():
 		var other := String(layout[i]["id"])
 		if i == ignore or is_wall(other):
@@ -485,9 +550,18 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	if solid:
 		var blocks := _solid_cells(ignore)
 		blocks.append(area)
-		if not _reachable(_make_grid(blocks)):
+		if not _reachable(_make_grid(blocks), area if is_counter(id) else Rect2i()):
 			return tr("Не загораживайте проход")
 	return ""
+
+
+## Место для прилавка: ближе к левой стене, на второй клетке от неё; Vector2i(-1, -1) — места нет.
+func find_counter_spot() -> Vector2i:
+	for r in [1, 0, 2, 3, 4]:
+		for c in [0, 1, 2, 3, 4, 5, 6]:
+			if check_place(COUNTER_ID, c, r) == "":
+				return Vector2i(c, r)
+	return Vector2i(-1, -1)
 
 
 ## Подбирает свободную клетку для нового предмета, ближе к центру зала. Vector2i(-1, -1) — места нет.
@@ -510,7 +584,7 @@ func hit_test(p: Vector2) -> int:
 	var best_y := -INF
 	for i in layout.size():
 		var id := String(layout[i]["id"])
-		if sprite_rect(id, int(layout[i]["c"]), int(layout[i]["r"])).has_point(p):
+		if _item_rect(id, int(layout[i]["c"]), int(layout[i]["r"]), bool(layout[i].get("flip", false))).has_point(p):
 			# плоские предметы под ногами, настенные «глубже» мебели
 			var depth := _nodes[i].position.y - (1000.0 if is_flat(id) else 0.0) - (2000.0 if is_wall(id) else 0.0)
 			if depth > best_y:
@@ -520,7 +594,7 @@ func hit_test(p: Vector2) -> int:
 
 
 func counter_hit(p: Vector2) -> bool:
-	return COUNTER_SPRITE.has_point(p)
+	return counter_rect().has_point(p)
 
 
 # ---------------------------------------------------------------- сетка путей
@@ -528,6 +602,7 @@ func counter_hit(p: Vector2) -> bool:
 ## Проходимость зала для города: пол без витрины (кроме проёма входа) минус громоздкая мебель.
 func walk_mask() -> PackedByteArray:
 	var g := _make_grid(_solid_cells(-1))
+	_seal_pockets(g)
 	var m := PackedByteArray()
 	m.resize(COLS * ROWS)
 	for r in ROWS:
@@ -556,6 +631,7 @@ func set_present(on: bool) -> void:
 
 func rebuild_nav() -> void:
 	_astar = _make_grid(_solid_cells(-1))
+	_seal_pockets(_astar)
 
 
 ## Клетки зала (локальные), занятые громоздкой мебелью.
@@ -570,6 +646,27 @@ func _solid_cells(ignore: int) -> Array[Rect2i]:
 		if i != ignore and is_solid(id):
 			out.append(cells(id, int(layout[i]["c"]), int(layout[i]["r"])))
 	return out
+
+
+## Закрывает клетки, до которых от входа не дойти (карман за прилавком и мебелью): там ни коту, ни гостю делать нечего.
+func _seal_pockets(g: AStarGrid2D) -> void:
+	var start := _free_cell(g, SPAWN_CELL)
+	if start.x < 0:
+		return
+	var seen := {start: true}
+	var queue: Array[Vector2i] = [start]
+	while not queue.is_empty():
+		var c: Vector2i = queue.pop_back()
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if g.is_in_boundsv(n) and not g.is_point_solid(n) and not seen.has(n):
+				seen[n] = true
+				queue.append(n)
+	for y in ROWS:
+		for x in COLS:
+			var p := Vector2i(x, y)
+			if not g.is_point_solid(p) and not seen.has(p) and not STAFF_CELLS.has_point(p):
+				g.set_point_solid(p, true)
 
 
 func _make_grid(blocks: Array[Rect2i]) -> AStarGrid2D:
@@ -593,9 +690,10 @@ func _make_grid(blocks: Array[Rect2i]) -> AStarGrid2D:
 
 
 ## Можно ли дойти от двери до стойки в такой сетке.
-func _reachable(g: AStarGrid2D) -> bool:
+func _reachable(g: AStarGrid2D, counter_area := Rect2i()) -> bool:
 	var a := _free_cell(g, SPAWN_CELL)
-	var b := _free_cell(g, Vector2i(1, 0))
+	var front := counter_front() if counter_area.size == Vector2i.ZERO else Rect2i(counter_area.position.x, counter_area.end.y, counter_area.size.x, 1)
+	var b := _free_cell(g, front.position + Vector2i(front.size.x / 2, 0))
 	if a.x < 0 or b.x < 0:
 		return false
 	var door_front := STAFF_DOOR + Vector2i(0, 1)   # и до двери в служебку
@@ -664,7 +762,7 @@ func in_entrance_zone(feet: Vector2) -> bool:
 
 
 func in_counter_zone(feet: Vector2) -> bool:
-	return COUNTER_CELLS.has_point(cell_of_feet(feet))
+	return counter_front().has_point(cell_of_feet(feet))
 
 
 ## Стёкла окна поверх спрайта: цвет берётся у неба (TimeOfDay), ночью — звёзды, вокруг окна пиксельное свечение.

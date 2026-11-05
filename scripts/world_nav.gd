@@ -15,6 +15,7 @@ var _room_cell := Vector2i.ZERO   # клетка мира, где лежит л�
 var _room_rect := Rect2i()        # клетки пола зала в мире
 var _entrance: Array[Vector2i] = []   # клетки проёма входа (их можно закрыть ставнями)
 var _entrance_open := true
+var _room_ref: CafeRoom   # зал: от него зависит, где лицевая сторона прилавка
 var _extra_solid := {}   # клетки, закрытые временными преградами (коробки интро): Vector2i → true
 
 
@@ -31,6 +32,7 @@ func build(world_size: Vector2, walk: Array[Rect2], block_rects: Array[Rect2], b
 	_astar.fill_solid_region(_astar.region, true)
 	for r in walk:
 		_set_rect(r, false)
+	_room_ref = room
 	if room != null:
 		_room_cell = Vector2i(((room.position + CafeRoom.ORIGIN) / T).round())
 		_room_rect = Rect2i(_room_cell, Vector2i(CafeRoom.COLS, CafeRoom.ROWS))
@@ -128,7 +130,8 @@ func interior_cells() -> Rect2i:
 
 ## Лапки у стойки (локальные клетки стойки -> мир).
 func counter_feet(col: int) -> Vector2:
-	return feet_at(_room_cell + Vector2i(clampi(col, 0, CafeRoom.COUNTER_CELLS.size.x - 1), 0))
+	var f := _room_ref.counter_front() if _room_ref != null else Rect2i(1, 2, 3, 1)
+	return feet_at(_room_cell + Vector2i(clampi(col, f.position.x, f.end.x - 1), f.position.y))
 
 
 func is_blocked(feet: Vector2) -> bool:

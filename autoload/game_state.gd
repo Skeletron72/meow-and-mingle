@@ -810,5 +810,21 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 			out.append(fixed)
 		elif not CafeRoom.is_wall(fixed["id"]) and CafeRoom.cells(fixed["id"], fixed["c"], fixed["r"]).intersects(CafeRoom.STAFF_CELLS):
 			coins += int(Data.furniture[fixed["id"]].get("price", 0))   # стояла там, где теперь служебка: вернули деньги
+	# прилавок обязателен: нет в сохранении (старые игры, ошибка) — ставим на подходящее место, при нехватке места убираем мебель с участка и возвращаем её цену
+	var has_counter := false
+	for it in out:
+		if CafeRoom.is_counter(String(it["id"])):
+			has_counter = true
+	if not has_counter:
+		var spot := room.find_counter_spot()
+		if spot.x < 0:
+			spot = CafeRoom.DEFAULT_COUNTER
+			var zone := Rect2i(spot.x, spot.y, 3, 2)
+			for k in range(out.size() - 1, -1, -1):
+				var oid := String(out[k]["id"])
+				if CafeRoom.is_solid(oid) and CafeRoom.cells(oid, int(out[k]["c"]), int(out[k]["r"])).intersects(zone):
+					coins += int(Data.furniture[oid].get("price", 0))
+					out.remove_at(k)
+		out.insert(0, {"id": CafeRoom.COUNTER_ID, "c": spot.x, "r": spot.y, "flip": false})
 	room.free()
 	return out

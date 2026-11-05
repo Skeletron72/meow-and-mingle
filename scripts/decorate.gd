@@ -20,6 +20,7 @@ var _coins_label: Label
 var _cards: Array[Dictionary] = []   # {"btn": Button, "id": String, "holder": Control, "style": String}
 var _style_btn: Button
 var _cozy_btn: Button
+var _remove_btn: Button   # у прилавка недоступна: он обязателен
 var _style := "cozy"                # какой стиль мебели показан в каталоге
 
 var _sel := -1
@@ -101,6 +102,7 @@ func _build_toolbar() -> void:
 	flip.pressed.connect(_flip_selected)
 	var remove := Ui.button("Убрать", Rect2(126, 0, 108, 56), "trash", _toolbar, true)
 	remove.pressed.connect(_remove_selected)
+	_remove_btn = remove
 	var done := Ui.button("Готово", Rect2(238, 0, 116, 56), "check", _toolbar, true)
 	done.pressed.connect(_deselect)
 
@@ -117,6 +119,8 @@ func _build_catalog() -> void:
 	row.add_theme_constant_override("separation", 4)
 	scroll.add_child(row)
 	for id in Data.furniture:
+		if bool(Data.furniture[id].get("required", false)) or bool(Data.furniture[id].get("hidden", false)):
+			continue   # прилавок уже стоит (обязательный, его только двигают); раскраски прилавка в каталог не попадают
 		_add_card(row, String(id))
 	_apply_style_filter()
 
@@ -229,8 +233,6 @@ func _on_press(p: Vector2) -> void:   # p — в координатах комн
 		return
 	var i := _room.hit_test(p)
 	if i < 0:
-		if _room.counter_hit(p):
-			_toast_at("Стойку нельзя двигать", p)
 		_deselect()
 		return
 	_select(i)
@@ -247,6 +249,7 @@ func _select(i: int) -> void:
 	_hint.visible = false
 	_toolbar.visible = true
 	_toolbar.position = Vector2(0, TOOLBAR_Y)   # под комнатой: ничего не закрывает
+	_remove_btn.disabled = CafeRoom.is_counter(String(GameState.layout[i]["id"]))
 	_sel_box.queue_redraw()
 
 
@@ -368,6 +371,9 @@ func _remove_selected() -> void:
 	if _sel < 0:
 		return
 	var item := GameState.layout[_sel]
+	if CafeRoom.is_counter(String(item["id"])):   # прилавок обязателен: его можно переставить, но не убрать
+		_toast_at(tr("Прилавок нужен кафе: его можно только двигать"), _room.node_for(_sel).position + Vector2(0, -50))
+		return
 	if int(CafeRoom.item_def(String(item["id"])).get("ad_cost", 0)) > 0:   # спонсорский подарок не продаётся (иначе — монеты за ролики)
 		_toast("Подарок поставщика не убрать, только двигать", Vector2(180, 470))
 		return

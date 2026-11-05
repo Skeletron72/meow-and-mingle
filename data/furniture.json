@@ -177,7 +177,8 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 4
+		"cozy": 4,
+		"required": true
 	},
 	{
 		"id": "ucounter",
@@ -469,7 +470,8 @@
 		"base": "counter",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "ucounter_loft",
@@ -771,7 +773,8 @@
 		"base": "counter",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "ucounter_japan",
@@ -1073,7 +1076,8 @@
 		"base": "counter",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "ucounter_winter",

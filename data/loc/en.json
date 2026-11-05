@@ -839,5 +839,7 @@
  "Очки: %d": "Score: %d",
  "Погода": "Weather",
  "Язык": "Language",
- "Качество": "Quality"
+ "Качество": "Quality",
+ "Прилавок нужен кафе: его можно только двигать": "The counter is required: you can only move it",
+ "Перед прилавком нужен проход": "Keep the space in front of the counter free"
 }

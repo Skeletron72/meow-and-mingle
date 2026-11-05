@@ -1,4 +1,5 @@
 [
+	{"id": "counter", "c": 0, "r": 1, "flip": false},
 	{"id": "window", "c": 5, "r": 1, "flip": false},
 	{"id": "board", "c": 3, "r": 1, "flip": false},
 	{"id": "table_big", "c": 3, "r": 2, "flip": false},

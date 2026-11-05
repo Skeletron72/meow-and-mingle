@@ -193,10 +193,20 @@ func light() -> Color:
 	return DARK.lerp(Color.WHITE, clampf(t, 0.0, 1.0))
 
 
+## Где объект: кофемашина и чехол — на прилавке (он может стоять где угодно), остальное — по таблице.
+func _pos_of(def: Dictionary) -> Vector2:
+	match String(def["kind"]):
+		"machine":
+			return _room.machine_rect().get_center()
+		"cover":
+			return _room.counter_body_rect().get_center()
+	return def["pos"]
+
+
 func _build_object(def: Dictionary) -> void:
 	var id := String(def["id"])
 	var left := int(def["taps"]) - _done_taps(id)
-	var pos: Vector2 = def["pos"]
+	var pos: Vector2 = _pos_of(def)
 	match String(def["kind"]):
 		"web":
 			if left > 0:
@@ -226,21 +236,30 @@ func _build_object(def: Dictionary) -> void:
 				_add_window()
 		"box":
 			if left > 0:
+				# коробка стоит ровно в клетке пола (низ по центру клетки), сортируется по глубине вместе с котами и мебелью; клетка — преграда, пока не открыта
+				var cell := CafeRoom.cell_at(pos)
+				var foot := CafeRoom.cell_pos(cell.x, cell.y) + Vector2(CafeRoom.T / 2.0, CafeRoom.T)
 				var b := Sprite2D.new()
 				b.texture = load("res://assets/street/props/box.png") as Texture2D
 				b.scale = Vector2(2, 2)
-				b.position = pos
 				b.offset = Vector2(0, -float(b.texture.get_height()) / 2.0)
-				_grime.add_child(b)
+				if _room.external_actors != null:
+					_room.external_actors.add_child(b)
+					b.global_position = _room.to_global(foot)
+					b.set_meta("interior", true)
+					city._apply_clip_materials()
+				else:
+					b.position = foot
+					_grime.add_child(b)
 				_nodes[id] = b
-				city._nav.set_extra_solid(WorldNav.cell_at(_room.to_global(pos)), true)   # коробка — преграда, пока не открыта
+				city._nav.set_extra_solid(WorldNav.cell_at(_room.to_global(foot - Vector2(0, 8))), true)   # коробка — преграда, пока не открыта
 		"cover":
 			if left > 0:
-				var c := PixelArt.sprite(PixelArt.cover(48, 21), Vector2(2, 54), false)
+				var c := PixelArt.sprite(PixelArt.cover(48, 21), _room.counter_body_rect().position + Vector2(0, -10), false)
 				_grime.add_child(c)
 				_nodes[id] = c
 		"machine":
-			var m := PixelArt.sprite(PixelArt.noise(13, 15, Color(0.30, 0.27, 0.24), 0.62 * float(left) / 3.0, 5), Vector2(66, 48), false)
+			var m := PixelArt.sprite(PixelArt.noise(13, 15, Color(0.30, 0.27, 0.24), 0.62 * float(left) / 3.0, 5), _room.machine_rect().position - Vector2(2, 2), false)
 			m.visible = left > 0
 			_grime.add_child(m)
 			_nodes[id] = m
@@ -297,7 +316,7 @@ func on_tap(world_p: Vector2) -> bool:
 	for d in OBJECTS:
 		if _is_done(d):
 			continue
-		var dist := (d["pos"] as Vector2).distance_to(local)
+		var dist := _pos_of(d).distance_to(local)
 		if dist <= float(d["radius"]) + 8.0 and dist / float(d["radius"]) < best_d:
 			best = String(d["id"])
 			best_d = dist / float(d["radius"])
@@ -312,7 +331,7 @@ func on_tap(world_p: Vector2) -> bool:
 ## Где коту встать, чтобы убрать объект: всегда на полу зала (паутина и штора висят на стене — до них «дотягиваются» от ближайшей клетки пола),
 ## ближайшая проходимая клетка. Раньше цель на стене выше здания вела кота на улицу.
 func _stand_for(def: Dictionary) -> Vector2:
-	var pos: Vector2 = def["pos"]
+	var pos: Vector2 = _pos_of(def)
 	var local := Vector2(clampf(pos.x, 16.0, 304.0), clampf(pos.y, CafeRoom.ORIGIN.y + 16.0, CafeRoom.ORIGIN.y + (CafeRoom.FRONT_ROW - 1) * 32.0 + 16.0))
 	var room_cell: Vector2i = city._nav.interior_cells().position
 	var want := Vector2i(floori(local.x / 32.0), floori((local.y - CafeRoom.ORIGIN.y) / 32.0))

@@ -128,7 +128,7 @@ func _test_default_layout() -> void:
 		_check(err == "", "расстановка по умолчанию: %s -> %s" % [it["id"], err])
 		room.layout.append(it)
 	room.rebuild()
-	var path := room.find_path(CafeRoom.feet_at(CafeRoom.SPAWN_CELL), CafeRoom.feet_at(Vector2i(1, 0)))
+	var path := room.find_path(CafeRoom.feet_at(CafeRoom.SPAWN_CELL), CafeRoom.feet_at(room.counter_front().position + Vector2i(1, 0)))
 	_check(not path.is_empty(), "от двери до стойки есть путь")
 	room.queue_free()
 	await get_tree().process_frame
@@ -151,12 +151,14 @@ func _test_place_rules() -> void:
 	_test_grid_alignment()
 	var room := _room_with(Data.default_layout.duplicate(true))
 	_check(room.check_place("stool", 7, 2) != "", "нельзя поставить пуф в стол")
-	_check(room.check_place("plant", 1, 2) == "", "растение в свободной клетке можно")
+	_check(room.check_place("plant", 1, 4) == "", "растение в свободной клетке можно")
 	_check(room.check_place("plant", 10, 2) != "", "за краем зала нельзя")
-	_check(room.check_place("plant", 1, 0) != "", "у стойки ставить нельзя")
+	_check(room.check_place("plant", 1, 2) != "", "перед прилавком (там встаёт кот) ставить нельзя")
+	_check(room.check_place("plant", 2, 1) != "", "на прилавок мебель не ставится")
+	_check(room.check_place("plant", 1, 0) == "", "за прилавком, у стены, поставить можно")
 	_check(room.check_place("plant", 4, 5) != "", "у входа ставить нельзя")
 	_check(room.check_place("plant", 1, 6) != "", "в переднем ряду (витрина) ставить нельзя")
-	_check(room.check_place("window", 0, 1) != "", "окно поверх стойки нельзя")
+	_check(room.check_place("window", 0, 1) == "", "стена над прилавком свободна: окно можно")
 	_check(room.check_place("window", 6, 1) != "", "окно на окно нельзя")
 	_check(room.check_place("window", 4, 0) == "", "окно на свободной стене можно")
 	_check(room.check_place("window", 4, 3) != "", "за нижним краем стены нельзя")
@@ -619,7 +621,7 @@ func _test_city_input() -> void:
 	_walk(player)
 	_check(player.position == WorldNav.feet_at(floor_cell), "кот пришёл в клетку тапа")
 	# тап по стойке
-	var counter_wp: Vector2 = room.to_global(Vector2(40, 70))
+	var counter_wp: Vector2 = room.to_global(room.counter_rect().get_center())
 	_click(_screen_of(city, counter_wp), true)
 	_click(_screen_of(city, counter_wp), false)
 	_check(city._pending == "shift" and player.is_moving(), "тап по стойке: кот идёт к ней, чтобы начать смену")
@@ -709,24 +711,36 @@ func _test_decorate_input() -> void:
 	var pos: Vector2 = d.ROOM_POS
 	_click(pos + Vector2(128, 190), true)   # стол: клетки (3..4, 2..3)
 	_check(d._sel == table_idx and d._dragging, "нажатие на стол выбирает его")
+	_move_to(pos + Vector2(128, 222))
+	_click(pos + Vector2(128, 222), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 3 and int(GameState.layout[table_idx]["r"]) == 3, "стол перетащен ровно на клетку вниз")
+	# в передний ряд (витрина) — нельзя: стол 2×2 в рядах 5–6 не поместится
+	_click(pos + Vector2(128, 222), true)
+	_move_to(pos + Vector2(128, 300))
+	_click(pos + Vector2(128, 300), false)
+	_check(int(GameState.layout[table_idx]["r"]) == 3, "в передний ряд (витрина) мебель не ставится")
+	# в занятую клетку (к пуфику (5,3)) — отклоняется
+	_click(pos + Vector2(128, 222), true)
+	_move_to(pos + Vector2(192, 222))
+	_click(pos + Vector2(192, 222), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 3, "перетаскивание на пуфик отклонено")
+	# перед прилавком (там встаёт кот) — нельзя
+	_click(pos + Vector2(128, 222), true)
 	_move_to(pos + Vector2(64, 190))
 	_click(pos + Vector2(64, 190), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 1 and int(GameState.layout[table_idx]["r"]) == 2, "стол перетащен ровно на 2 клетки влево")
-	# в передний ряд (витрина) — нельзя: стол 2×2 в рядах 5–6 не поместится
-	_click(pos + Vector2(64, 190), true)
-	_move_to(pos + Vector2(64, 300))
-	_click(pos + Vector2(64, 300), false)
-	_check(int(GameState.layout[table_idx]["r"]) == 2, "в передний ряд (витрина) мебель не ставится")
-	# в занятую клетку (к пуфику (5,3)) — отклоняется
-	_click(pos + Vector2(64, 190), true)
-	_move_to(pos + Vector2(176, 208))
-	_click(pos + Vector2(176, 208), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 1, "перетаскивание на пуфик отклонено")
+	_check(int(GameState.layout[table_idx]["c"]) == 3, "перед прилавком мебель не ставится")
 	# в служебку — нельзя
-	_click(pos + Vector2(64, 190), true)
+	_click(pos + Vector2(128, 222), true)
 	_move_to(pos + Vector2(250, 150))
 	_click(pos + Vector2(250, 150), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 1, "в служебку мебель не ставится")
+	_check(int(GameState.layout[table_idx]["c"]) == 3, "в служебку мебель не ставится")
+	# прилавок можно двигать, но нельзя убрать
+	var ci: int = d._room.counter_index()
+	d._select(ci)
+	d._remove_selected()
+	_check(d._room.counter_index() >= 0 and GameState.layout.size() == 8, "прилавок убрать нельзя")
+	_check(d._remove_btn.disabled, "кнопка «Убрать» у прилавка выключена")
+	d._deselect()
 	_click(pos + Vector2(20, 10), true)  # пустая стена
 	_check(d._sel == -1, "тап по пустому месту снимает выделение")
 	d.queue_free()
@@ -751,7 +765,7 @@ func _test_progress_and_menu() -> void:
 	# новая игра
 	GameState.new_game()
 	_check(GameState.intro_stage == 0 and GameState.coins == 0 and GameState.upgrades.is_empty(), "новая игра: интро с нуля, касса пуста, улучшений нет")
-	_check(GameState.layout.size() == Data.intro_layout.size() and GameState.layout.size() == 2, "новая игра: только стол и пуфик")
+	_check(GameState.layout.size() == Data.intro_layout.size() and GameState.layout.size() == 3, "новая игра: прилавок, стол и пуфик")
 	_check(_same(GameState.drink_ids(), ["espresso", "tea"]), "новая игра: только эспрессо и чай (%s)" % [GameState.drink_ids()])
 	_check(not GameState.pastries_unlocked(), "новая игра: выпечки нет")
 	# старое сохранение v3 -> v4: интро пропущено, всё открыто
@@ -952,7 +966,7 @@ func _test_intro() -> void:
 	_check(not nav.find_path(WorldNav.feet_at(out_cell), WorldNav.feet_at(in_cell)).is_empty(), "после открытия ставней в кафе можно войти")
 	_check(city._player.is_moving(), "кот сам заходит в кафе")
 	_check(city._intro._nodes.size() == 15 - 0 and is_equal_approx(city._intro.progress(), 0.0), "расчистка: объекты созданы, прогресс 0")
-	_check(GameState.layout.size() == 2, "в зале только стол и пуфик")
+	_check(GameState.layout.size() == 3, "в зале прилавок, стол и пуфик")
 	# тап по объекту отправляет кота к нему; тап по пустому месту — нет
 	city._player.position = WorldNav.feet_at(rc + Vector2i(4, 4))
 	city._update_xray(10.0)
@@ -1050,7 +1064,7 @@ func _test_save_migration() -> void:
 		{"id": "нет_такого", "c": 1, "r": 1}, {"id": "stool", "c": 1, "r": 5}, {"id": "stool", "c": 1, "r": 5},
 		{"id": "table_big", "c": 9, "r": 6}, 5]})
 	GameState.load_game()
-	_check(GameState.layout.size() == 1 and GameState.layout[0]["id"] == "stool", "битая мебель отбрасывается (осталось %d)" % GameState.layout.size())
+	_check(GameState.layout.size() == 2 and GameState.layout[0]["id"] == "counter" and GameState.layout[1]["id"] == "stool", "битая мебель отбрасывается, прилавок возвращён (осталось %d)" % GameState.layout.size())
 
 
 func _test_assets() -> void:
@@ -1241,7 +1255,7 @@ func _test_spaces() -> void:
 	room.queue_free()
 	GameState.coins = 0
 	var kept := GameState._sanitize_layout([{"id": "stool", "c": 8, "r": 1, "flip": false}])
-	_check(kept.is_empty() and GameState.coins == int(Data.furniture["stool"]["price"]), "пуфик из служебки убран, деньги возвращены")
+	_check(kept.size() == 1 and kept[0]["id"] == "counter" and GameState.coins == int(Data.furniture["stool"]["price"]), "пуфик из служебки убран, деньги возвращены")
 
 	var city := _new_city(true)
 	await get_tree().process_frame
