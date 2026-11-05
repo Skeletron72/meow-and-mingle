@@ -24,6 +24,7 @@ const FEET_DY := 10.0                # лапки кота ниже центра
 const COUNTER_ID := "counter"
 const MACHINE_SRC := Rect2(131, 67, 11, 13)
 const MACHINE_DX := 21.0   # кофемашина в третьей клетке прилавка (при отражении — в первой): сдвиг от центра узла
+const MACHINE_DX_U := 5.0  # на большой П-образной стойке — на правой части основания
 const MACHINE_DY := -48.0
 const DEFAULT_COUNTER := Vector2i(0, 1)
 ## Служебка: маленькая комната в углу зала, отделённая стенами (левая стена — колонка 6, передняя — ряд 3, в передней стене проём STAFF_DOOR).
@@ -241,7 +242,7 @@ func _spawn_item(item: Dictionary) -> Node2D:
 		machine.centered = false
 		machine.scale = Vector2(S, S)
 		machine.flip_h = sp.flip_h
-		machine.position = Vector2(-MACHINE_DX - MACHINE_SRC.size.x * S if sp.flip_h else MACHINE_DX, MACHINE_DY)
+		machine.position = Vector2(-_machine_dx(id) - MACHINE_SRC.size.x * S if sp.flip_h else _machine_dx(id), MACHINE_DY)
 		n.add_child(machine)
 	if String(def.get("base", id)) == "window":
 		var w := WindowGlow.new()
@@ -337,7 +338,12 @@ func _has_item(id: String) -> bool:
 
 ## Прилавок ли это (сам «counter» или его раскраска стиля).
 static func is_counter(id: String) -> bool:
-	return id == COUNTER_ID or String(item_def(id).get("base", "")) == COUNTER_ID
+	var b := String(item_def(id).get("base", id))
+	return b == COUNTER_ID or b == "ucounter"
+
+
+static func _machine_dx(id: String) -> float:
+	return MACHINE_DX_U if String(item_def(id).get("base", id)) == "ucounter" else MACHINE_DX
 
 
 ## Номер прилавка в раскладке (-1 — нет; такого не бывает: GameState.ensure_counter возвращает его на место).
@@ -377,7 +383,7 @@ func machine_rect() -> Rect2:
 	var id := String(layout[i]["id"])
 	var foot := foot_pos(id, int(layout[i]["c"]), int(layout[i]["r"]))
 	var flip := bool(layout[i].get("flip", false))
-	return Rect2(foot.x + (-MACHINE_DX - MACHINE_SRC.size.x * S if flip else MACHINE_DX), foot.y + MACHINE_DY, MACHINE_SRC.size.x * S, MACHINE_SRC.size.y * S)
+	return Rect2(foot.x + (-_machine_dx(id) - MACHINE_SRC.size.x * S if flip else _machine_dx(id)), foot.y + MACHINE_DY, MACHINE_SRC.size.x * S, MACHINE_SRC.size.y * S)
 
 
 ## Прямоугольник прилавка вместе с кофемашиной (в координатах комнаты) — для тапа и выбора.
@@ -393,7 +399,7 @@ func _item_rect(id: String, c: int, r: int, flip := false) -> Rect2:
 	var rect := sprite_rect(id, c, r)
 	if is_counter(id):
 		var foot := foot_pos(id, c, r)
-		var mx := foot.x + (-MACHINE_DX - MACHINE_SRC.size.x * S if flip else MACHINE_DX)
+		var mx := foot.x + (-_machine_dx(id) - MACHINE_SRC.size.x * S if flip else _machine_dx(id))
 		rect = rect.merge(Rect2(mx, foot.y + MACHINE_DY, MACHINE_SRC.size.x * S, MACHINE_SRC.size.y * S))
 	return rect
 
@@ -556,16 +562,33 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 
 
 ## Место для прилавка: ближе к левой стене, на второй клетке от неё; Vector2i(-1, -1) — места нет.
-func find_counter_spot() -> Vector2i:
+func find_counter_spot(id := COUNTER_ID, ignore := -1) -> Vector2i:
 	for r in [1, 0, 2, 3, 4]:
 		for c in [0, 1, 2, 3, 4, 5, 6]:
-			if check_place(COUNTER_ID, c, r) == "":
+			if check_place(id, c, r, ignore) == "":
 				return Vector2i(c, r)
 	return Vector2i(-1, -1)
 
 
-## Подбирает свободную клетку для нового предмета, ближе к центру зала. Vector2i(-1, -1) — места нет.
-func find_free_spot(id: String) -> Vector2i:
+## Кухня и витрины — к задней стене, за прилавок и рядом с ним (не в зал и не к выходу).
+const KITCHEN := ["cabinet", "case", "oven", "stove", "machine"]
+
+
+static func base_id(id: String) -> String:
+	return String(item_def(id).get("base", id))
+
+
+static func is_kitchen(id: String) -> bool:
+	return base_id(id) in KITCHEN
+
+
+## Подбирает место для нового предмета по его типу: кухня — вдоль задней стены, большая стойка — вдоль витрины, столы — в зал,
+## пуфы — к столам, растения — в углы, настенное — на средний ряд стены подальше от других картин. ignore — индекс предмета, который переставляем.
+## Vector2i(-1, -1) — места нет.
+func find_free_spot(id: String, ignore := -1) -> Vector2i:
+	for cell in _preferred_cells(id, ignore):
+		if check_place(id, cell.x, cell.y, ignore) == "":
+			return cell
 	var best := Vector2i(-1, -1)
 	var best_d := INF
 	var rows := WALL_ROWS if is_wall(id) else ROWS
@@ -573,9 +596,67 @@ func find_free_spot(id: String) -> Vector2i:
 	for r in rows:
 		for c in COLS:
 			var d := (Vector2(c, r) + Vector2(tiles(id)) / 2.0).distance_to(center)
-			if d < best_d and check_place(id, c, r) == "":
+			if d < best_d and check_place(id, c, r, ignore) == "":
 				best = Vector2i(c, r)
 				best_d = d
+	return best
+
+
+func _preferred_cells(id: String, ignore: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var base := base_id(id)
+	if is_wall(id):   # средний ряд стены, затем верхний; подальше от уже висящих картин и окон
+		var cand: Array[Vector2i] = []
+		for r in [1, 0]:
+			for c in COLS:
+				cand.append(Vector2i(c, r))
+		var others: Array[Vector2] = []
+		for i in layout.size():
+			if i != ignore and is_wall(String(layout[i]["id"])):
+				others.append(Vector2(int(layout[i]["c"]), int(layout[i]["r"])))
+		cand.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var da := _min_dist(Vector2(a), others)
+			var db := _min_dist(Vector2(b), others)
+			return da > db if absf(da - db) > 0.01 else (a.y > b.y if a.y != b.y else a.x < b.x))
+		return cand
+	if is_kitchen(id):   # задняя стена (за прилавком и правее), потом ряд прилавка
+		for r in [0, 1]:
+			for c in COLS:
+				out.append(Vector2i(c, r))
+		return out
+	if base == "ucounter":   # большая стойка — вдоль витрины
+		for r in [5, 4]:
+			for c in COLS:
+				out.append(Vector2i(c, r))
+		return out
+	if base == "stool":   # пуф — рядом со столом
+		for i in layout.size():
+			var o := base_id(String(layout[i]["id"]))
+			if i != ignore and o in ["table_big", "table_small"]:
+				var a := cells(String(layout[i]["id"]), int(layout[i]["c"]), int(layout[i]["r"]))
+				for y in range(a.position.y, a.end.y):
+					out.append(Vector2i(a.end.x, y))
+					out.append(Vector2i(a.position.x - 1, y))
+				for x in range(a.position.x, a.end.x):
+					out.append(Vector2i(x, a.end.y))
+		return out
+	if base == "plant":   # углы и края зала
+		out.assign([Vector2i(5, 1), Vector2i(9, 4), Vector2i(0, 5), Vector2i(5, 4), Vector2i(0, 3), Vector2i(3, 0), Vector2i(9, 5), Vector2i(5, 0)])
+		return out
+	if base in ["table_big", "table_small"]:   # в зале: середина пола, не у самой витрины
+		var cand2: Array[Vector2i] = []
+		for r in [3, 2, 4]:
+			for c in COLS:
+				cand2.append(Vector2i(c, r))
+		cand2.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return Vector2(a).distance_to(Vector2(2.5, 3.0)) < Vector2(b).distance_to(Vector2(2.5, 3.0)))
+		return cand2
+	return out
+
+
+static func _min_dist(p: Vector2, others: Array[Vector2]) -> float:
+	var best := 99.0
+	for o in others:
+		best = minf(best, p.distance_to(o))
 	return best
 
 

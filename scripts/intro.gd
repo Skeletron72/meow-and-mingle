@@ -464,8 +464,6 @@ func _open_box(id: String, node: Node, def: Dictionary) -> void:
 				city._toast("Найден рецепт: папин латте", world + Vector2(0, -90))
 			"box_2":
 				GameState.keepsakes.append("photo")
-				_room.add_item({"id": "board", "c": 3, "r": 1, "flip": false})
-				city._apply_clip_materials()
 				_say(String(def["line"]))
 				_show_photo()
 		_dissolve(node, 0.5)

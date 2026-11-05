@@ -40,7 +40,7 @@ def main():
             errors.append(f"задача {r['id']}: after={r['after']} больше числа уровней")
         for e in r["effects"]:
             k = e["kind"]
-            if k == "furniture" and e["id"] not in furniture:
+            if k in ("furniture", "counter") and e["id"] not in furniture:
                 errors.append(f"задача {r['id']}: нет мебели {e['id']}")
             elif k == "upgrade" and e["id"] not in upgrades:
                 errors.append(f"задача {r['id']}: нет улучшения {e['id']}")

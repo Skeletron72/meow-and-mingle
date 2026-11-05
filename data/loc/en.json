@@ -841,5 +841,7 @@
  "Язык": "Language",
  "Качество": "Quality",
  "Прилавок нужен кафе: его можно только двигать": "The counter is required: you can only move it",
- "Перед прилавком нужен проход": "Keep the space in front of the counter free"
+ "Перед прилавком нужен проход": "Keep the space in front of the counter free",
+ "Нет места для стойки": "No room for the bar",
+ "Прилавок заменён": "Counter replaced"
 }

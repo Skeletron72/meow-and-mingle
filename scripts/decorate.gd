@@ -334,6 +334,19 @@ func _buy(id: String) -> void:
 
 ## Ставит купленный предмет на свободное место и выбирает его; price монет списывается (0 — подарок за ролики).
 func _place(id: String, price: int) -> void:
+	if CafeRoom.is_counter(id):   # новая стойка заменяет прилавок на его месте (прилавок в кафе один)
+		if not GameState.swap_counter(id):
+			_toast("Нет места для стойки", Vector2(180, 470))
+			return
+		_room.rebuild()
+		_refresh_cozy()
+		if price > 0:
+			GameState.spend_coins(price)
+		else:
+			GameState.save_game()
+		_select(_room.counter_index())
+		_toast("Прилавок заменён", Vector2(180, 470))
+		return
 	var spot := _room.find_free_spot(id)
 	if spot.x < 0:
 		_toast("Нет свободного места", Vector2(180, 470))

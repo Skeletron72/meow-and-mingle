@@ -104,7 +104,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "plant"
+    "id": "plant",
+    "at": [
+     5,
+     2
+    ]
    }
   ],
   "blurb": "Уют: растение в зале",
@@ -123,7 +127,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "rug"
+    "id": "rug",
+    "at": [
+     4,
+     3
+    ]
    }
   ],
   "blurb": "Мягкий коврик",
@@ -142,7 +150,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "window"
+    "id": "window",
+    "at": [
+     8,
+     1
+    ]
    }
   ],
   "blurb": "Больше света днём",
@@ -161,7 +173,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "board"
+    "id": "board",
+    "at": [
+     3,
+     1
+    ]
    },
    {
     "kind": "unlock",
@@ -184,7 +200,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "table_big"
+    "id": "table_big",
+    "at": [
+     2,
+     3
+    ]
    }
   ],
   "blurb": "Ещё одно место для гостей",
@@ -203,7 +223,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "bowl"
+    "id": "bowl",
+    "at": [
+     4,
+     2
+    ]
    },
    {
     "kind": "unlock",
@@ -278,7 +302,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "cabinet"
+    "id": "cabinet",
+    "at": [
+     0,
+     0
+    ]
    }
   ],
   "blurb": "Место для банок и сиропов",
@@ -328,7 +356,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "case"
+    "id": "case",
+    "at": [
+     4,
+     1
+    ]
    },
    {
     "kind": "upgrade",
@@ -393,7 +425,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "oven"
+    "id": "oven",
+    "at": [
+     2,
+     0
+    ]
    }
   ],
   "blurb": "Тёплый запах из кухни",
@@ -412,7 +448,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "stove"
+    "id": "stove",
+    "at": [
+     4,
+     0
+    ]
    }
   ],
   "blurb": "Большая плита",
@@ -431,7 +471,7 @@
   "after": 19,
   "effects": [
    {
-    "kind": "furniture",
+    "kind": "counter",
     "id": "ucounter"
    }
   ],
@@ -546,7 +586,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "rug"
+    "id": "rug",
+    "at": [
+     6,
+     5
+    ]
    }
   ],
   "blurb": "Уют в жилой зоне",
@@ -565,7 +609,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "plant"
+    "id": "plant",
+    "at": [
+     9,
+     4
+    ]
    }
   ],
   "blurb": "Зелень в доме",
@@ -584,7 +632,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "table_small"
+    "id": "table_small",
+    "at": [
+     0,
+     3
+    ]
    }
   ],
   "blurb": "Куда класть письма",
@@ -603,7 +655,11 @@
   "effects": [
    {
     "kind": "furniture",
-    "id": "window"
+    "id": "window",
+    "at": [
+     0,
+     1
+    ]
    }
   ],
   "blurb": "Свет вечером на улицу",
@@ -1137,7 +1193,7 @@
   "after": 49,
   "effects": [
    {
-    "kind": "furniture",
+    "kind": "counter",
     "id": "ucounter_loft"
    },
    {

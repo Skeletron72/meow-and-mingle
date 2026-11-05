@@ -14,6 +14,7 @@ func _check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	GameState.suppress_popups = true   # окна при входе мешали бы тапам в тестах города
+	GameState.new_game()   # с чистого листа: не зависим от сохранения, оставленного другими тестами (бустеры, монеты)
 	Loc.override = "ru"           # проверки написаны под русские подписи
 	Loc.apply("ru")
 	TimeOfDay.set_process(false)   # время стоит, пока тест сам его не двигает
@@ -1000,7 +1001,7 @@ func _test_intro() -> void:
 	var ids: Array[String] = []
 	for it in GameState.layout:
 		ids.append(String(it["id"]))
-	_check("window" in ids and "board" in ids and "table_small" in ids and "stool" in ids, "после расчистки появились окно и доска, стол и стул на месте (%s)" % [ids])
+	_check("window" in ids and not ("board" in ids) and "table_small" in ids and "stool" in ids and "counter" in ids, "после расчистки появилось окно, прилавок, стол и стул на месте; доску меню вешает ремонт (%s)" % [ids])
 	_check(GameState.intro_cleaned.size() == 15, "прогресс расчистки сохранён по объектам")
 	_check(city._intro.light().is_equal_approx(Color.WHITE), "после расчистки свет нормальный")
 	await get_tree().create_timer(2.3).timeout

@@ -48,6 +48,7 @@ func _ready() -> void:
 	await _test_ad_points()
 	await _test_points()
 	await _test_collisions()
+	_test_reward_layout()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1826,3 +1827,48 @@ func _test_collisions() -> void:
 	c2.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()
+
+
+## Награды ремонта ставят мебель на продуманные места: кухня у задней стены, у прилавка — витрина, столы в зале, одна доска меню; большая стойка
+## заменяет прилавок. Старые сохранения (v5) с кухней у выхода и двумя досками чинятся при чтении.
+func _test_reward_layout() -> void:
+	GameState.new_game()
+	GameState.layout.append({"id": "window", "c": 5, "r": 1, "flip": false})   # окно из-под шторы в прологе
+	for r in Data.repairs:
+		if int(r["chapter"]) <= 3:
+			for e in r["effects"]:
+				if String(e["kind"]) in ["furniture", "counter"]:
+					GameState._apply_effect(e, "")
+	var boards := 0
+	var counters := 0
+	for it in GameState.layout:
+		var id := String(it["id"])
+		if id == "board":
+			boards += 1
+		if CafeRoom.is_counter(id):
+			counters += 1
+		if CafeRoom.is_kitchen(id):
+			_check(int(it["r"]) <= 1, "кухня «%s» у задней стены, а не в зале (ряд %d)" % [id, int(it["r"])])
+		if CafeRoom.is_solid(id) and not CafeRoom.is_counter(id):
+			_check(not CafeRoom.cells(id, int(it["c"]), int(it["r"])).intersects(Rect2i(4, 4, 2, 2)), "«%s» не загораживает вход" % id)
+	_check(boards == 1, "доска меню одна (%d)" % boards)
+	_check(counters == 1 and String(GameState.layout[0]["id"]) == "ucounter", "большая стойка заменила прилавок, стойка одна")
+	var room := CafeRoom.new()
+	room.layout = GameState.layout
+	_check(room._reachable(room._make_grid(room.solid_cells())), "от входа до стойки и служебки можно дойти")
+	room.free()
+	# старое сохранение: плита и витрина у выхода, две доски, большая стойка отдельно от прилавка
+	var old := [{"id": "counter", "c": 0, "r": 1, "flip": false}, {"id": "board", "c": 3, "r": 1, "flip": false}, {"id": "board", "c": 5, "r": 1, "flip": false},
+		{"id": "stove", "c": 2, "r": 4, "flip": false}, {"id": "case", "c": 4, "r": 3, "flip": false}, {"id": "ucounter", "c": 0, "r": 5, "flip": false}]
+	var f := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 5, "coins": 0, "intro_stage": GameState.INTRO_DONE, "layout": old, "upgrades": [], "hour": 10.0}))
+	f.close()
+	GameState.load_game()
+	var ids := GameState.layout.map(func(it: Dictionary) -> String: return String(it["id"]))
+	_check(ids.count("board") == 1 and GameState.coins >= int(Data.furniture["board"]["price"]), "лишняя доска снята, деньги возвращены (%s)" % [ids])
+	_check(ids.count("ucounter") == 1 and ids.count("counter") == 0, "большая стойка стала прилавком (%s)" % [ids])
+	for it in GameState.layout:
+		if CafeRoom.is_kitchen(String(it["id"])):
+			_check(int(it["r"]) <= 1, "«%s» перенесена к задней стене (ряд %d)" % [it["id"], int(it["r"])])
+	GameState.new_game()
+	GameState.save_game()

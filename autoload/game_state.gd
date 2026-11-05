@@ -9,7 +9,7 @@ signal repair_done(id: String)   # задача ремонта выполнен�
 const SAVE_PATH := "user://save.json"
 const SAVE_BAK := "user://save.bak"
 const SAVE_TMP := "user://save.tmp"
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 ## Стадии вступления (v5): игра раньше истории. 0 кадр-заставка, 1 обучающая смена (3 заказа), 2 ставни (ремонт за 1★),
 ## 3 расчистка зала (ремонт за 2★), 4 — не используется (был «первый магазин»), 5 вступление пройдено.
 const INTRO_DONE := 5
@@ -52,6 +52,7 @@ var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
 var install_id := ""               # случайный анонимный идентификатор установки (аналитика)
 var first_run_unix := 0
 var suppress_popups := false       # тесты и скриншоты: окна при входе (подарок, офлайн-доход) не показываются
+var _pending_counter := ""         # большая стойка из старого сохранения, которая встанет на место прилавка
 var away_seconds := 0              # сколько игрока не было до этого запуска (по last_visit_unix из сохранения)
 
 
@@ -244,8 +245,11 @@ func do_repair(id: String, variant := "") -> bool:
 
 func _apply_effect(e: Dictionary, variant: String) -> void:
 	match String(e["kind"]):
+		"counter":   # большая стойка «как у мамы» и раскраски: заменяют прилавок на его месте, а не ставятся второй стойкой в зал
+			swap_counter(String(e["id"]))
 		"furniture":
-			place_free(String(e["id"]))
+			var at: Array = e.get("at", [])
+			place_free(String(e["id"]), Vector2i(int(at[0]), int(at[1])) if at.size() == 2 else Vector2i(-1, -1))
 		"style":
 			style[String(e["key"])] = variant
 		"upgrade":
@@ -260,18 +264,61 @@ func _apply_effect(e: Dictionary, variant: String) -> void:
 
 
 ## Ставит предмет в зал бесплатно (награда ремонта) на ближайшее к центру место; нет места — возвращает его цену монетами.
-func place_free(id: String) -> bool:
+## at — место, задуманное для этой награды (data/repairs.json, поле "at"); занято — подбираем по типу мебели (кухня у задней стены, столы в зале…).
+func place_free(id: String, at := Vector2i(-1, -1)) -> bool:
 	if not Data.furniture.has(id):
 		return false
 	var room := CafeRoom.new()
 	room.layout = layout
-	var spot := room.find_free_spot(id)
+	var spot := at if at.x >= 0 and room.check_place(id, at.x, at.y) == "" else room.find_free_spot(id)
 	room.free()
 	if spot.x < 0:
 		coins += int(Data.furniture[id].get("price", 0))
 		coins_changed.emit(coins)
 		return false
 	layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
+	return true
+
+
+## Заменяет прилавок другим (большая стойка, раскраска) на том же месте. Мешающую мебель переставляет: кухню — только к задней стене,
+## остальное — куда найдётся место; не нашлось — возвращает её цену монетами. false — новый прилавок не встал (раскладка не меняется).
+func swap_counter(new_id: String) -> bool:
+	if not Data.furniture.has(new_id) or not CafeRoom.is_counter(new_id):
+		return false
+	var room := CafeRoom.new()
+	room.layout = layout
+	var ci := room.counter_index()
+	var at := Vector2i(int(layout[ci]["c"]), int(layout[ci]["r"])) if ci >= 0 else CafeRoom.DEFAULT_COUNTER
+	var flip := bool(layout[ci].get("flip", false)) if ci >= 0 else false
+	var backup := layout.duplicate(true)
+	if ci >= 0:
+		layout.remove_at(ci)
+	var t := CafeRoom.tiles(new_id)
+	at.x = clampi(at.x, 0, CafeRoom.COLS - t.x)
+	var zone := Rect2i(at.x, at.y, t.x, t.y + 1)   # сам прилавок и ряд перед ним
+	var moved: Array[Dictionary] = []
+	for k in range(layout.size() - 1, -1, -1):
+		var oid := String(layout[k]["id"])
+		if CafeRoom.is_solid(oid) and CafeRoom.cells(oid, int(layout[k]["c"]), int(layout[k]["r"])).intersects(zone):
+			moved.append(layout[k])
+			layout.remove_at(k)
+	if room.check_place(new_id, at.x, at.y) != "":
+		var spot := room.find_counter_spot(new_id)
+		if spot.x < 0:
+			layout.assign(backup)
+			room.free()
+			return false
+		at = spot
+	layout.insert(0, {"id": new_id, "c": at.x, "r": at.y, "flip": flip})
+	for it in moved:
+		var oid := String(it["id"])
+		var spot2 := room.find_free_spot(oid)
+		if spot2.x >= 0 and (not CafeRoom.is_kitchen(oid) or spot2.y <= 1):
+			layout.append({"id": oid, "c": spot2.x, "r": spot2.y, "flip": bool(it.get("flip", false))})
+		else:
+			coins += int(Data.furniture[oid].get("price", 0))
+	room.free()
+	coins_changed.emit(coins)
 	return true
 
 
@@ -697,7 +744,13 @@ func load_game() -> void:
 	cat_progress = data.get("cat_progress", {})
 	last_visit_unix = int(data.get("last_visit_unix", 0))
 	away_seconds = maxi(0, int(Time.get_unix_time_from_system()) - last_visit_unix) if last_visit_unix > 0 else 0
+	_pending_counter = ""
 	layout = _sanitize_layout(data.get("layout", null))
+	if _pending_counter != "" and not swap_counter(_pending_counter):
+		coins += int(Data.furniture[_pending_counter].get("price", 0))
+	_pending_counter = ""
+	if bool(data.get("layout_fix", false)):
+		_fix_auto_layout()
 	TimeOfDay.hour = clampf(float(data.get("hour", 9.0)), 0.0, 24.0)
 	intro_stage = clampi(int(data.get("intro_stage", INTRO_DONE)), 0, INTRO_DONE)
 	intro_cleaned = data.get("intro_cleaned", {})
@@ -776,6 +829,9 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["intro_stage"] = stage
 		data["repairs"] = done_repairs
 		v = 5
+	if v < 6:
+		data["layout_fix"] = true   # v6: прилавок стал мебелью; кухню, поставленную наградами посреди зала, и двойную доску меню поправим после чтения раскладки
+		v = 6
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data
@@ -787,6 +843,51 @@ func _string_array(raw: Variant) -> Array[String]:
 		for x in raw:
 			out.append(String(x))
 	return out
+
+
+## v6: награды ремонта раньше ставили мебель «ближе к центру»: плита, духовка, витрина, шкаф оказывались у входа, а доска меню висела дважды
+## (её вешала и коробка пролога, и ремонт). Кухню из передней половины зала переносим к задней стене (если есть место), лишние доски снимаем с возвратом цены.
+func _fix_auto_layout() -> void:
+	var boards := 0
+	for k in range(layout.size()):
+		var id := String(layout[k]["id"])
+		if String(Data.furniture[id].get("base", id)) == "board" and id == "board":
+			boards += 1
+	var k := layout.size() - 1
+	while k >= 0 and boards > 1:
+		if String(layout[k]["id"]) == "board":
+			layout.remove_at(k)
+			coins += int(Data.furniture["board"]["price"])
+			boards -= 1
+		k -= 1
+	# большая стойка раньше стояла второй стойкой посреди зала: теперь она и есть прилавок (простой прилавок убираем)
+	var u := -1
+	for k2 in layout.size():
+		if CafeRoom.is_counter(String(layout[k2]["id"])) and String(Data.furniture[String(layout[k2]["id"])].get("base", layout[k2]["id"])) == "ucounter":
+			u = k2
+			break
+	if u >= 0:
+		var uid := String(layout[u]["id"])
+		layout.remove_at(u)
+		var plain := -1
+		for k4 in layout.size():
+			if CafeRoom.is_counter(String(layout[k4]["id"])):
+				plain = k4
+		if plain < 0:
+			layout.insert(0, {"id": CafeRoom.COUNTER_ID, "c": CafeRoom.DEFAULT_COUNTER.x, "r": CafeRoom.DEFAULT_COUNTER.y, "flip": false})
+		if not swap_counter(uid):
+			coins += int(Data.furniture[uid].get("price", 0))
+	var room := CafeRoom.new()
+	room.layout = layout
+	for i in layout.size():
+		var id := String(layout[i]["id"])
+		if not CafeRoom.is_kitchen(id) or int(layout[i]["r"]) <= 1:
+			continue
+		var spot := room.find_free_spot(id, i)
+		if spot.x >= 0 and spot.y <= 1:
+			layout[i]["c"] = spot.x
+			layout[i]["r"] = spot.y
+	room.free()
 
 
 ## Оставляет только корректную мебель: известные id, клетки внутри зала, без наложений и без перекрытия прохода.
@@ -808,6 +909,8 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 		}
 		if room.check_place(fixed["id"], fixed["c"], fixed["r"]) == "":
 			out.append(fixed)
+		elif CafeRoom.is_counter(fixed["id"]) and fixed["id"] != CafeRoom.COUNTER_ID:
+			_pending_counter = fixed["id"]   # большая стойка не на месте прилавка — после чтения она заменит прилавок
 		elif not CafeRoom.is_wall(fixed["id"]) and CafeRoom.cells(fixed["id"], fixed["c"], fixed["r"]).intersects(CafeRoom.STAFF_CELLS):
 			coins += int(Data.furniture[fixed["id"]].get("price", 0))   # стояла там, где теперь служебка: вернули деньги
 	# прилавок обязателен: нет в сохранении (старые игры, ошибка) — ставим на подходящее место, при нехватке места убираем мебель с участка и возвращаем её цену
