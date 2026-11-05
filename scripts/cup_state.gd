@@ -6,10 +6,12 @@ var base: String = ""     # "coffee" | "tea" | ""
 var milk: bool = false
 var syrup: bool = false
 var pastry: String = ""   # id из pastries.json или ""
+var mods: Array[String] = []   # добавки: "ice" лёд, "cinnamon" корица, "cream" сливки, "double" двойная порция кофе
+var allow_double := false      # вторая порция кофе: открыта улучшением «Кофемашина Pro»
 
 
 func is_empty() -> bool:
-	return base == "" and not milk and not syrup and pastry == ""
+	return base == "" and not milk and not syrup and pastry == "" and mods.is_empty()
 
 
 func clear() -> void:
@@ -17,13 +19,27 @@ func clear() -> void:
 	milk = false
 	syrup = false
 	pastry = ""
+	mods = []
 
 
 ## Добавляет ингредиент. Возвращает текст ошибки или "" при успехе.
 func add(kind: String, id: String) -> String:
 	match kind:
 		"base":
-			base = id
+			if base == id and id == "coffee" and allow_double:
+				if "double" in mods:
+					return "Двойная порция уже есть"
+				mods.append("double")   # кофе ещё раз — двойная порция
+			else:
+				if base != "" and base != id:
+					mods.erase("double")
+				base = id
+		"extra":
+			if base == "":
+				return "Сначала кофе или чай"
+			if id in mods:
+				return "Это уже добавлено"
+			mods.append(id)
 		"milk":
 			if base == "":
 				return "Сначала кофе или чай"
@@ -37,15 +53,56 @@ func add(kind: String, id: String) -> String:
 	return ""
 
 
-## id напитка по рецепту или "" (основы ещё нет).
+## id напитка по рецепту (с добавками) или "" (основы ещё нет или такого напитка в меню нет).
 func drink_id() -> String:
 	if base == "":
 		return ""
 	for id in Data.drinks:
 		var r: Dictionary = Data.drinks[id]["recipe"]
-		if r["base"] == base and bool(r["milk"]) == milk and bool(r.get("syrup", false)) == syrup:
+		if r["base"] == base and bool(r["milk"]) == milk and bool(r.get("syrup", false)) == syrup and same_mods(r.get("mods", []), mods):
 			return id
 	return ""
+
+
+## Как выглядит чашка на подносе: точный напиток или, если такого нет, ближайший без добавок (добавки рисуются значками поверх).
+func look_id() -> String:
+	var id := drink_id()
+	if id != "" or base == "":
+		return id
+	for k in Data.drinks:
+		var r: Dictionary = Data.drinks[k]["recipe"]
+		if r["base"] == base and bool(r["milk"]) == milk and bool(r.get("syrup", false)) == syrup and (r.get("mods", []) as Array).is_empty():
+			return k
+	for k in Data.drinks:
+		if Data.drinks[k]["recipe"]["base"] == base:
+			return k
+	return ""
+
+
+static func same_mods(a: Array, b: Array) -> bool:
+	if a.size() != b.size():
+		return false
+	for m in a:
+		if not (String(m) in b):
+			return false
+	return true
+
+
+## Горячий ли напиток в чашке (остывает со временем): всё, кроме холодных — со льдом.
+func is_hot() -> bool:
+	return base != "" and not ("ice" in mods)
+
+
+## Собирает чашку по рецепту напитка (для подсказок «Автосборки», обучения и тестов).
+func fill(drink: String, pastry_id := "") -> void:
+	clear()
+	var r: Dictionary = Data.drinks[drink]["recipe"]
+	base = String(r["base"])
+	milk = bool(r["milk"])
+	syrup = bool(r.get("syrup", false))
+	for m in r.get("mods", []):
+		mods.append(String(m))
+	pastry = pastry_id
 
 
 func matches(order: Dictionary) -> bool:

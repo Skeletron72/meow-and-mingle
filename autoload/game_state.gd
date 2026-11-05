@@ -490,6 +490,70 @@ func add_like(id: String) -> int:
 		return after - 1
 	return -1
 
+# ---------------------------------------------------------------- таланты котов и «Уют» кафе
+
+const PERK_CAP := {"tips": 0.3, "patience": 0.25, "pastry_tips": 0.4, "warm": 0.4, "fast": 3.0, "riddle": 0.6, "price": 0.12}
+const COZY_STEPS := [8, 20, 40, 70, 110]   # очки уюта для 1…5-го уровня
+const COZY_TIPS := 0.04                    # чаевые за уровень уюта
+const COZY_PATIENCE := 0.02                # терпение гостей за уровень уюта
+
+
+## Талант кота работает, когда он в кафе и у него открыта первая запись (5 заказов).
+func perk_active(cat_id: String) -> bool:
+	for c in Data.cats:
+		if String(c["id"]) == cat_id:
+			return c.has("perk") and (bool(c.get("starter", false)) or has_unlock("cat:%s" % cat_id)) and cat_entries(cat_id) >= 1
+	return false
+
+
+## Сумма действующих талантов одного вида (с потолком).
+func perk_total(kind: String) -> float:
+	var sum := 0.0
+	for c in Data.cats:
+		var p: Dictionary = c.get("perk", {})
+		if String(p.get("kind", "")) == kind and perk_active(String(c["id"])):
+			sum += float(p["value"])
+	return minf(sum, float(PERK_CAP.get(kind, 1.0)))
+
+
+## Описание таланта кота для «Книги котов».
+func perk_text(def: Dictionary) -> String:
+	var p: Dictionary = def.get("perk", {})
+	var v := float(p.get("value", 0.0))
+	match String(p.get("kind", "")):
+		"tips": return tr("+%d%% чаевых") % int(round(v * 100.0))
+		"patience": return tr("+%d%% терпения") % int(round(v * 100.0))
+		"pastry_tips": return tr("+%d%% чаевых с выпечки") % int(round(v * 100.0))
+		"warm": return tr("горячее дольше +%d%%") % int(round(v * 100.0))
+		"fast": return tr("+%d за скорость") % int(v)
+		"riddle": return tr("+%d%% за загадки") % int(round(v * 100.0))
+		"price": return tr("+%d%% к цене") % int(round(v * 100.0))
+	return ""
+
+
+## Очки уюта: цена каждого предмета в зале (до 8 очков) и бонус за разнообразие.
+func cozy_points() -> int:
+	var pts := 0
+	var kinds := {}
+	for it in layout:
+		var id := String(it.get("id", ""))
+		if not Data.furniture.has(id):
+			continue
+		pts += clampi(int(round(float(Data.furniture[id]["price"]) / 10.0)), 1, 8)
+		kinds[id] = true
+	return pts + 2 * kinds.size()
+
+
+## Уровень уюта 0…5.
+func cozy_level() -> int:
+	var pts := cozy_points()
+	var n := 0
+	for step in COZY_STEPS:
+		if pts >= int(step):
+			n += 1
+	return n
+
+
 ## Смена закончена (не обучающая): считаем для подсказок и аналитики.
 func register_shift() -> void:
 	shifts_played += 1

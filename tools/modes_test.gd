@@ -489,10 +489,7 @@ func _test_city() -> void:
 	var coins_before := GameState.coins
 	await get_tree().create_timer(2.4).timeout   # первый кот пришёл к стойке
 	var first_order: Dictionary = shift._front()["order"]
-	var first_recipe: Dictionary = Data.drinks[first_order["drink"]]["recipe"]
-	shift._cup.add("base", first_recipe["base"])
-	if bool(first_recipe["milk"]):
-		shift._cup.add("milk", "milk")
+	shift._cup.fill(String(first_order["drink"]), String(first_order["pastry"]))
 	shift._serve()
 	_check(GameState.coins > coins_before and shift.shift_served == 1, "в смене заказ обслужен, монеты начислены")
 	shift._end_shift()
@@ -1383,10 +1380,7 @@ func _test_levels() -> void:
 			await get_tree().create_timer(0.1).timeout
 			tries += 1
 		var order: Dictionary = m2._front()["order"]
-		var recipe: Dictionary = Data.drinks[order["drink"]]["recipe"]
-		m2._cup.add("base", recipe["base"])
-		if bool(recipe["milk"]):
-			m2._cup.add("milk", "milk")
+		m2._cup.fill(String(order["drink"]), String(order["pastry"]))
 		m2._serve()
 		await get_tree().create_timer(1.2).timeout
 	await get_tree().create_timer(1.0).timeout

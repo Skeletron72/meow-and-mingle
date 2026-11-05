@@ -43,7 +43,7 @@ def code_strings():
 
 def data_strings():
     out = {}
-    keys = {"blurb", "name", "flavor", "desc", "line", "title", "caption", "text", "label", "lines"}
+    keys = {"blurb", "name", "flavor", "desc", "line", "title", "caption", "text", "label", "lines", "riddle"}
     def walk(o, f):
         if isinstance(o, dict):
             for k, v in o.items():

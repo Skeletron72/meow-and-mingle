@@ -42,6 +42,7 @@ func _ready() -> void:
 	await _test_decor_styles()
 	await _test_terrace_sign()
 	await _test_new_types()
+	await _test_depth()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -186,7 +187,7 @@ func _test_save() -> void:
 
 func _test_repairs() -> void:
 	GameState.new_game()
-	_check(Data.repairs.size() == 60, "в data/repairs.json 60 задач ремонта (%d)" % Data.repairs.size())
+	_check(Data.repairs.size() == 63, "в data/repairs.json 63 задачи ремонта (%d)" % Data.repairs.size())
 	_check(GameState.repair_def("shutters")["cost"] == 1 and GameState.repair_def("cleanup")["cost"] == 2, "ставни 1★, расчистка 2★")
 	# граф задач: у каждого требования есть задача, цикла нет, у глав по 10 задач
 	var ids := {}
@@ -197,7 +198,7 @@ func _test_repairs() -> void:
 		per_chapter[int(r["chapter"])] = int(per_chapter.get(int(r["chapter"]), 0)) + 1
 		for q in r["requires"]:
 			_check(ids.has(String(q)), "задача «%s»: требование «%s» существует" % [r["id"], q])
-	_check(per_chapter == {1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10}, "по 10 задач в шести главах (%s)" % [per_chapter])
+	_check(per_chapter == {1: 10, 2: 10, 3: 10, 4: 12, 5: 11, 6: 10}, "10–12 задач в шести главах (%s)" % [per_chapter])
 	var order := []   # порядок списка = порядок выполнения: требования всегда раньше
 	for r in Data.repairs:
 		for q in r["requires"]:
@@ -206,7 +207,7 @@ func _test_repairs() -> void:
 	var total := 0
 	for r in Data.repairs:
 		total += int(r["cost"])
-	_check(total == 116, "всего 116★ на ремонт (%d)" % total)
+	_check(total == 122, "всего 122★ на ремонт (%d)" % total)
 	_check(not GameState.do_repair("shutters"), "без звёзд ремонт не оплатить")
 	GameState.stars_bonus = 100
 	_check(not GameState.do_repair("wall_paint"), "закрытая задача (нет требований) не выполняется")
@@ -369,16 +370,19 @@ func _test_s2() -> void:
 ## S3: напитки, выпечка, рецепты с сиропом, меню дня, типы посетителей, 30 уровней.
 func _test_content() -> void:
 	GameState.new_game()
-	_check(Data.drinks.size() == 10 and Data.pastries.size() == 8, "10 напитков и 8 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
+	_check(Data.drinks.size() == 21 and Data.pastries.size() == 8, "21 напиток (10 базовых + 11 с добавками) и 8 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
 	# рецепты не совпадают друг с другом
 	var seen := {}
 	for id in Data.drinks:
 		var r: Dictionary = Data.drinks[id]["recipe"]
-		var key := "%s/%s/%s" % [r["base"], r["milk"], r.get("syrup", false)]
+		var mods: Array = (r.get("mods", []) as Array).duplicate()
+		mods.sort()
+		var key := "%s/%s/%s/%s" % [r["base"], r["milk"], r.get("syrup", false), mods]
 		_check(not seen.has(key), "рецепт напитка «%s» уникален" % id)
 		seen[key] = true
 	# чашка собирает все 7 напитков
 	var cup := CupState.new()
+	cup.allow_double = true
 	for id in Data.drinks:
 		var r: Dictionary = Data.drinks[id]["recipe"]
 		cup.clear()
@@ -387,6 +391,11 @@ func _test_content() -> void:
 			cup.add("milk", "milk")
 		if bool(r.get("syrup", false)):
 			cup.add("syrup", "syrup")
+		for m in r.get("mods", []):
+			if String(m) == "double":
+				cup.add("base", String(r["base"]))   # кофе ещё раз — двойная порция
+			else:
+				cup.add("extra", String(m))
 		_check(cup.drink_id() == String(id), "чашка собирает «%s» (получили «%s»)" % [id, cup.drink_id()])
 	cup.clear()
 	_check(cup.add("syrup", "syrup") != "", "сироп без основы нельзя")
@@ -424,7 +433,7 @@ func _test_content() -> void:
 		last_speed = float(lv["speed"])
 	_check(per_chapter == {1: 10, 2: 10, 3: 10, 4: 10, 5: 10, 6: 10}, "по 10 уровней в шести главах")
 	_check(Data.chapters.size() == 6, "шесть глав в data/chapters.json")
-	# звёзд хватает на весь ремонт: максимум 180 против 116
+	# звёзд хватает на весь ремонт: максимум 180 против 122
 	var max_stars := Data.levels.size() * 3
 	var cost := 0
 	for r in Data.repairs:
@@ -525,7 +534,7 @@ func _test_ui_screens() -> void:
 	var board: RepairBoard = city._repair_board
 	_check(board != null, "доска ремонта открылась")
 	var rows := board.rows()
-	_check(rows.size() == 58 and String(rows[0]["id"]) in ["wall_paint", "floor", "plant_hall"], "на доске 58 невыполненных задач, открытые первыми (%d)" % rows.size())
+	_check(rows.size() == 61 and String(rows[0]["id"]) in ["wall_paint", "floor", "plant_hall"], "на доске 61 невыполненная задач, открытые первыми (%d)" % rows.size())
 	var first_locked := -1
 	for i in rows.size():
 		if GameState.repair_state(String(rows[i]["id"])) == "locked" and first_locked < 0:
@@ -533,7 +542,7 @@ func _test_ui_screens() -> void:
 	for i in rows.size():
 		if GameState.repair_state(String(rows[i]["id"])) == "open":
 			_check(first_locked < 0 or i < first_locked, "открытые задачи идут раньше закрытых")
-	_check(board.page_count() == 15, "15 страниц по 4 карточки (%d)" % board.page_count())
+	_check(board.page_count() == 16, "16 страниц по 4 карточки (%d)" % board.page_count())
 	# выбор варианта и покупка
 	var stars0 := GameState.stars_free()
 	board._pick("wall_paint")
@@ -1029,11 +1038,7 @@ func _test_boosters_in_shift() -> void:
 	_check(m._forgive_left == 0 and int(m._stats["wrong"]) == wrong_before and e["state"] == "wait", "«Помощь кота»: первая ошибка прощена, кот ждёт")
 	# чаевые ×2: правильный заказ приносит двойные чаевые
 	m._cup.clear()
-	var r: Dictionary = Data.drinks[String(e["order"]["drink"])]["recipe"]
-	m._cup.base = String(r["base"])
-	m._cup.milk = bool(r["milk"])
-	m._cup.syrup = bool(r.get("syrup", false))
-	m._cup.pastry = String(e["order"]["pastry"])
+	m._cup.fill(String(e["order"]["drink"]), String(e["order"]["pastry"]))
 	var earned: int = m.shift_earned
 	m._serve(e)
 	var price := int(Data.drinks[String(e["order"]["drink"])]["price"])
@@ -1233,7 +1238,7 @@ func _test_new_types() -> void:
 		var e: Dictionary = m._queue[0]
 		if String(e["type"]) == "courier":
 			courier_seen = true
-			_check(String(e["order"]["pastry"]) == "" and float(e["max"]) <= float(lv["patience"]) * 1.15 * 0.8 * 1.0001, "курьер: без выпечки, терпение ×0,8")
+			_check(String(e["order"]["pastry"]) == "" and float(e["max"]) <= float(lv["patience"]) * 1.15 * 0.8 * m._patience_bonus() * 1.0001, "курьер: без выпечки, терпение ×0,8")
 	_check(courier_seen, "курьеры появляются на уровне 41")
 	# критик: один за смену, всегда с выпечкой
 	var lv2: Dictionary = Data.levels[36].duplicate(true)
@@ -1341,4 +1346,118 @@ func _test_season_rollover() -> void:
 	Daily.time_override += 100 * 86400
 	_check(not Shop.check_rollover() or int(GameState.meta["season"]["no"]) == 2, "сезона 3 нет — остаёмся на втором")
 	Data.load_season(1)
+	GameState.new_game()
+
+
+## Глубина приготовления: добавки (лёд, корица, сливки, двойной кофе), остывание, загадочный гость, таланты котов, уют.
+func _test_depth() -> void:
+	GameState.new_game()
+	var cup := CupState.new()
+	# добавка без основы нельзя; повторная — тоже
+	_check(cup.add("extra", "ice") != "", "лёд без основы нельзя")
+	cup.add("base", "coffee")
+	_check(cup.add("extra", "ice") == "" and cup.add("extra", "ice") != "", "лёд кладётся один раз")
+	_check(cup.drink_id() == "" and cup.look_id() == "espresso", "кофе со льдом без рецепта: напитка нет, на подносе виден эспрессо")
+	cup.add("milk", "milk")
+	_check(cup.drink_id() == "iced_latte" and not cup.is_hot(), "кофе, молоко и лёд — айс-латте, холодный напиток")
+	cup.clear()
+	cup.add("base", "coffee")
+	cup.add("base", "coffee")
+	_check(cup.mods.is_empty(), "без «Кофемашины Pro» вторая порция не добавляется")
+	cup.allow_double = true
+	cup.add("base", "coffee")
+	_check(cup.drink_id() == "doppio" and cup.add("base", "coffee") != "", "двойной эспрессо: кофе дважды, третьей порции нет")
+	cup.fill("pumpkin_raf", "eclair")
+	_check(cup.matches({"drink": "pumpkin_raf", "pastry": "eclair"}) and cup.is_hot(), "fill собирает тыквенный раф с эклером")
+	# напитки с добавками открываются источниками ремонта
+	GameState.upgrades = ["milk_pitcher"]
+	GameState.unlocks = ["source:syrup", "drink:raf"]
+	_check(not ("iced_latte" in GameState.drink_ids()) and not ("pumpkin_raf" in GameState.drink_ids()), "без льда и корицы добавочных напитков нет")
+	GameState.unlocks.append_array(["source:ice", "source:spice"])
+	_check("iced_latte" in GameState.drink_ids() and "pumpkin_raf" in GameState.drink_ids() and "cappuccino" in GameState.drink_ids(), "лёд и корица открыли айс-латте, тыквенный раф и капучино")
+	# смена: рейка добавок, остывание, загадка
+	GameState.unlocks.append_array(["source:cream"])
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = Data.levels[44].duplicate(true)
+	m.level["interval"] = [30.0, 30.0]
+	m.level["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 0.0, "critic": 0.0}
+	add_child(m)
+	await get_tree().process_frame
+	_check(m._rail_n == 3, "на рейке три добавки (%d)" % m._rail_n)
+	var ids := []
+	for s in m._sources:
+		ids.append(String(s["id"]))
+	_check("ice" in ids and "cinnamon" in ids and "cream" in ids, "источники: лёд, корица, сливки")
+	var lim: float = m._cool_limit()
+	_check(lim > 0.0, "в поздней главе горячий напиток остывает (%.1f с)" % lim)
+	m._cup.fill("latte", "")
+	m._refresh_cup()
+	m._cup_age = lim + 1.0
+	m._update_warmth()
+	_check(m._cup_cold() and m._tray.warmth == 2, "латте остыл: поднос показывает холодную чашку")
+	m._cup.fill("iced_latte", "")
+	_check(not m._cup_cold(), "холодный напиток со льдом не остывает")
+	# подача остывшего: цена ×0,7 и без чаевых
+	m._cup.clear()
+	m._spawn_customer()
+	var e: Dictionary = m._queue[m._queue.size() - 1]
+	e["type"] = "normal"
+	e["state"] = "wait"
+	e["t0"] = Time.get_ticks_msec()
+	e["order"] = {"drink": "latte", "pastry": ""}
+	m._update_front()
+	m._cup.fill("latte", "")
+	m._cup_age = lim + 1.0
+	var before: int = m.shift_earned
+	m._serve(e)
+	var price := int(round(float(Data.drinks["latte"]["price"]) * GameState.price_mult("latte") * m.COLD_PRICE))
+	var got: int = m.shift_earned - before
+	_check(got >= price and got <= price + 5, "остывшее латте: цена ×0,7, без чаевых (%d при цене %d)" % [got, price])
+	# загадочный гость: «?» в чеке и подсказка на плашке
+	m._riddle_seen = false
+	m.level["riddle"] = 1.0
+	m._cup.clear()
+	m._spawn_customer()
+	var r: Dictionary = {}
+	for q in m._queue:
+		if String(q["type"]) == "riddle":
+			r = q
+	_check(not r.is_empty() and m._riddle_seen, "при шансе 1 приходит загадочный гость, один за смену")
+	m._spawn_customer()
+	var riddles := 0
+	for q in m._queue:
+		if String(q["type"]) == "riddle":
+			riddles += 1
+	_check(riddles == 1, "второго загадочного гостя в смену нет")
+	r["state"] = "wait"
+	r["t0"] = Time.get_ticks_msec()
+	m._update_front()
+	_check(m._clue != null and not m._title.visible and String(Data.drinks[String(r["order"]["drink"])]["riddle"]) != "", "плашка с загадкой показана, вывеска спрятана")
+	var rbefore: int = m.shift_earned
+	m._cup_age = 0.0
+	m._cup.fill(String(r["order"]["drink"]), String(r["order"]["pastry"]))
+	m._serve(r)
+	var rprice := int(Data.drinks[String(r["order"]["drink"])]["price"])
+	_check(m.shift_earned - rbefore >= rprice * 2 - 1, "отгаданная загадка: цена ×2 (%d за напиток %d)" % [m.shift_earned - rbefore, rprice])
+	m.queue_free()
+	await get_tree().process_frame
+	# таланты котов: работают, когда у кота открыта запись (5 заказов)
+	GameState.new_game()
+	_check(GameState.perk_total("tips") == 0.0, "новая игра: талантов нет")
+	GameState.cat_progress["pryanik"] = {"likes": 5}
+	_check(GameState.perk_active("pryanik") and absf(GameState.perk_total("tips") - 0.05) < 0.001, "Пряник: +5% чаевых после 5 заказов")
+	GameState.cat_progress["tucha"] = {"likes": 30}
+	_check(absf(GameState.perk_total("patience") - 0.04) < 0.001, "Тучка: +4% терпения")
+	_check(not GameState.perk_active("bulka"), "кот, которого нет в кафе, не даёт таланта")
+	for c in Data.cats:
+		_check(c.has("perk") and GameState.PERK_CAP.has(String(c["perk"]["kind"])), "у кота «%s» есть талант известного вида" % c["id"])
+	# уют кафе
+	GameState.layout = []
+	_check(GameState.cozy_level() == 0, "пустое кафе: уют 0")
+	GameState.layout = [{"id": "table_big", "c": 0, "r": 0, "flip": false}, {"id": "plant", "c": 2, "r": 0, "flip": false}, {"id": "rug", "c": 4, "r": 0, "flip": false}]
+	var pts := GameState.cozy_points()
+	_check(pts == 6 + 2 + 3 + 6 and GameState.cozy_level() == 1, "стол, растение и ковёр дают %d очков, уют 1" % pts)
+	for i in 14:
+		GameState.layout.append({"id": "table_small", "c": i, "r": 3, "flip": false})
+	_check(GameState.cozy_level() >= 2, "больше мебели — уют растёт (%d очков, уровень %d)" % [GameState.cozy_points(), GameState.cozy_level()])
 	GameState.new_game()

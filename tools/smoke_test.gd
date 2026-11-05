@@ -16,12 +16,7 @@ func _ready() -> void:
 		_fail("кот не пришёл")
 		return
 	var order: Dictionary = main._order
-	var recipe: Dictionary = Data.drinks[order["drink"]]["recipe"]
-	main._cup.add("base", recipe["base"])
-	if recipe["milk"]:
-		main._cup.add("milk", "milk")
-	if order["pastry"] != "":
-		main._cup.add("pastry", order["pastry"])
+	main._cup.fill(String(order["drink"]), String(order["pastry"]))
 	var before: int = GameState.coins
 	main._serve()
 	if GameState.coins <= before:

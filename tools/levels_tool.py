@@ -105,6 +105,19 @@ PARAMS = [
 ]
 
 
+# Новые напитки с добавками (лёд, корица, сливки, двойная порция) вводятся по ходу глав: (напиток, с какого по счёту уровня главы)
+ADD_POOL = {
+    2: [("doppio", 4)],
+    3: [("cappuccino", 5), ("spice_cocoa", 5), ("pumpkin_raf", 6), ("spiced_sbiten", 7), ("vienna", 7), ("cream_cocoa", 8), ("doppio", 2)],
+    4: [("iced_tea", 0), ("iced_latte", 1), ("vienna", 2), ("cappuccino", 2), ("frappe", 3), ("doppio", 3), ("iced_matcha", 4), ("pumpkin_raf", 5), ("cream_cocoa", 6)],
+    5: [("iced_latte", 0), ("cappuccino", 0), ("pumpkin_raf", 1), ("frappe", 2), ("vienna", 2), ("doppio", 3), ("spiced_sbiten", 4), ("iced_matcha", 5), ("cream_cocoa", 6), ("iced_tea", 7)],
+}
+# Усложнения по главам: остывание горячего напитка (с; 0 — выкл.) старт → конец главы, шанс «загадочного гостя» (один за смену) и «волны» (двое подряд)
+COOL = {2: (26.0, 20.0), 3: (22.0, 16.0), 4: (20.0, 14.0), 5: (17.0, 12.0)}
+RIDDLE = {2: 0.12, 3: 0.2, 4: 0.25, 5: 0.3}
+WAVE = {3: 0.1, 4: 0.18, 5: 0.25}
+
+
 def lerp(a, b, t):
     return a + (b - a) * t
 
@@ -122,12 +135,20 @@ def build():
             lo = lerp(P["interval"][0][0], P["interval"][1][0], t)
             hi = lerp(P["interval"][0][1], P["interval"][1][1], t)
             boss = i == 9
+            pool = list(pool)
+            for dn, at in ADD_POOL.get(ci, []):
+                if i >= at and dn not in pool:
+                    pool.append(dn)
+            cool = round(lerp(*COOL[ci], t), 1) if ci in COOL and i >= 2 else 0.0
+            riddle = RIDDLE.get(ci, 0.0) if i >= 4 or boss else 0.0
+            wave = WAVE.get(ci, 0.0) * (1.4 if boss else (1.0 if i >= 3 else 0.0))
             out.append({
                 "id": f"l{n}", "chapter": ci + 1, "name": name, "customers": P["customers"][i],
                 "interval": [round(lo * (0.9 if boss else 1.0), 1), round(hi * (0.9 if boss else 1.0), 1)],
                 "patience": round(lerp(P["patience"][0], P["patience"][1], t), 1), "queue": P["queue"][i],
                 "speed": round(lerp(P["speed"][0], P["speed"][1], t), 1), "accuracy": round(lerp(P["accuracy"][0], P["accuracy"][1], t), 2),
                 "pool": pool, "pastry_menu": menu, "pastry": pastry, "types": {"rushed": rushed, "gourmet": gourmet, "courier": courier, "critic": critic}, "boss": boss,
+                "cool": cool, "riddle": riddle, "wave": round(wave, 2),
             })
     return out
 
@@ -139,7 +160,9 @@ PLAYERS = {   # (заготовка на заказ: прочитать, взя�
     "средний": (4.0, 2.0, 0.07),
     "мастер": (2.6, 1.3, 0.02),
 }
-DRINK_STEPS = {"espresso": 1, "tea": 1, "latte": 2, "matcha_latte": 2, "cocoa": 1, "sea_tea": 2, "raf": 3, "hot_choc": 2, "caramel": 2, "sbiten": 3}
+DRINK_STEPS = {"espresso": 1, "tea": 1, "latte": 2, "matcha_latte": 2, "cocoa": 1, "sea_tea": 2, "raf": 3, "hot_choc": 2, "caramel": 2, "sbiten": 3,
+               "doppio": 2, "iced_latte": 3, "iced_tea": 2, "iced_matcha": 3, "frappe": 3, "cappuccino": 3, "spice_cocoa": 2, "pumpkin_raf": 4, "spiced_sbiten": 4,
+               "vienna": 2, "cream_cocoa": 2}
 
 
 def simulate(level, player, rng, detail=False):

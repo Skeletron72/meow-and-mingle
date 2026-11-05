@@ -24,7 +24,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l2",
@@ -51,7 +54,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l3",
@@ -78,7 +84,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l4",
@@ -107,7 +116,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l5",
@@ -138,7 +150,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l6",
@@ -168,7 +183,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l7",
@@ -200,7 +218,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l8",
@@ -231,7 +252,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l9",
@@ -263,7 +287,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l10",
@@ -295,7 +322,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": true
+		"boss": true,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l11",
@@ -326,7 +356,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l12",
@@ -357,7 +390,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l13",
@@ -388,7 +424,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l14",
@@ -419,7 +458,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l15",
@@ -450,7 +492,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l16",
@@ -482,7 +527,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l17",
@@ -514,7 +562,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l18",
@@ -547,7 +598,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l19",
@@ -580,7 +634,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l20",
@@ -614,7 +671,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": true
+		"boss": true,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l21",
@@ -645,7 +705,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l22",
@@ -676,7 +739,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l23",
@@ -707,7 +773,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 24.7,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l24",
@@ -739,7 +808,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 24.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l25",
@@ -757,7 +829,8 @@
 		"pool": [
 			"matcha_latte",
 			"sea_tea",
-			"raf"
+			"raf",
+			"doppio"
 		],
 		"pastry_menu": [
 			"syrniki",
@@ -771,7 +844,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 23.3,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l26",
@@ -784,13 +860,14 @@
 		],
 		"patience": 33.6,
 		"queue": 3,
-		"speed": 10.0,
+		"speed": 10.5,
 		"accuracy": 0.88,
 		"pool": [
 			"espresso",
 			"raf",
 			"cocoa",
-			"matcha_latte"
+			"matcha_latte",
+			"doppio"
 		],
 		"pastry_menu": [
 			"croissant",
@@ -804,7 +881,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 22.7,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l27",
@@ -823,7 +903,8 @@
 			"raf",
 			"latte",
 			"sea_tea",
-			"cocoa"
+			"cocoa",
+			"doppio"
 		],
 		"pastry_menu": [
 			"syrniki",
@@ -837,7 +918,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 22.0,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l28",
@@ -856,7 +940,8 @@
 			"matcha_latte",
 			"raf",
 			"cocoa",
-			"tea"
+			"tea",
+			"doppio"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -870,7 +955,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 21.3,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l29",
@@ -890,7 +978,8 @@
 			"matcha_latte",
 			"sea_tea",
 			"cocoa",
-			"latte"
+			"latte",
+			"doppio"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -904,7 +993,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 20.7,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l30",
@@ -925,7 +1017,8 @@
 			"sea_tea",
 			"cocoa",
 			"latte",
-			"espresso"
+			"espresso",
+			"doppio"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -939,7 +1032,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": true
+		"boss": true,
+		"cool": 20.0,
+		"riddle": 0.12,
+		"wave": 0.0
 	},
 	{
 		"id": "l31",
@@ -971,7 +1067,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l32",
@@ -1002,7 +1101,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l33",
@@ -1020,7 +1122,8 @@
 		"pool": [
 			"sbiten",
 			"tea",
-			"hot_choc"
+			"hot_choc",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1034,7 +1137,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 20.7,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l34",
@@ -1052,7 +1158,8 @@
 		"pool": [
 			"hot_choc",
 			"cocoa",
-			"raf"
+			"raf",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1066,7 +1173,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 20.0,
+		"riddle": 0.0,
+		"wave": 0.1
 	},
 	{
 		"id": "l35",
@@ -1085,7 +1195,8 @@
 			"caramel",
 			"espresso",
 			"raf",
-			"latte"
+			"latte",
+			"doppio"
 		],
 		"pastry_menu": [
 			"pirozhok",
@@ -1098,7 +1209,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 19.3,
+		"riddle": 0.2,
+		"wave": 0.1
 	},
 	{
 		"id": "l36",
@@ -1116,7 +1230,10 @@
 		"pool": [
 			"sbiten",
 			"hot_choc",
-			"matcha_latte"
+			"matcha_latte",
+			"cappuccino",
+			"spice_cocoa",
+			"doppio"
 		],
 		"pastry_menu": [
 			"keks",
@@ -1130,7 +1247,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 18.7,
+		"riddle": 0.2,
+		"wave": 0.1
 	},
 	{
 		"id": "l37",
@@ -1143,13 +1263,17 @@
 		],
 		"patience": 32.0,
 		"queue": 3,
-		"speed": 12.0,
+		"speed": 12.5,
 		"accuracy": 0.89,
 		"pool": [
 			"raf",
 			"sbiten",
 			"hot_choc",
-			"caramel"
+			"caramel",
+			"cappuccino",
+			"spice_cocoa",
+			"pumpkin_raf",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1163,7 +1287,10 @@
 			"courier": 0.0,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 18.0,
+		"riddle": 0.2,
+		"wave": 0.1
 	},
 	{
 		"id": "l38",
@@ -1176,13 +1303,19 @@
 		],
 		"patience": 31.3,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 12.0,
 		"accuracy": 0.89,
 		"pool": [
 			"sea_tea",
 			"sbiten",
 			"latte",
-			"cocoa"
+			"cocoa",
+			"cappuccino",
+			"spice_cocoa",
+			"pumpkin_raf",
+			"spiced_sbiten",
+			"vienna",
+			"doppio"
 		],
 		"pastry_menu": [
 			"syrniki",
@@ -1196,7 +1329,10 @@
 			"courier": 0.0,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 17.3,
+		"riddle": 0.2,
+		"wave": 0.1
 	},
 	{
 		"id": "l39",
@@ -1209,14 +1345,21 @@
 		],
 		"patience": 30.7,
 		"queue": 3,
-		"speed": 12.0,
+		"speed": 12.5,
 		"accuracy": 0.9,
 		"pool": [
 			"sbiten",
 			"raf",
 			"caramel",
 			"hot_choc",
-			"matcha_latte"
+			"matcha_latte",
+			"cappuccino",
+			"spice_cocoa",
+			"pumpkin_raf",
+			"spiced_sbiten",
+			"vienna",
+			"cream_cocoa",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1230,7 +1373,10 @@
 			"courier": 0.0,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 16.7,
+		"riddle": 0.2,
+		"wave": 0.1
 	},
 	{
 		"id": "l40",
@@ -1243,14 +1389,21 @@
 		],
 		"patience": 30.0,
 		"queue": 3,
-		"speed": 12.0,
+		"speed": 12.5,
 		"accuracy": 0.9,
 		"pool": [
 			"sbiten",
 			"raf",
 			"hot_choc",
 			"sea_tea",
-			"caramel"
+			"caramel",
+			"cappuccino",
+			"spice_cocoa",
+			"pumpkin_raf",
+			"spiced_sbiten",
+			"vienna",
+			"cream_cocoa",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1264,7 +1417,10 @@
 			"courier": 0.0,
 			"critic": 0.3
 		},
-		"boss": true
+		"boss": true,
+		"cool": 16.0,
+		"riddle": 0.2,
+		"wave": 0.14
 	},
 	{
 		"id": "l41",
@@ -1282,7 +1438,8 @@
 		"pool": [
 			"latte",
 			"tea",
-			"caramel"
+			"caramel",
+			"iced_tea"
 		],
 		"pastry_menu": [
 			"croissant",
@@ -1295,7 +1452,10 @@
 			"courier": 0.15,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l42",
@@ -1308,12 +1468,14 @@
 		],
 		"patience": 35.1,
 		"queue": 3,
-		"speed": 9.5,
+		"speed": 10.5,
 		"accuracy": 0.87,
 		"pool": [
 			"espresso",
 			"caramel",
-			"latte"
+			"latte",
+			"iced_tea",
+			"iced_latte"
 		],
 		"pastry_menu": [
 			"donut",
@@ -1326,7 +1488,10 @@
 			"courier": 0.3,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l43",
@@ -1339,13 +1504,17 @@
 		],
 		"patience": 34.2,
 		"queue": 3,
-		"speed": 10.0,
+		"speed": 11.0,
 		"accuracy": 0.88,
 		"pool": [
 			"sea_tea",
 			"cocoa",
 			"latte",
-			"tea"
+			"tea",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino"
 		],
 		"pastry_menu": [
 			"cheesecake",
@@ -1359,7 +1528,10 @@
 			"courier": 0.2,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 18.7,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l44",
@@ -1377,7 +1549,13 @@
 		"pool": [
 			"raf",
 			"caramel",
-			"matcha_latte"
+			"matcha_latte",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -1390,7 +1568,10 @@
 			"courier": 0.2,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 18.0,
+		"riddle": 0.0,
+		"wave": 0.18
 	},
 	{
 		"id": "l45",
@@ -1403,13 +1584,20 @@
 		],
 		"patience": 32.4,
 		"queue": 3,
-		"speed": 9.5,
+		"speed": 10.5,
 		"accuracy": 0.89,
 		"pool": [
 			"espresso",
 			"latte",
 			"caramel",
-			"tea"
+			"tea",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha"
 		],
 		"pastry_menu": [
 			"pirozhok",
@@ -1423,7 +1611,10 @@
 			"courier": 0.3,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 17.3,
+		"riddle": 0.25,
+		"wave": 0.18
 	},
 	{
 		"id": "l46",
@@ -1436,12 +1627,20 @@
 		],
 		"patience": 31.6,
 		"queue": 3,
-		"speed": 12.0,
+		"speed": 12.5,
 		"accuracy": 0.89,
 		"pool": [
 			"raf",
 			"hot_choc",
-			"sea_tea"
+			"sea_tea",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha",
+			"pumpkin_raf"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1455,7 +1654,10 @@
 			"courier": 0.1,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 16.7,
+		"riddle": 0.25,
+		"wave": 0.18
 	},
 	{
 		"id": "l47",
@@ -1468,13 +1670,22 @@
 		],
 		"patience": 30.7,
 		"queue": 3,
-		"speed": 10.5,
+		"speed": 11.5,
 		"accuracy": 0.9,
 		"pool": [
 			"sbiten",
 			"latte",
 			"cocoa",
-			"sea_tea"
+			"sea_tea",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha",
+			"pumpkin_raf",
+			"cream_cocoa"
 		],
 		"pastry_menu": [
 			"syrniki",
@@ -1488,7 +1699,10 @@
 			"courier": 0.25,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 16.0,
+		"riddle": 0.25,
+		"wave": 0.18
 	},
 	{
 		"id": "l48",
@@ -1501,13 +1715,22 @@
 		],
 		"patience": 29.8,
 		"queue": 3,
-		"speed": 10.0,
+		"speed": 11.0,
 		"accuracy": 0.9,
 		"pool": [
 			"espresso",
 			"caramel",
 			"latte",
-			"raf"
+			"raf",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha",
+			"pumpkin_raf",
+			"cream_cocoa"
 		],
 		"pastry_menu": [
 			"donut",
@@ -1520,7 +1743,10 @@
 			"courier": 0.4,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 15.3,
+		"riddle": 0.25,
+		"wave": 0.18
 	},
 	{
 		"id": "l49",
@@ -1533,14 +1759,23 @@
 		],
 		"patience": 28.9,
 		"queue": 3,
-		"speed": 11.5,
+		"speed": 12.0,
 		"accuracy": 0.91,
 		"pool": [
 			"raf",
 			"matcha_latte",
 			"sbiten",
 			"hot_choc",
-			"caramel"
+			"caramel",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha",
+			"pumpkin_raf",
+			"cream_cocoa"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -1554,7 +1789,10 @@
 			"courier": 0.2,
 			"critic": 0.3
 		},
-		"boss": false
+		"boss": false,
+		"cool": 14.7,
+		"riddle": 0.25,
+		"wave": 0.18
 	},
 	{
 		"id": "l50",
@@ -1575,7 +1813,16 @@
 			"sbiten",
 			"hot_choc",
 			"caramel",
-			"sea_tea"
+			"sea_tea",
+			"iced_tea",
+			"iced_latte",
+			"vienna",
+			"cappuccino",
+			"frappe",
+			"doppio",
+			"iced_matcha",
+			"pumpkin_raf",
+			"cream_cocoa"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -1589,7 +1836,10 @@
 			"courier": 0.25,
 			"critic": 0.3
 		},
-		"boss": true
+		"boss": true,
+		"cool": 14.0,
+		"riddle": 0.25,
+		"wave": 0.25
 	},
 	{
 		"id": "l51",
@@ -1602,13 +1852,15 @@
 		],
 		"patience": 34.0,
 		"queue": 3,
-		"speed": 10.5,
+		"speed": 11.5,
 		"accuracy": 0.88,
 		"pool": [
 			"latte",
 			"raf",
 			"hot_choc",
-			"tea"
+			"tea",
+			"iced_latte",
+			"cappuccino"
 		],
 		"pastry_menu": [
 			"syrniki",
@@ -1621,7 +1873,10 @@
 			"courier": 0.15,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l52",
@@ -1634,13 +1889,16 @@
 		],
 		"patience": 33.2,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 12.0,
 		"accuracy": 0.88,
 		"pool": [
 			"raf",
 			"sea_tea",
 			"cocoa",
-			"caramel"
+			"caramel",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1654,7 +1912,10 @@
 			"courier": 0.15,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 0.0,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l53",
@@ -1667,13 +1928,18 @@
 		],
 		"patience": 32.4,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 12.0,
 		"accuracy": 0.89,
 		"pool": [
 			"latte",
 			"matcha_latte",
 			"hot_choc",
-			"sbiten"
+			"sbiten",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna"
 		],
 		"pastry_menu": [
 			"eclair",
@@ -1687,7 +1953,10 @@
 			"courier": 0.2,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 15.9,
+		"riddle": 0.0,
+		"wave": 0.0
 	},
 	{
 		"id": "l54",
@@ -1700,13 +1969,19 @@
 		],
 		"patience": 31.7,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 12.0,
 		"accuracy": 0.89,
 		"pool": [
 			"raf",
 			"caramel",
 			"sbiten",
-			"espresso"
+			"espresso",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1720,7 +1995,10 @@
 			"courier": 0.3,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 15.3,
+		"riddle": 0.0,
+		"wave": 0.25
 	},
 	{
 		"id": "l55",
@@ -1733,13 +2011,20 @@
 		],
 		"patience": 30.9,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 12.0,
 		"accuracy": 0.9,
 		"pool": [
 			"raf",
 			"hot_choc",
 			"matcha_latte",
-			"sea_tea"
+			"sea_tea",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1753,7 +2038,10 @@
 			"courier": 0.2,
 			"critic": 0.0
 		},
-		"boss": false
+		"boss": false,
+		"cool": 14.8,
+		"riddle": 0.3,
+		"wave": 0.25
 	},
 	{
 		"id": "l56",
@@ -1766,14 +2054,22 @@
 		],
 		"patience": 30.1,
 		"queue": 3,
-		"speed": 11.5,
+		"speed": 12.0,
 		"accuracy": 0.9,
 		"pool": [
 			"raf",
 			"sbiten",
 			"hot_choc",
 			"caramel",
-			"latte"
+			"latte",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten",
+			"iced_matcha"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1787,7 +2083,10 @@
 			"courier": 0.25,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 14.2,
+		"riddle": 0.3,
+		"wave": 0.25
 	},
 	{
 		"id": "l57",
@@ -1800,14 +2099,23 @@
 		],
 		"patience": 29.3,
 		"queue": 3,
-		"speed": 11.5,
+		"speed": 12.0,
 		"accuracy": 0.91,
 		"pool": [
 			"raf",
 			"matcha_latte",
 			"sbiten",
 			"hot_choc",
-			"caramel"
+			"caramel",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten",
+			"iced_matcha",
+			"cream_cocoa"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1821,7 +2129,10 @@
 			"courier": 0.3,
 			"critic": 0.25
 		},
-		"boss": false
+		"boss": false,
+		"cool": 13.7,
+		"riddle": 0.3,
+		"wave": 0.25
 	},
 	{
 		"id": "l58",
@@ -1834,7 +2145,7 @@
 		],
 		"patience": 28.6,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 11.5,
 		"accuracy": 0.91,
 		"pool": [
 			"raf",
@@ -1842,7 +2153,17 @@
 			"sbiten",
 			"hot_choc",
 			"caramel",
-			"sea_tea"
+			"sea_tea",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten",
+			"iced_matcha",
+			"cream_cocoa",
+			"iced_tea"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1856,7 +2177,10 @@
 			"courier": 0.3,
 			"critic": 0.3
 		},
-		"boss": false
+		"boss": false,
+		"cool": 13.1,
+		"riddle": 0.3,
+		"wave": 0.25
 	},
 	{
 		"id": "l59",
@@ -1869,7 +2193,7 @@
 		],
 		"patience": 27.8,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 11.5,
 		"accuracy": 0.92,
 		"pool": [
 			"raf",
@@ -1878,7 +2202,17 @@
 			"hot_choc",
 			"caramel",
 			"sea_tea",
-			"latte"
+			"latte",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten",
+			"iced_matcha",
+			"cream_cocoa",
+			"iced_tea"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1892,7 +2226,10 @@
 			"courier": 0.3,
 			"critic": 0.3
 		},
-		"boss": false
+		"boss": false,
+		"cool": 12.6,
+		"riddle": 0.3,
+		"wave": 0.25
 	},
 	{
 		"id": "l60",
@@ -1905,7 +2242,7 @@
 		],
 		"patience": 27.0,
 		"queue": 3,
-		"speed": 11.0,
+		"speed": 11.5,
 		"accuracy": 0.92,
 		"pool": [
 			"raf",
@@ -1915,7 +2252,17 @@
 			"caramel",
 			"sea_tea",
 			"latte",
-			"espresso"
+			"espresso",
+			"iced_latte",
+			"cappuccino",
+			"pumpkin_raf",
+			"frappe",
+			"vienna",
+			"doppio",
+			"spiced_sbiten",
+			"iced_matcha",
+			"cream_cocoa",
+			"iced_tea"
 		],
 		"pastry_menu": [
 			"medovik",
@@ -1929,6 +2276,9 @@
 			"courier": 0.35,
 			"critic": 0.35
 		},
-		"boss": true
+		"boss": true,
+		"cool": 12.0,
+		"riddle": 0.3,
+		"wave": 0.35
 	}
 ]

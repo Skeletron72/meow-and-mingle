@@ -64,6 +64,25 @@ static func from_rows(rows: Array, palette: Dictionary) -> ImageTexture:
 	return texture(img)
 
 
+## Значки добавок 10×10: лёд, корица, сливки, вторая порция кофе. На полке-«рейке» рисуются в ×4, на чеке и подносе — значком в ×2.
+const EXTRA_PAL := {"o": Color("3b2a3d"), "w": Color("fffbee"), "c": Color("e3d2b0"), "l": Color("d9f1fb"), "b": Color("8ad0ee"), "B": Color("4d8fc7"),
+	"n": Color("c88050"), "N": Color("8a502c"), "y": Color("e8c15a"), "d": Color("4a2a18")}
+const EXTRA_ROWS := {
+	"ice": [".ooooo....", "owwwwbo...", "owllbBo...", "owlbbBooo.", "owbbwwwwbo", "obBBwllbBo", ".ooowlbbBo", "...owbbbBo", "...obBBBBo", "....ooooo."],
+	"cinnamon": ["..........", "..oooooooo", ".onnnnnnNo", ".oNNNNNNNo", "oooooooooo", "onnnnnnNo.", "oNNNNNNNo.", ".oooooooo.", "..y.y.....", "...y......"],
+	"cream": ["....owo...", "...owwo...", "..owwwco..", "..owcwco..", ".owwwwwco.", ".owcwwwco.", "owwwwwwcwo", "owcwwwwcwo", "occcccccco", ".oooooooo."],
+	"double": [".ooo......", "oNnNo.....", "oNdNo.....", "oNdNo.....", "oNNNo.ooo.", ".ooo.oNnNo", ".....oNdNo", ".....oNdNo", ".....oNNNo", "......ooo."],
+}
+static var _extra_cache := {}
+
+
+static func extra_icon(kind: String) -> ImageTexture:
+	if not _extra_cache.has(kind):
+		_extra_cache[kind] = from_rows(EXTRA_ROWS[kind], EXTRA_PAL)
+	return _extra_cache[kind]
+
+
+
 ## Иконки источников на прилавке: пакет молока и бутылка сиропа (16×16, обводка и свет — как у остальных спрайтов).
 static func shelf_icon(kind: String) -> ImageTexture:
 	var pal := {"o": Color("3b2a3d"), "w": Color("f4ecd8"), "s": Color("d3c5a6"), "b": Color("5b8fd9"), "r": Color("c0392b"), "d": Color("8a2a20"), "h": Color("ee7a68"), "g": Color("e8c15a")}

@@ -768,6 +768,44 @@
   "icon": "check"
  },
  {
+  "id": "spice_jar",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Банка корицы",
+  "cost": 2,
+  "requires": [
+   "recipe_sbiten"
+  ],
+  "after": 35,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "source:spice"
+   }
+  ],
+  "blurb": "Корица на полке: капучино и пряные напитки",
+  "icon": "check"
+ },
+ {
+  "id": "cream_whipper",
+  "chapter": 4,
+  "zone": "kitchen",
+  "name": "Сифон для сливок",
+  "cost": 2,
+  "requires": [
+   "spice_jar"
+  ],
+  "after": 36,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "source:cream"
+   }
+  ],
+  "blurb": "Взбитые сливки: венский кофе и какао со сливками",
+  "icon": "check"
+ },
+ {
   "id": "pirozhok",
   "chapter": 4,
   "zone": "kitchen",
@@ -891,6 +929,25 @@
   ],
   "blurb": "Терраса слева; придёт курьер Кефир",
   "icon": "home"
+ },
+ {
+  "id": "ice_maker",
+  "chapter": 5,
+  "zone": "kitchen",
+  "name": "Лёд для террасы",
+  "cost": 2,
+  "requires": [
+   "terrace_1"
+  ],
+  "after": 41,
+  "effects": [
+   {
+    "kind": "unlock",
+    "key": "source:ice"
+   }
+  ],
+  "blurb": "Лёд на полке: айс-латте, холодный чай и фраппе",
+  "icon": "check"
  },
  {
   "id": "terrace_2",

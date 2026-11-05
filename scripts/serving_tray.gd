@@ -22,6 +22,14 @@ var _pastry_pos := PASTRY_POS
 var pastry: Sprite2D
 var _steam: CPUParticles2D
 var _glow: Sprite2D
+var _badges: Array[Sprite2D] = []
+var warmth := 0:   # 0 горячо (идёт пар), 1 остывает (пара нет), 2 остыл (чашка синеет)
+	set(v):
+		warmth = v
+		if _steam != null:
+			_steam.emitting = drink != null and drink.visible and warmth == 0
+		if drink != null:
+			drink.modulate = Color(0.74, 0.84, 1.0) if warmth == 2 else Color.WHITE
 
 
 func _ready() -> void:
@@ -54,7 +62,22 @@ func set_contents(drink_tex: Texture2D, pastry_tex: Texture2D) -> void:
 		pastry.texture = pastry_tex
 		_pastry_pos = PASTRY_POS - BrewArt.content_offset(pastry_tex) * 4.0
 		pastry.position = _pastry_pos
-	_steam.emitting = drink.visible
+	_steam.emitting = drink.visible and warmth == 0
+
+
+## Значки добавок (лёд, корица, сливки, вторая порция) в ряд под чашкой.
+func set_mods(mods: Array) -> void:
+	for b in _badges:
+		b.queue_free()
+	_badges.clear()
+	var n := mods.size()
+	for i in n:
+		var b := Sprite2D.new()
+		b.texture = PixelArt.extra_icon("double" if String(mods[i]) == "double" else String(mods[i]))
+		b.scale = Vector2(2, 2)
+		b.position = Vector2(-32.0 + (float(i) - (n - 1) / 2.0) * 24.0, 14.0)
+		add_child(b)
+		_badges.append(b)
 
 
 func pop_drink() -> void:

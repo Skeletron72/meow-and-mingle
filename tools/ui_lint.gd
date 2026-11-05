@@ -168,6 +168,38 @@ func _run_all(lang: String) -> void:
 	city.add_child(m)
 	await get_tree().create_timer(0.6).timeout
 	_scan(lang, "смена", m)
+	# смена с рейкой добавок: плашка загадки для каждого напитка и чек с добавками
+	GameState.unlocks.append_array(["source:ice", "source:spice", "source:cream", "source:syrup", "drink:cocoa"])
+	GameState.upgrades.append_array(["milk_pitcher", "espresso_pro"])
+	var m2: Node2D = load(Nav.BREW).instantiate()
+	m2.level = Data.levels[55].duplicate(true)
+	m2.level["interval"] = [90.0, 90.0]
+	city.add_child(m2)
+	await get_tree().create_timer(0.5).timeout
+	_scan(lang, "смена с рейкой добавок", m2)
+	for id in Data.drinks:
+		for q in m2._queue.duplicate():
+			m2._free_bubble(q)
+			(q["cat"] as Node).queue_free()
+		m2._queue.clear()
+		m2._riddle_seen = false
+		m2.level["riddle"] = 1.0
+		m2._spawn_customer()
+		var q: Dictionary = m2._queue[0]
+		q["type"] = "riddle"
+		q["order"] = {"drink": String(id), "pastry": "eclair"}
+		q["state"] = "wait"
+		m2._update_front()
+		m2._refresh_clue()
+		await get_tree().process_frame
+		_scan(lang, "загадка: %s" % id, m2._clue)
+		m2._make_bubble(q)
+		q["type"] = "normal"
+		m2._free_bubble(q)
+		m2._make_bubble(q)
+		await get_tree().process_frame
+		_scan(lang, "чек: %s" % id, q["bubble"])
+	m2.queue_free()
 	m._stats["served"] = 9
 	m.shift_earned = 123
 	m._finish_run()

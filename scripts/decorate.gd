@@ -19,6 +19,7 @@ var _hint: Control
 var _coins_label: Label
 var _cards: Array[Dictionary] = []   # {"btn": Button, "id": String, "holder": Control, "style": String}
 var _style_btn: Button
+var _cozy_btn: Button
 var _style := "cozy"                # какой стиль мебели показан в каталоге
 
 var _sel := -1
@@ -76,6 +77,21 @@ func _build_top() -> void:
 	_refresh_style_button()
 	var back := Ui.button("", Rect2(296, 8, 56, 48), "home", _ui)
 	back.pressed.connect(_back)
+	_cozy_btn = Ui.button("", Rect2(296, 60, 56, 40), "heart", _ui, true, Ui.UI_CREAM)   # «Уют» кафе: уровень и бонус; тап — подробности
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_cozy_btn.add_theme_color_override(c, Ui.INK)
+	_cozy_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
+	_cozy_btn.pressed.connect(_explain_cozy)
+	_refresh_cozy()
+
+
+func _refresh_cozy() -> void:
+	_cozy_btn.text = str(GameState.cozy_level())
+
+
+func _explain_cozy() -> void:
+	var lv := GameState.cozy_level()
+	_toast(tr("Уют: +%d%% чаевых, +%d%% терпения гостей") % [int(round(GameState.COZY_TIPS * lv * 100.0)), int(round(GameState.COZY_PATIENCE * lv * 100.0))], Vector2(180, 120))
 
 
 func _build_toolbar() -> void:
@@ -290,6 +306,7 @@ func _buy(id: String) -> void:
 		return
 	GameState.layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
 	_room.rebuild()
+	_refresh_cozy()
 	GameState.spend_coins(price)  # сохраняет и расстановку
 	_select(GameState.layout.size() - 1)
 
@@ -311,6 +328,7 @@ func _remove_selected() -> void:
 	var at := _room.node_for(_sel).position
 	GameState.layout.remove_at(_sel)
 	_room.rebuild()
+	_refresh_cozy()
 	_deselect()
 	GameState.add_coins(price)  # возврат полной цены; заодно сохраняет расстановку
 	_toast_at("+%d" % price, at + Vector2(0, -50))

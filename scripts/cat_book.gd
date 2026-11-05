@@ -39,7 +39,8 @@ func _provide(_tab: int) -> Array:
 		var tex := Ui.atlas(load("res://assets/cats/%s" % String(def["sprite"])) as Texture2D, FRAME)
 		var card := {"title": String(def["name"]) if known else "???", "icon": tex, "icon_tint": Color(String(def.get("tint", "#ffffff"))) if known else Color(0.12, 0.09, 0.14), "enabled": known}
 		if known:
-			card["sub"] = tr(String(Data.drinks[String(def["fav_drink"])]["name"])).to_lower()
+			var fav := tr(String(Data.drinks[String(def["fav_drink"])]["name"])).to_lower()
+			card["sub"] = GameState.perk_text(def) if GameState.perk_active(String(def["id"])) else fav   # открытый талант вместо любимого напитка (в подписи места на две короткие строки)
 			card["hearts"] = GameState.cat_entries(String(def["id"]))
 			card["press"] = _say.bind(String(def["id"]))
 		else:
@@ -54,7 +55,7 @@ func _say(cat_id: String) -> void:
 		if String(c["id"]) != cat_id or not is_known(c):
 			continue
 		var n := GameState.cat_entries(cat_id)
-		var text := tr("Ещё %d заказов — и расскажу.") % (int(GameState.LIKE_STEPS[0]) - GameState.cat_likes(cat_id)) if n == 0 else tr(String(c["lines"][n - 1]))
+		var text := tr("Ещё %d заказов — талант: %s") % [int(GameState.LIKE_STEPS[0]) - GameState.cat_likes(cat_id), GameState.perk_text(c)] if n == 0 else tr(String(c["lines"][n - 1]))
 		Ui.toast(_root, text, Vector2(180, 600))
 		Audio.sfx("meow1" if randf() < 0.5 else "meow2", 0.08, -4.0)
 

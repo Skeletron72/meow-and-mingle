@@ -35,7 +35,16 @@ var level: Dictionary = {}   # данные уровня из data/levels.json; 
 var tutorial := false
 const RUSHED_PATIENCE := 0.65
 const COURIER_PATIENCE := 0.8
+const RAIL_Y := 358.0        # «рейка» с добавками (лёд, корица, сливки) на прилавке над столом
+const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 и без чаевых
+const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
+const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+var _riddle_seen := false   # загадочный гость приходит раз за смену
+var _cup_age := 0.0         # сколько секунд горячий напиток стоит на подносе
+var _rail_n := 0            # сколько источников на рейке с добавками
+var _clue: Node2D           # плашка с загадкой
+var _title: Label           # вывеска «Тёплая Лапка» (прячется за плашкой загадки)
 var tutorial_orders: Array[Dictionary] = []   # {"cat": id кота, "drink": id, "pastry": id|""} — по порядку
 var tutorial_sources: Array[String] = []      # id источников, которые показаны (пусто — все)
 
@@ -82,7 +91,9 @@ func _ready() -> void:
 	add_child(_cat_layer)
 	_build_counter()
 	_build_table()
+	_build_rail()
 	_tray = ServingTray.new()
+	_cup.allow_double = GameState.has_upgrade("espresso_pro") and not tutorial
 	_tray.position = TRAY_HOME
 	add_child(_tray)
 	_cup_hint = _label("Собери заказ на подносе", Rect2(8, 344, 292, 32), Color("fff1d6"), null, true)
@@ -111,9 +122,9 @@ func _build_wall() -> void:
 	var wall := BrewArt.new()
 	wall.part = BrewArt.Part.WALL
 	add_child(wall)
-	var title := Ui.label("Тёплая Лапка", Rect2(76, 58, 208, 36), Ui.FONT_SIZE, Color("ffe6b0"), self, HORIZONTAL_ALIGNMENT_CENTER, true)
-	title.add_theme_color_override("font_outline_color", Color("3f2815"))
-	title.add_theme_constant_override("outline_size", Ui.PX * 2)
+	_title = Ui.label("Тёплая Лапка", Rect2(76, 58, 208, 36), Ui.FONT_SIZE, Color("ffe6b0"), self, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_title.add_theme_color_override("font_outline_color", Color("3f2815"))
+	_title.add_theme_constant_override("outline_size", Ui.PX * 2)
 	# банки и чашки на боковых полках рисует BrewArt
 	for x in [44.0, 316.0]:
 		var lamp := BrewArt.PendantLamp.new()
@@ -190,6 +201,8 @@ func _source_available(it: Dictionary) -> bool:
 			return GameState.pastries_unlocked()
 		"base":
 			return String(it["id"]) != "cocoa" or GameState.has_unlock("drink:cocoa")
+		"extra":
+			return GameState.has_unlock("source:" + String(it["unlock"]))
 	return true
 
 
@@ -227,6 +240,41 @@ func _build_shelves() -> void:
 		s["icon"] = icon
 		s["rest"] = c
 		_sources.append(s)
+
+
+## «Рейка» добавок над столом: лёд, корица, сливки — маленькие значки в ряд на прилавке. Появляются, когда ремонт открыл источник; в обучении их нет.
+func _build_rail() -> void:
+	_rail_n = 0
+	if tutorial:
+		return
+	var defs: Array[Dictionary] = [
+		{"kind": "extra", "id": "ice", "title": "Лёд", "unlock": "ice"},
+		{"kind": "extra", "id": "cinnamon", "title": "Корица", "unlock": "spice"},
+		{"kind": "extra", "id": "cream", "title": "Сливки", "unlock": "cream"},
+	]
+	var shown: Array[Dictionary] = []
+	for d in defs:
+		if _source_available(d):
+			shown.append(d)
+	var xs: Array = {1: [160.0], 2: [116.0, 204.0], 3: [76.0, 160.0, 244.0]}.get(shown.size(), [])
+	for i in shown.size():
+		var s: Dictionary = shown[i].duplicate()
+		s["tex"] = PixelArt.extra_icon(String(s["id"]))
+		var c := Vector2(float(xs[i]), RAIL_Y)
+		s["center"] = c
+		s["shelf"] = true
+		s["rect"] = Rect2(c - Vector2(40, 30), Vector2(80, 60))
+		var icon := _sprite(s["tex"], c, 4.0)
+		icon.z_index = 5
+		s["icon"] = icon
+		s["rest"] = c
+		_sources.append(s)
+		var bob := icon.create_tween().set_loops()   # значок «дышит» на целый пиксель сетки
+		bob.tween_interval(0.9 + randf() * 0.4)
+		bob.tween_callback(func() -> void: icon.position.y = c.y - Fx.PX_GRID)
+		bob.tween_interval(0.8)
+		bob.tween_callback(func() -> void: icon.position.y = c.y)
+	_rail_n = shown.size()
 
 
 ## Раскладывает источники ряда по тарелкам; скрытые в обучении пропускаются, остальные центрируются.
@@ -312,6 +360,8 @@ func _begin_run() -> void:
 	_run_started_msec = Time.get_ticks_msec()
 	Audio.music("shift")
 	_critic_seen = false
+	_riddle_seen = false
+	_cup_age = 0.0
 	_auto_left = 3 if ("auto" in boosters and not tutorial) else 0
 	_forgive_left = 1 if ("cat_help" in boosters and not tutorial) else 0
 	if not tutorial:
@@ -351,10 +401,42 @@ func _front() -> Dictionary:
 
 ## Обновляет «первого ждущего»: от него зависят подсказки обучения, ready-свечение и тесты (_cat, _order, _awaiting).
 func _update_front() -> void:
+	_refresh_clue()
 	var f := _front()
 	_awaiting = not f.is_empty()
 	_cat = f["cat"] if _awaiting else null
 	_order = f["order"] if _awaiting else {}
+
+
+## Плашка с загадкой загадочного гостя: вывеска прячется, на её месте — подсказка словами (пока такой гость ждёт).
+func _refresh_clue() -> void:
+	var key := ""
+	for e in _queue:
+		if e["state"] == "wait" and String(e.get("type", "")) == "riddle":
+			key = String(e["order"]["drink"])
+			break
+	if _clue != null and is_instance_valid(_clue) and String(_clue.get_meta("key", "")) == key:
+		return
+	if _clue != null and is_instance_valid(_clue):
+		_clue.queue_free()
+	_clue = null
+	if _title != null:
+		_title.visible = key == ""
+	if key == "":
+		return
+	_clue = Node2D.new()
+	_clue.z_index = 70
+	_clue.set_meta("key", key)
+	add_child(_clue)
+	Ui.panel(Rect2(12, 48, 336, 58), Ui.UI_CREAM, _clue)
+	var l := Ui.label(tr(String(Data.drinks[key]["riddle"])), Rect2(22, 52, 316, 48), 20, Ui.INK, _clue, HORIZONTAL_ALIGNMENT_CENTER, true)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.max_lines_visible = 2
+	l.position = Vector2(22, 52)
+	l.size = Vector2(316, 48)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_meta("max_h", 48.0)
+	Fx.rise_in(_clue, 12.0, 0.25, 2.0)
 
 
 ## Напитки, которые гость может заказать на этом уровне: доступные игроку и из списка уровня (pool), которые есть на столе.
@@ -376,7 +458,19 @@ func _drink_makeable(id: String) -> bool:
 		return false
 	if bool(r.get("syrup", false)) and not GameState.has_unlock("source:syrup"):
 		return false
+	var need := {"ice": "source:ice", "cinnamon": "source:spice", "cream": "source:cream"}
+	for m in r.get("mods", []):
+		if String(m) == "double":
+			if not GameState.has_upgrade("espresso_pro"):
+				return false
+		elif not GameState.has_unlock(String(need.get(String(m), "")) ):
+			return false
 	return true
+
+
+## Терпение гостей: таланты котов и уют кафе.
+func _patience_bonus() -> float:
+	return 1.0 if tutorial else 1.0 + GameState.perk_total("patience") + GameState.COZY_PATIENCE * float(GameState.cozy_level())
 
 
 func _spawn_customer() -> void:
@@ -419,11 +513,15 @@ func _spawn_customer() -> void:
 			type = "gourmet"
 		elif roll < float(tp.get("rushed", 0.0)) + float(tp.get("gourmet", 0.0)) + float(tp.get("courier", 0.0)):
 			type = "courier"
+		if type == "normal" and not _riddle_seen and randf() < float(level.get("riddle", 0.0)):
+			type = "riddle"   # загадочный гость: вместо чека с напитком — «?» и подсказка словами
 		if type == "critic":
 			_critic_seen = true
+		if type == "riddle":
+			_riddle_seen = true
 		if not menu.is_empty() and type != "courier" and (type in ["gourmet", "critic"] or randf() < float(level.get("pastry", 0.0))):
 			pastry_id = menu.pick_random()
-	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else (COURIER_PATIENCE if type == "courier" else 1.0)) * (1.3 if "patience" in boosters else 1.0)
+	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else (COURIER_PATIENCE if type == "courier" else (RIDDLE_PATIENCE if type == "riddle" else 1.0))) * (1.3 if "patience" in boosters else 1.0) * _patience_bonus()
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
 	cat.setup(def)
@@ -457,11 +555,7 @@ func _try_autofill(e: Dictionary) -> void:
 		return
 	_auto_left -= 1
 	var order: Dictionary = e["order"]
-	var r: Dictionary = Data.drinks[String(order["drink"])]["recipe"]
-	_cup.base = String(r["base"])
-	_cup.milk = bool(r["milk"])
-	_cup.syrup = bool(r.get("syrup", false))
-	_cup.pastry = String(order["pastry"])
+	_cup.fill(String(order["drink"]), String(order["pastry"]))
 	_toast(tr("Автосборка!"), Vector2(180, 430))
 	Audio.sfx("pop")
 	Fx.burst(_fx, _tray.position + Vector2(0, -30), "sparkle", Color("ffe9a0"), 8, 130.0, 100.0, 0.7, 1.0)
@@ -478,33 +572,44 @@ func _make_bubble(e: Dictionary) -> void:
 	b.position = Vector2(SLOT_X[int(e["slot"])], BUBBLE_Y)
 	b.z_index = 6
 	add_child(b)
-	Ui.panel(Rect2(-52, -36, 104, 72), Ui.UI_CREAM, b)
+	var order: Dictionary = e["order"]
+	var riddle := String(e.get("type", "normal")) == "riddle"
+	var mods: Array = [] if riddle else (Data.drinks[String(order["drink"])]["recipe"].get("mods", []) as Array)
+	var extra_h := 18.0 if not mods.is_empty() else 0.0   # ряд значков добавок под иконками
+	Ui.panel(Rect2(-52, -36, 104, 72 + extra_h), Ui.UI_CREAM, b)
 	for i in 3:   # хвостик чека к коту
 		var w := 16.0 - i * 4.0
 		var tail := ColorRect.new()
-		tail.position = Vector2(-w / 2.0, 36 + i * 4)
+		tail.position = Vector2(-w / 2.0, 36 + extra_h + i * 4)
 		tail.size = Vector2(w, 4)
 		tail.color = Color("fff0cd")
 		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(tail)
-	var order: Dictionary = e["order"]
 	var drink_x := 0.0
 	var icons: Array[Sprite2D] = []
 	if String(order["pastry"]) != "":
 		drink_x = -26.0
 		var pt := _pastry_tex(order["pastry"])
 		icons.append(_sprite(pt, Vector2(26, -12) - BrewArt.content_offset(pt) * 2.0, 2.0, b))
-	var dt := _drink_tex(order["drink"])
-	icons.append(_sprite(dt, Vector2(drink_x, -12) - BrewArt.content_offset(dt, true) * 2.0, 2.0, b))
+	if riddle:   # загадка: вместо напитка — «?», подсказка словами на плашке сверху
+		var q := Ui.label("?", Rect2(drink_x - 24, -34, 48, 44), Ui.FONT_SIZE_BIG, Color("9a3fb0"), b, HORIZONTAL_ALIGNMENT_CENTER)
+		q.add_theme_color_override("font_outline_color", Ui.CREAM)
+		q.add_theme_constant_override("outline_size", Ui.PX * 2)
+	else:
+		var dt := _drink_tex(order["drink"])
+		icons.append(_sprite(dt, Vector2(drink_x, -12) - BrewArt.content_offset(dt, true) * 2.0, 2.0, b))
+	for i in mods.size():
+		var mb := _sprite(PixelArt.extra_icon(String(mods[i])), Vector2(drink_x + (float(i) - (mods.size() - 1) / 2.0) * 24.0, 14), 2.0, b)
+		mb.z_index = 1
 	if not is_inf(float(e["max"])):   # полоска терпения
 		var back := ColorRect.new()
-		back.position = Vector2(-42, 18)
+		back.position = Vector2(-42, 18 + extra_h)
 		back.size = Vector2(84, 10)
 		back.color = Ui.INK
 		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(back)
 		var fill := ColorRect.new()
-		fill.position = Vector2(-40, 20)
+		fill.position = Vector2(-40, 20 + extra_h)
 		fill.size = Vector2(80, 6)
 		fill.color = Color("8dff7a")
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -512,7 +617,7 @@ func _make_bubble(e: Dictionary) -> void:
 		e["bar"] = fill
 	e["bubble"] = b
 	var kind := String(e.get("type", "normal"))
-	if kind != "normal":   # метка типа в углу чека: «!» — спешит, «x2» — гурман, «»» — курьер, «★» — критик
+	if kind != "normal" and kind != "riddle":   # метка типа в углу чека: «!» — спешит, «x2» — гурман, «»» — курьер, «★» — критик
 		var marks := {"rushed": "!", "gourmet": "x2", "courier": "»", "critic": "★"}
 		var colors := {"rushed": Color("e0432f"), "gourmet": Color("c2891a"), "courier": Color("3a7fd0"), "critic": Color("9a3fb0")}
 		var mark := Ui.label(String(marks[kind]), Rect2(14, -40, 44, 28), Ui.FONT_SIZE, colors[kind], b, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -577,6 +682,8 @@ func _tick_spawn(delta: float) -> void:
 		_spawn_customer()
 		var iv: Array = level.get("interval", [6.0, 9.0])
 		_spawn_in = randf_range(float(iv[0]), float(iv[1]))
+		if randf() < float(level.get("wave", 0.0)):
+			_spawn_in = randf_range(0.8, 1.6)   # «волна»: следующий гость заходит почти сразу
 
 
 ## Обучение: по одному коту по сценарию; когда все поданы — сообщаем.
@@ -713,6 +820,7 @@ func _discard_cup() -> void:
 	Fx.burst(_fx, BIN_POS + Vector2(0, -16), "puff", Color(0.8, 0.8, 0.85), 6, 70.0, -20.0, 0.6, 1.0, 50.0)
 	Audio.sfx("whoosh")
 	_cup.clear()
+	_cup_age = 0.0
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
 	_glide(_tray, TRAY_HOME, 0.25)
@@ -732,13 +840,18 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 		"milk": color = Color("fffaf0")
 		"cocoa": color = Color("6b3f2a")
 		"syrup": color = Color("c0392b")
-	if kind == "pastry":
+		"ice": color = Color("bfe6f7")
+		"cinnamon": color = Color("b0683a")
+		"cream": color = Color("fffaf0")
+	if kind == "pastry" or kind == "extra":
 		Audio.sfx("pop")
 		Fx.burst(_fx, at, "sparkle", Color("ffe9a0"), 7, 130.0, 100.0, 0.7, 1.0)
 	else:
 		Audio.sfx("pour")
 		Fx.burst(_fx, _tray.position + Vector2(-40, -30), "drop", color, 10, 150.0, 520.0, 0.7, 1.0, 60.0)
 	Fx.ring(_fx, _tray.position + Vector2(0, -6), Color(color, 0.9).lightened(0.2), 70.0, 0.5)
+	if kind == "base" and "double" in _cup.mods:
+		_toast(tr("Двойная порция!"), _tray.position + Vector2(0, -90))
 	_refresh_cup()
 	if kind == "pastry":
 		_tray.pop_pastry()
@@ -775,19 +888,34 @@ func _serve(e: Dictionary = {}) -> void:
 		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
 		if pastry_id != "":
 			price += int(Data.pastries[pastry_id]["price"])
+		var cold := _cup_cold()
 		if String(e.get("type", "normal")) == "gourmet":
 			price *= 2   # гурман платит вдвое
+		elif String(e.get("type", "normal")) == "riddle":
+			price = int(round(price * (RIDDLE_PRICE + GameState.perk_total("riddle"))))   # отгаданная загадка — двойная цена
 		elif String(e.get("type", "normal")) == "critic":
 			price = int(round(price * 1.5))
+		var price_mult := 1.0 + GameState.perk_total("price")
+		price = int(round(price * price_mult))
+		if cold:
+			price = int(round(price * COLD_PRICE))
 		tip = maxi(1, int(round(price * 0.2)))
+		tip = int(round(tip * (1.0 + GameState.perk_total("tips") + GameState.COZY_TIPS * float(GameState.cozy_level()))))
+		if pastry_id != "":
+			tip = int(round(tip * (1.0 + GameState.perk_total("pastry_tips"))))
 		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
 			tip *= 2   # спешащий щедро благодарит за быструю подачу
 		if String(e.get("type", "normal")) == "courier":
 			tip = int(round(tip * 1.5))   # курьер берёт на вынос и щедр на чаевые
 		if "double_tips" in boosters:
 			tip *= 2
+		if cold:
+			tip = 0
+			_toast(tr("Остыло: цена −30%, без чаевых"), Vector2(180, 470))
 		var target := float(level.get("speed", 10.0))
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
+		if bonus > 0:
+			bonus += int(GameState.perk_total("fast"))   # талант быстрого кота
 		if String(e.get("type", "normal")) == "critic" and elapsed <= float(e["max"]) * 0.5:
 			bonus += 30   # критик в восторге от скорости
 			_toast(tr("Критик в восторге! +30"), Vector2(180, 470))
@@ -818,6 +946,7 @@ func _serve(e: Dictionary = {}) -> void:
 		streak = 0
 		_stats["wrong"] = int(_stats["wrong"]) + 1
 	_cup.clear()
+	_cup_age = 0.0
 	_free_bubble(e)
 	_update_front()
 	_set_coach(false)
@@ -890,6 +1019,7 @@ func _reject_in_tutorial(e: Dictionary) -> void:
 	var drink: Dictionary = Data.drinks[e["order"]["drink"]]
 	var cat: CatCustomer = e["cat"]
 	_cup.clear()
+	_cup_age = 0.0
 	_tray.set_contents(null, null)
 	_tray.set_ready(false)
 	Fx.shake(_tray, 8.0, 0.4, 6, Fx.PX_GRID)
@@ -1056,9 +1186,13 @@ func _end_shift() -> void:
 # ---------------------------------------------------------------- отображение
 
 func _refresh_cup() -> void:
-	var did := _cup.drink_id()
+	var did := _cup.look_id()
 	_tray.set_contents(_drink_tex(did) if did != "" else null, _pastry_tex(_cup.pastry) if _cup.pastry != "" else null)
-	_cup_hint.visible = _cup.is_empty() and not tutorial
+	_tray.set_mods(_cup.mods if did != "" else [])
+	if _cup.is_empty():
+		_cup_age = 0.0
+	_update_warmth()
+	_cup_hint.visible = _cup.is_empty() and not tutorial and _rail_n == 0
 	var ready := false
 	for q in _queue:   # поднос готов, если его заказ совпал с заказом хоть одного ждущего кота
 		if q["state"] == "wait" and not _cup.is_empty() and _cup.matches(q["order"]):
@@ -1088,8 +1222,35 @@ func _toast(text: String, pos: Vector2) -> void:
 
 # ---------------------------------------------------------------- подсказки обучения
 
+## За сколько секунд остывает горячий напиток на подносе (0 — не остывает: обучение, ранние смены).
+func _cool_limit() -> float:
+	if tutorial:
+		return 0.0
+	return float(level.get("cool", 0.0)) * (1.0 + GameState.perk_total("warm"))
+
+
+func _cup_cold() -> bool:
+	var lim := _cool_limit()
+	return lim > 0.0 and _cup.is_hot() and _cup_age > lim
+
+
+## Пар идёт, пока напиток горячий; на 70% срока пар пропадает («остывает»), потом чашка синеет.
+func _update_warmth() -> void:
+	var lim := _cool_limit()
+	var w := 0
+	if lim > 0.0 and _cup.is_hot() and not _cup.is_empty():
+		w = 2 if _cup_age > lim else (1 if _cup_age > lim * 0.7 else 0)
+	if w != _tray.warmth:
+		_tray.warmth = w
+		if w == 2:
+			_toast(tr("Напиток остыл — заварить заново?"), Vector2(180, 430))
+
+
 func _process(delta: float) -> void:
 	if not _run_over and _result == null:
+		if not _cup.is_empty() and _cup.is_hot() and _cool_limit() > 0.0:
+			_cup_age += delta
+			_update_warmth()
 		_tick_queue(delta)
 	if tutorial and _awaiting and Time.get_ticks_msec() - _idle_msec > 8000 and _drag.is_empty():
 		_update_coach()
@@ -1108,6 +1269,12 @@ func _next_step() -> Dictionary:
 		return {"text": "Добавь молока", "source": "milk"}
 	if bool(recipe.get("syrup", false)) and not _cup.syrup:
 		return {"text": "Добавь сироп", "source": "syrup"}
+	for m in recipe.get("mods", []):
+		if String(m) == "double":
+			if not ("double" in _cup.mods):
+				return {"text": "Ещё порцию кофе", "source": "coffee"}
+		elif not (String(m) in _cup.mods):
+			return {"text": "Добавь добавку", "source": String(m)}
 	if String(_order["pastry"]) != "" and _cup.pastry != String(_order["pastry"]):
 		return {"text": "Добавь выпечку", "source": String(_order["pastry"])}
 	return {"text": "Не то налили? Тащи поднос в корзину", "target": BIN_POS, "ready": false}

@@ -7,11 +7,13 @@
 		"recipe": {
 			"base": "coffee",
 			"milk": false,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 2,
 		"row": 1,
-		"needs": []
+		"needs": [],
+		"riddle": "Крепко, коротко и без лишних слов."
 	},
 	{
 		"id": "tea",
@@ -21,11 +23,13 @@
 		"recipe": {
 			"base": "tea",
 			"milk": false,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 0,
 		"row": 0,
-		"needs": []
+		"needs": [],
+		"riddle": "Что-то лёгкое и золотистое, без молока."
 	},
 	{
 		"id": "latte",
@@ -35,13 +39,15 @@
 		"recipe": {
 			"base": "coffee",
 			"milk": true,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 4,
 		"row": 1,
 		"needs": [
 			"upgrade:milk_pitcher"
-		]
+		],
+		"riddle": "Кофе, которого обняли тёплым молоком."
 	},
 	{
 		"id": "matcha_latte",
@@ -51,14 +57,16 @@
 		"recipe": {
 			"base": "tea",
 			"milk": true,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 0,
 		"row": 2,
 		"needs": [
 			"upgrade:milk_pitcher",
 			"upgrade:matcha_kit"
-		]
+		],
+		"riddle": "Зелёное и мягкое, с молоком — как весенний луг."
 	},
 	{
 		"id": "cocoa",
@@ -68,13 +76,15 @@
 		"recipe": {
 			"base": "cocoa",
 			"milk": false,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 4,
 		"row": 0,
 		"needs": [
 			"drink:cocoa"
-		]
+		],
+		"riddle": "Коричневое и тёплое, как плед. Без кофе."
 	},
 	{
 		"id": "sea_tea",
@@ -84,14 +94,16 @@
 		"recipe": {
 			"base": "tea",
 			"milk": false,
-			"syrup": true
+			"syrup": true,
+			"mods": []
 		},
 		"col": 0,
 		"row": 1,
 		"needs": [
 			"source:syrup",
 			"drink:sea_tea"
-		]
+		],
+		"riddle": "Чай с кислинкой и сладким сиропом, без молока."
 	},
 	{
 		"id": "raf",
@@ -101,7 +113,8 @@
 		"recipe": {
 			"base": "coffee",
 			"milk": true,
-			"syrup": true
+			"syrup": true,
+			"mods": []
 		},
 		"col": 2,
 		"row": 2,
@@ -109,7 +122,8 @@
 			"upgrade:milk_pitcher",
 			"source:syrup",
 			"drink:raf"
-		]
+		],
+		"riddle": "Кофе, молоко и сладкий сироп — всё сразу."
 	},
 	{
 		"id": "hot_choc",
@@ -119,7 +133,8 @@
 		"recipe": {
 			"base": "cocoa",
 			"milk": true,
-			"syrup": false
+			"syrup": false,
+			"mods": []
 		},
 		"col": 3,
 		"row": 1,
@@ -127,7 +142,8 @@
 			"upgrade:milk_pitcher",
 			"drink:cocoa",
 			"drink:hot_choc"
-		]
+		],
+		"riddle": "Какао, но с молоком: густое и горячее."
 	},
 	{
 		"id": "caramel",
@@ -137,14 +153,16 @@
 		"recipe": {
 			"base": "coffee",
 			"milk": false,
-			"syrup": true
+			"syrup": true,
+			"mods": []
 		},
 		"col": 3,
 		"row": 0,
 		"needs": [
 			"source:syrup",
 			"drink:caramel"
-		]
+		],
+		"riddle": "Кофе без молока, зато с карамельной сладостью."
 	},
 	{
 		"id": "sbiten",
@@ -154,7 +172,8 @@
 		"recipe": {
 			"base": "tea",
 			"milk": true,
-			"syrup": true
+			"syrup": true,
+			"mods": []
 		},
 		"col": 1,
 		"row": 1,
@@ -162,6 +181,238 @@
 			"upgrade:milk_pitcher",
 			"source:syrup",
 			"drink:sbiten"
-		]
+		],
+		"riddle": "Чай с молоком и сиропом — для зимнего вечера."
+	},
+	{
+		"id": "doppio",
+		"name": "Двойной эспрессо",
+		"price": 14,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"double"
+			]
+		},
+		"col": 2,
+		"row": 1,
+		"needs": [
+			"upgrade:espresso_pro"
+		],
+		"riddle": "Кофе, но вдвое бодрее."
+	},
+	{
+		"id": "iced_latte",
+		"name": "Айс-латте",
+		"price": 15,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": false,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 1,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:ice"
+		],
+		"riddle": "Кофе с молоком и льдом: жара не страшна."
+	},
+	{
+		"id": "iced_tea",
+		"name": "Холодный чай",
+		"price": 9,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 1,
+		"row": 0,
+		"needs": [
+			"source:ice"
+		],
+		"riddle": "Чай со льдом, больше ничего."
+	},
+	{
+		"id": "iced_matcha",
+		"name": "Айс-матча",
+		"price": 17,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": true,
+			"syrup": false,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 0,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"upgrade:matcha_kit",
+			"source:ice"
+		],
+		"riddle": "Зелёное, молочное и очень холодное."
+	},
+	{
+		"id": "frappe",
+		"name": "Карамельный фраппе",
+		"price": 16,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": false,
+			"syrup": true,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 3,
+		"row": 0,
+		"needs": [
+			"source:syrup",
+			"source:ice"
+		],
+		"riddle": "Кофе, карамельный сироп и лёд."
+	},
+	{
+		"id": "cappuccino",
+		"name": "Капучино",
+		"price": 15,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": false,
+			"mods": [
+				"cinnamon"
+			]
+		},
+		"col": 3,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:spice"
+		],
+		"riddle": "Кофе с молоком, а сверху — щепотка корицы."
+	},
+	{
+		"id": "spice_cocoa",
+		"name": "Какао с корицей",
+		"price": 13,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "cocoa",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"cinnamon"
+			]
+		},
+		"col": 4,
+		"row": 0,
+		"needs": [
+			"drink:cocoa",
+			"source:spice"
+		],
+		"riddle": "Какао, присыпанное корицей."
+	},
+	{
+		"id": "pumpkin_raf",
+		"name": "Тыквенный раф",
+		"price": 20,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": true,
+			"mods": [
+				"cinnamon"
+			]
+		},
+		"col": 4,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"source:spice"
+		],
+		"riddle": "Осенний вечер: кофе, молоко, сироп и корица."
+	},
+	{
+		"id": "spiced_sbiten",
+		"name": "Пряный сбитень",
+		"price": 20,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": true,
+			"syrup": true,
+			"mods": [
+				"cinnamon"
+			]
+		},
+		"col": 1,
+		"row": 1,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"source:spice"
+		],
+		"riddle": "Чай, молоко, сироп и щепотка корицы."
+	},
+	{
+		"id": "vienna",
+		"name": "Венский кофе",
+		"price": 15,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"cream"
+			]
+		},
+		"col": 3,
+		"row": 3,
+		"needs": [
+			"source:cream"
+		],
+		"riddle": "Кофе под шапкой взбитых сливок."
+	},
+	{
+		"id": "cream_cocoa",
+		"name": "Какао со сливками",
+		"price": 14,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "cocoa",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"cream"
+			]
+		},
+		"col": 4,
+		"row": 3,
+		"needs": [
+			"drink:cocoa",
+			"source:cream"
+		],
+		"riddle": "Какао под облачком сливок."
 	}
 ]
