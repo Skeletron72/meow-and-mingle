@@ -109,6 +109,7 @@ var _coins_chip: Control
 var _fish_chip: Control
 var _fish_label: Label
 var _dock: Control
+var _cozy_chip: Button   # «Уют: X (чаевые +Y%)» в углу кафе, тап — режим украшения
 var _dock_btns: Dictionary = {}
 var _sign_sprite: Sprite2D
 var _terrace: Array[Node2D] = []
@@ -521,6 +522,11 @@ func _build_ui() -> void:
 	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)   # настройки одним касанием
 	gear.pressed.connect(_open_settings)
 	GameState.repair_done.connect(_on_repair_done)
+	_cozy_chip = Ui.button("", Rect2(8, 60, 216, 40), "heart", _ui, true, Ui.UI_CREAM)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_cozy_chip.add_theme_color_override(c, Ui.INK)
+	_cozy_chip.add_theme_color_override("font_outline_color", Ui.CREAM)
+	_cozy_chip.pressed.connect(_open_decorate)
 	_build_dock()
 	_refresh_dock()
 	_btn_shift = Ui.button("Смена", Rect2(88, 488, 184, 56), "play", _ui)
@@ -641,6 +647,9 @@ func _refresh_dock() -> void:
 		return
 	var done := GameState.intro_stage >= GameState.INTRO_DONE
 	_dock.visible = done and ListScreen.open_count == 0   # поверх списков нижняя панель не нужна
+	if _cozy_chip != null:
+		_cozy_chip.visible = _dock.visible
+		_cozy_chip.text = tr("Уют %d (чаевые +%d%%)") % [GameState.cozy_score(), int(round(GameState.cozy_tip_bonus() * 100.0))]
 	if not done:
 		return
 	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())

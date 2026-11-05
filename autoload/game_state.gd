@@ -493,11 +493,6 @@ func add_like(id: String) -> int:
 # ---------------------------------------------------------------- таланты котов и «Уют» кафе
 
 const PERK_CAP := {"tips": 0.3, "patience": 0.25, "pastry_tips": 0.4, "warm": 0.4, "fast": 3.0, "riddle": 0.6, "price": 0.12}
-const COZY_STEPS := [8, 20, 40, 70, 110]   # очки уюта для 1…5-го уровня
-const COZY_TIPS := 0.04                    # чаевые за уровень уюта
-const COZY_PATIENCE := 0.02                # терпение гостей за уровень уюта
-
-
 ## Талант кота работает, когда он в кафе и у него открыта первая запись (5 заказов).
 func perk_active(cat_id: String) -> bool:
 	for c in Data.cats:
@@ -531,7 +526,13 @@ func perk_text(def: Dictionary) -> String:
 	return ""
 
 
-## Очки уюта: цена каждого предмета в зале (до 8 очков) и бонус за разнообразие.
+const COZY_MAX := 100                      # потолок шкалы уюта
+const COZY_TIPS := 0.35                    # чаевые при уюте 100: +35%
+const COZY_PATIENCE := 0.20                # терпение гостей при уюте 100: +20%
+const COZY_VARIETY := 2                    # очков за каждый вид мебели, которая есть в кафе
+
+
+## Очки уюта: `cozy` каждого предмета в зале (из data/furniture.json) + бонус за разнообразие видов.
 func cozy_points() -> int:
 	var pts := 0
 	var kinds := {}
@@ -539,19 +540,22 @@ func cozy_points() -> int:
 		var id := String(it.get("id", ""))
 		if not Data.furniture.has(id):
 			continue
-		pts += clampi(int(round(float(Data.furniture[id]["price"]) / 10.0)), 1, 8)
+		pts += int(Data.furniture[id].get("cozy", 1))
 		kinds[id] = true
-	return pts + 2 * kinds.size()
+	return pts + COZY_VARIETY * kinds.size()
 
 
-## Уровень уюта 0…5.
-func cozy_level() -> int:
-	var pts := cozy_points()
-	var n := 0
-	for step in COZY_STEPS:
-		if pts >= int(step):
-			n += 1
-	return n
+## Уют 0…100: от него растут чаевые и терпение гостей (линейно до потолка).
+func cozy_score() -> int:
+	return clampi(cozy_points(), 0, COZY_MAX)
+
+
+func cozy_tip_bonus() -> float:
+	return COZY_TIPS * float(cozy_score()) / float(COZY_MAX)
+
+
+func cozy_patience_bonus() -> float:
+	return COZY_PATIENCE * float(cozy_score()) / float(COZY_MAX)
 
 
 ## Смена закончена (не обучающая): считаем для подсказок и аналитики.

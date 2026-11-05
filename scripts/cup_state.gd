@@ -7,11 +7,14 @@ var milk: bool = false
 var syrup: bool = false
 var pastry: String = ""   # id из pastries.json или ""
 var mods: Array[String] = []   # добавки: "ice" лёд, "cinnamon" корица, "cream" сливки, "double" двойная порция кофе
+var pastry_mods: Array[String] = []   # начинки на выпечке: "syrup", "cream", "cinnamon" (до двух)
+const PASTRY_TOPPINGS := ["syrup", "cream", "cinnamon"]
+const PASTRY_MODS_MAX := 2
 var allow_double := false      # вторая порция кофе: открыта улучшением «Кофемашина Pro»
 
 
 func is_empty() -> bool:
-	return base == "" and not milk and not syrup and pastry == "" and mods.is_empty()
+	return base == "" and not milk and not syrup and pastry == "" and mods.is_empty() and pastry_mods.is_empty()
 
 
 func clear() -> void:
@@ -20,6 +23,7 @@ func clear() -> void:
 	syrup = false
 	pastry = ""
 	mods = []
+	pastry_mods = []
 
 
 ## Добавляет ингредиент. Возвращает текст ошибки или "" при успехе.
@@ -30,9 +34,15 @@ func add(kind: String, id: String) -> String:
 				if "double" in mods:
 					return "Двойная порция уже есть"
 				mods.append("double")   # кофе ещё раз — двойная порция
+			elif base != "" and base != id and ((base == "coffee" and id == "cocoa") or (base == "cocoa" and id == "coffee")):
+				if "cocoa" in mods:
+					return "Это уже добавлено"
+				base = "coffee"   # кофе + какао: две основы — «мокко»
+				mods.append("cocoa")
 			else:
 				if base != "" and base != id:
 					mods.erase("double")
+					mods.erase("cocoa")
 				base = id
 		"extra":
 			if base == "":
@@ -49,7 +59,23 @@ func add(kind: String, id: String) -> String:
 				return "Сначала кофе или чай"
 			syrup = true
 		"pastry":
+			if pastry != id:
+				pastry_mods = []
 			pastry = id
+	return ""
+
+
+## Начинка на выпечку (сироп, сливки, корица): выпечка уже на подносе, не больше двух разных.
+func add_to_pastry(id: String) -> String:
+	if pastry == "":
+		return "Сначала выпечка"
+	if not (id in PASTRY_TOPPINGS):
+		return "Это не кладут на выпечку"
+	if id in pastry_mods:
+		return "Это уже добавлено"
+	if pastry_mods.size() >= PASTRY_MODS_MAX:
+		return "Достаточно начинки"
+	pastry_mods.append(id)
 	return ""
 
 
@@ -94,7 +120,7 @@ func is_hot() -> bool:
 
 
 ## Собирает чашку по рецепту напитка (для подсказок «Автосборки», обучения и тестов).
-func fill(drink: String, pastry_id := "") -> void:
+func fill(drink: String, pastry_id := "", pastry_toppings: Array = []) -> void:
 	clear()
 	var r: Dictionary = Data.drinks[drink]["recipe"]
 	base = String(r["base"])
@@ -103,7 +129,9 @@ func fill(drink: String, pastry_id := "") -> void:
 	for m in r.get("mods", []):
 		mods.append(String(m))
 	pastry = pastry_id
+	for m in pastry_toppings:
+		pastry_mods.append(String(m))
 
 
 func matches(order: Dictionary) -> bool:
-	return drink_id() == String(order["drink"]) and pastry == String(order["pastry"])
+	return drink_id() == String(order["drink"]) and pastry == String(order["pastry"]) and same_mods(pastry_mods, order.get("pastry_mods", []))

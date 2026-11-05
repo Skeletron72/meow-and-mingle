@@ -86,12 +86,11 @@ func _build_top() -> void:
 
 
 func _refresh_cozy() -> void:
-	_cozy_btn.text = str(GameState.cozy_level())
+	_cozy_btn.text = str(GameState.cozy_score())
 
 
 func _explain_cozy() -> void:
-	var lv := GameState.cozy_level()
-	_toast(tr("Уют: +%d%% чаевых, +%d%% терпения гостей") % [int(round(GameState.COZY_TIPS * lv * 100.0)), int(round(GameState.COZY_PATIENCE * lv * 100.0))], Vector2(180, 120))
+	_toast(tr("Уют %d из %d: чаевые +%d%%, терпение гостей +%d%%") % [GameState.cozy_score(), GameState.COZY_MAX, int(round(GameState.cozy_tip_bonus() * 100.0)), int(round(GameState.cozy_patience_bonus() * 100.0))], Vector2(180, 120))
 
 
 func _build_toolbar() -> void:

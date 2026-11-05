@@ -20,6 +20,7 @@ const BUBBLE_Y := 142.0
 const TUTORIAL_GAP := 1.0   # в обучении: пауза до следующего кота
 const PASTRY_CHANCE := 0.5
 const BIN_POS := Vector2(320, 360)
+const FINGER_LIFT := Vector2(0, -48)   # перетаскиваемое держим над пальцем: подушечка закрывает ~50 px под точкой касания
 const COIN_POS := Vector2(28, 26)   # центр области плашки (6..54) над нижней тенью
 const INK := Ui.INK
 
@@ -150,7 +151,11 @@ func _build_counter() -> void:
 
 
 ## Стол-стеллаж: три полки по смыслу — основы (кофе, чай, какао), добавки (молоко, сироп, лёд, корица, сливки) и выпечка. Предметы стоят на полке,
-## подписи — на её передней планке. Пустые полки не рисуются, остальные центрируются по высоте; предметы в ряду — по центру.
+## подписи — на её передней планке. Координаты полок и ячеек ФИКСИРОВАНЫ (мышечная память пальца): закрытый предмет — тёмный силуэт на своём месте,
+## закрытая полка — пустая планка с подписью «Откроется: …»; открытие ничего не сдвигает. В обучении — одна полка и только нужные предметы по центру.
+const SHELF_TOPS: Array[float] = [384.0, 468.0, 552.0]
+
+
 func _build_table() -> void:
 	_table = BrewArt.new()
 	_table.part = BrewArt.Part.TABLE
@@ -172,58 +177,89 @@ func _build_table() -> void:
 	]
 	for id in _pastry_menu():
 		groups[2].append({"kind": "pastry", "id": id, "title": String(Data.pastries[id]["name"]), "tex": _pastry_tex(id)})
-	var rows: Array = []
-	for g in groups:
-		var shown: Array[Dictionary] = []
-		for it in g:
-			if _source_available(it) and not (tutorial and String(it["kind"]) == "extra"):
-				shown.append(it)
-		if not shown.is_empty():
-			rows.append(shown)
-	var top0 := BrewArt.SHELF_RACK_Y - 4.0 + (3 - rows.size()) * BrewArt.SHELF_STRIDE / 2.0   # меньше полок — блок ниже к центру; подпись нижней полки не выходит за 640
-	top0 = floorf(top0 / 4.0) * 4.0
 	_table.plates = []
 	_table.shelves = []
 	_rail_n = 0
-	for i in rows.size():
-		var top := top0 + i * BrewArt.SHELF_STRIDE
+	var locked_text := ["", "Молочник", "Витрина"]
+	for r in groups.size():
+		var top := SHELF_TOPS[r]
+		var items: Array = groups[r]
+		var open: Array[Dictionary] = []
+		for it in items:
+			if _source_available(it) and not (tutorial and String(it["kind"]) == "extra"):
+				open.append(it)
+		if tutorial and r > 0:
+			continue   # в обучении лишних полок нет
 		_table.shelves.append(top)
-		_lay_row(rows[i], top)
+		if open.is_empty() and r > 0:
+			var sign := Ui.label(tr("Откроется: %s") % tr(String(locked_text[r])), Rect2(8.0, top + 58.0, 344.0, 24.0), 20, Ui.INK.lightened(0.15), self, HORIZONTAL_ALIGNMENT_CENTER, true)
+			sign.z_index = 3
+			continue
+		var open_ids := {}
+		for it in open:
+			open_ids[String(it["id"])] = true
+		var slots := _slots(r, open.size() if tutorial else [3, 5, 3][r])
+		for i in slots.size():
+			var cx: float = slots[i]
+			if tutorial:
+				_place_source(open[i].duplicate(), cx, top)
+			elif i < items.size():
+				var it: Dictionary = items[i]
+				if open_ids.has(String(it["id"])):
+					_place_source(it.duplicate(), cx, top)
+				else:
+					_place_silhouette(it, cx, top)
 	_table.queue_redraw()
 
 
-## Расставляет ряд источников на полке с верхом top: центры кратны 4 px, зона нажатия — вся ячейка с подписью.
-func _lay_row(items: Array[Dictionary], top: float) -> void:
-	var n := items.size()
-	var step: float = {1: 112.0, 2: 144.0, 3: 112.0, 4: 88.0, 5: 68.0}[n]
+## Центры ячеек ряда r (кратны 4): основы и выпечка — 3 места, добавки — 5; в обучении — по числу предметов по центру.
+func _slots(r: int, n: int) -> Array[float]:
+	var step := 112.0 if (tutorial or r != 1) else 68.0
+	var out: Array[float] = []
 	for i in n:
-		var s: Dictionary = items[i]
-		var cx := 180.0 + (float(i) - (n - 1) / 2.0) * step
-		var c := Vector2(cx, top + 32.0)
-		s["center"] = c
-		s["shelf"] = true
-		s["rect"] = Rect2(cx - step / 2.0, top, step, BrewArt.SHELF_STRIDE)
-		var tex: Texture2D = s["tex"]
-		var rest := c - BrewArt.content_offset(tex, String(s["kind"]) == "base") * 4.0   # рисунок по центру ячейки
-		if String(s["kind"]) == "pastry":
-			rest.y -= 4.0   # выпечка стоит на блюдце — чуть выше
-		s["rest"] = rest
-		var icon := _sprite(tex, rest, 4.0)
-		icon.z_index = 2
-		s["icon"] = icon
-		_sources.append(s)
-		if String(s["kind"]) == "extra":
-			_rail_n += 1
-		if String(s["kind"]) == "pastry":
-			_table.plates.append(Vector2(cx, top + 56.0))
-		var cap := Ui.label(tr(String(s["title"])), Rect2(cx - step / 2.0 + 2.0, top + 58.0, step - 4.0, 24.0), 20, Ui.INK, self, HORIZONTAL_ALIGNMENT_CENTER, true)   # на передней планке полки
-		cap.z_index = 3
-		var rest_y := icon.position.y
-		var bob := icon.create_tween().set_loops()   # предметы «дышат» — приподнимаются на целый пиксель сетки, без масштаба
-		bob.tween_interval(0.8 + randf() * 0.3)
-		bob.tween_callback(func() -> void: icon.position.y = rest_y - Fx.PX_GRID)
-		bob.tween_interval(0.8)
-		bob.tween_callback(func() -> void: icon.position.y = rest_y)
+		out.append(180.0 + (float(i) - (n - 1) / 2.0) * step)
+	return out
+
+
+## Тёмный силуэт ещё не открытого предмета на его месте (подсказка, что здесь появится) и «?» на планке.
+func _place_silhouette(s: Dictionary, cx: float, top: float) -> void:
+	var tex: Texture2D = s["tex"]
+	var c := Vector2(cx, top + 32.0)
+	var icon := _sprite(tex, c - BrewArt.content_offset(tex, String(s["kind"]) == "base") * 4.0, 4.0)
+	icon.z_index = 2
+	icon.modulate = Color(0.0, 0.0, 0.0, 0.32)
+	var q := Ui.label("?", Rect2(cx - 34.0, top + 58.0, 68.0, 24.0), 20, Ui.INK.lightened(0.2), self, HORIZONTAL_ALIGNMENT_CENTER, true)
+	q.z_index = 3
+
+
+## Источник на полке: спрайт в масштабе 4 по центру ячейки, подпись на планке, зона нажатия — вся ячейка.
+func _place_source(s: Dictionary, cx: float, top: float) -> void:
+	var step := 68.0 if (String(s["kind"]) in ["milk", "syrup", "extra"] and not tutorial) else 112.0
+	var c := Vector2(cx, top + 32.0)
+	s["center"] = c
+	s["shelf"] = true
+	s["rect"] = Rect2(cx - step / 2.0, top, step, BrewArt.SHELF_STRIDE)
+	var tex: Texture2D = s["tex"]
+	var rest := c - BrewArt.content_offset(tex, String(s["kind"]) == "base") * 4.0   # рисунок по центру ячейки
+	if String(s["kind"]) == "pastry":
+		rest.y -= 4.0   # выпечка стоит на блюдце — чуть выше
+	s["rest"] = rest
+	var icon := _sprite(tex, rest, 4.0)
+	icon.z_index = 2
+	s["icon"] = icon
+	_sources.append(s)
+	if String(s["kind"]) == "extra":
+		_rail_n += 1
+	if String(s["kind"]) == "pastry":
+		_table.plates.append(Vector2(cx, top + 56.0))
+	var cap := Ui.label(tr(String(s["title"])), Rect2(cx - step / 2.0 + 2.0, top + 58.0, step - 4.0, 24.0), 20, Ui.INK, self, HORIZONTAL_ALIGNMENT_CENTER, true)   # на передней планке полки
+	cap.z_index = 3
+	var rest_y := icon.position.y
+	var bob := icon.create_tween().set_loops()   # предметы «дышат» — приподнимаются на целый пиксель сетки, без масштаба
+	bob.tween_interval(0.8 + randf() * 0.3)
+	bob.tween_callback(func() -> void: icon.position.y = rest_y - Fx.PX_GRID)
+	bob.tween_interval(0.8)
+	bob.tween_callback(func() -> void: icon.position.y = rest_y)
 
 
 ## Какие источники на столе: в обучении — заданные, иначе по купленным улучшениям и открытому ремонтом (молочник, витрина, какао, сироп).
@@ -431,9 +467,26 @@ func _drink_makeable(id: String) -> bool:
 	return true
 
 
+## Начинка для заказа выпечки: одна (чаще) или две из доступных — сироп, сливки, корица.
+func _pick_pastry_mods() -> Array[String]:
+	var have: Array[String] = []
+	if GameState.has_unlock("source:syrup"):
+		have.append("syrup")
+	if GameState.has_unlock("source:cream"):
+		have.append("cream")
+	if GameState.has_unlock("source:spice"):
+		have.append("cinnamon")
+	have.shuffle()
+	var n := mini(have.size(), 2 if randf() < 0.3 else 1)
+	var out: Array[String] = []
+	for i in n:
+		out.append(have[i])
+	return out
+
+
 ## Терпение гостей: таланты котов и уют кафе.
 func _patience_bonus() -> float:
-	return 1.0 if tutorial else 1.0 + GameState.perk_total("patience") + GameState.COZY_PATIENCE * float(GameState.cozy_level())
+	return 1.0 if tutorial else 1.0 + GameState.perk_total("patience") + GameState.cozy_patience_bonus()
 
 
 func _spawn_customer() -> void:
@@ -444,6 +497,7 @@ func _spawn_customer() -> void:
 	var type := "normal"   # normal / rushed (терпение ×0,65, чаевые ×2 за быструю подачу) / gourmet (напиток + выпечка, цена ×2)
 	var drink_id := ""
 	var pastry_id := ""
+	var pastry_mods: Array[String] = []   # начинка на выпечке
 	if tutorial:
 		var o: Dictionary = tutorial_orders[_tutorial_index]
 		drink_id = String(o["drink"])
@@ -484,12 +538,14 @@ func _spawn_customer() -> void:
 			_riddle_seen = true
 		if not menu.is_empty() and type != "courier" and (type in ["gourmet", "critic"] or randf() < float(level.get("pastry", 0.0))):
 			pastry_id = menu.pick_random()
+			if randf() < float(level.get("pastry_mods", 0.0)):
+				pastry_mods = _pick_pastry_mods()
 	var patience := INF if tutorial else float(level.get("patience", 40.0)) * randf_range(0.85, 1.15) * (RUSHED_PATIENCE if type == "rushed" else (COURIER_PATIENCE if type == "courier" else (RIDDLE_PATIENCE if type == "riddle" else 1.0))) * (1.3 if "patience" in boosters else 1.0) * _patience_bonus()
 	var cat := CatCustomer.new()
 	_cat_layer.add_child(cat)
 	cat.setup(def)
 	cat.position = Vector2(CAT_SPAWN_X, CAT_POS.y)
-	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id}, "patience": patience, "max": patience, "type": type, "slot": slot,
+	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id, "pastry_mods": pastry_mods}, "patience": patience, "max": patience, "type": type, "slot": slot,
 		"state": "walk", "t0": 0, "bubble": null, "bar": null, "mood": 0, "tick": 0.0}
 	_queue.append(e)
 	cat.arrived.connect(_on_cat_arrived.bind(e))
@@ -518,7 +574,7 @@ func _try_autofill(e: Dictionary) -> void:
 		return
 	_auto_left -= 1
 	var order: Dictionary = e["order"]
-	_cup.fill(String(order["drink"]), String(order["pastry"]))
+	_cup.fill(String(order["drink"]), String(order["pastry"]), order.get("pastry_mods", []))
 	_toast(tr("Автосборка!"), Vector2(180, 430))
 	Audio.sfx("pop")
 	Fx.burst(_fx, _tray.position + Vector2(0, -30), "sparkle", Color("ffe9a0"), 8, 130.0, 100.0, 0.7, 1.0)
@@ -538,7 +594,8 @@ func _make_bubble(e: Dictionary) -> void:
 	var order: Dictionary = e["order"]
 	var riddle := String(e.get("type", "normal")) == "riddle"
 	var mods: Array = [] if riddle else (Data.drinks[String(order["drink"])]["recipe"].get("mods", []) as Array)
-	var extra_h := 18.0 if not mods.is_empty() else 0.0   # ряд значков добавок под иконками
+	var pmods: Array = order.get("pastry_mods", []) as Array
+	var extra_h := 18.0 if (not mods.is_empty() or not pmods.is_empty()) else 0.0   # ряд значков добавок под иконками
 	Ui.panel(Rect2(-52, -36, 104, 72 + extra_h), Ui.UI_CREAM, b)
 	for i in 3:   # хвостик чека к коту
 		var w := 16.0 - i * 4.0
@@ -564,6 +621,9 @@ func _make_bubble(e: Dictionary) -> void:
 	for i in mods.size():
 		var mb := _sprite(PixelArt.extra_icon(String(mods[i])), Vector2(drink_x + (float(i) - (mods.size() - 1) / 2.0) * 24.0, 14), 2.0, b)
 		mb.z_index = 1
+	for i in pmods.size():   # начинка на выпечке — под блюдом справа
+		var pb := _sprite(PixelArt.extra_icon(String(pmods[i])), Vector2(26.0 + (float(i) - (pmods.size() - 1) / 2.0) * 24.0, 14), 2.0, b)
+		pb.z_index = 1
 	if not is_inf(float(e["max"])):   # полоска терпения
 		var back := ColorRect.new()
 		back.position = Vector2(-42, 18 + extra_h)
@@ -720,13 +780,13 @@ func _begin_drag(p: Vector2) -> void:
 		return
 	_idle_msec = Time.get_ticks_msec()
 	if not _tray.is_empty() and Rect2(_tray.position - Vector2(100, 80), Vector2(200, 120)).has_point(p):
-		_drag = {"kind": "tray", "grab": _tray.position - p}
+		_drag = {"kind": "tray", "grab": FINGER_LIFT}
 		_tray.z_index = 50
 		_tray.create_tween().tween_property(_tray, "lift", 12.0, 0.12)   # поднимается — тень уезжает вниз
 		return
 	for s in _sources:
 		if (s["rect"] as Rect2).has_point(p):
-			var ghost := _sprite(s["tex"], p + Vector2(0, -24), 4.0)
+			var ghost := _sprite(s["tex"], _snap(p + FINGER_LIFT), 4.0)
 			ghost.z_index = 100
 			_drag = {"kind": s["kind"], "id": s["id"], "ghost": ghost, "src": s}
 			Fx.hop(s["icon"], 8.0, 0.25)
@@ -739,7 +799,8 @@ func _drag_to(p: Vector2) -> void:
 		_tray.position = _snap(p + (_drag["grab"] as Vector2))
 		return
 	var ghost: Sprite2D = _drag["ghost"]
-	ghost.position = _snap(p + Vector2(0, -24))
+	ghost.position = _snap(p + FINGER_LIFT)
+	_tray.hot = ghost.position.distance_to(_tray.position + Vector2(0, -20)) < 100.0   # поднос обводится белым, когда ингредиент над ним
 
 
 func _end_drag() -> void:
@@ -747,6 +808,7 @@ func _end_drag() -> void:
 		return
 	var d := _drag
 	_drag = {}
+	_tray.hot = false
 	if d["kind"] == "tray":
 		_drop_tray()
 		return
@@ -791,7 +853,13 @@ func _discard_cup() -> void:
 
 
 func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
-	var err := _cup.add(kind, id)
+	var on_pastry := false
+	var err := ""
+	if kind in ["syrup", "extra"] and _cup.pastry != "" and CupState.PASTRY_TOPPINGS.has("syrup" if kind == "syrup" else id) and at.x > _tray.position.x + 4.0:
+		on_pastry = true   # бросили в правую половину подноса, где выпечка: сироп, сливки и корица ложатся на неё
+		err = _cup.add_to_pastry("syrup" if kind == "syrup" else id)
+	else:
+		err = _cup.add(kind, id)
 	if err != "":
 		_toast(err, _tray.position + Vector2(0, -90))
 		Fx.shake(_tray, 8.0, 0.3, 5, Fx.PX_GRID)
@@ -816,7 +884,7 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 	if kind == "base" and "double" in _cup.mods:
 		_toast(tr("Двойная порция!"), _tray.position + Vector2(0, -90))
 	_refresh_cup()
-	if kind == "pastry":
+	if kind == "pastry" or on_pastry:
 		_tray.pop_pastry()
 	else:
 		_tray.pop_drink()
@@ -849,8 +917,13 @@ func _serve(e: Dictionary = {}) -> void:
 		var drink_id: String = order["drink"]
 		var pastry_id: String = order["pastry"]
 		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
+		var combo := false
 		if pastry_id != "":
 			price += int(Data.pastries[pastry_id]["price"])
+			var topped := (order.get("pastry_mods", []) as Array).size()
+			if topped > 0:
+				price += 3 * topped   # начинка на выпечке
+				combo = true
 		var cold := _cup_cold()
 		if String(e.get("type", "normal")) == "gourmet":
 			price *= 2   # гурман платит вдвое
@@ -858,12 +931,14 @@ func _serve(e: Dictionary = {}) -> void:
 			price = int(round(price * (RIDDLE_PRICE + GameState.perk_total("riddle"))))   # отгаданная загадка — двойная цена
 		elif String(e.get("type", "normal")) == "critic":
 			price = int(round(price * 1.5))
+		if combo:
+			price = int(round(price * 1.2))   # комбо-сет: напиток + выпечка с начинкой — +20% к чеку
 		var price_mult := 1.0 + GameState.perk_total("price")
 		price = int(round(price * price_mult))
 		if cold:
 			price = int(round(price * COLD_PRICE))
 		tip = maxi(1, int(round(price * 0.2)))
-		tip = int(round(tip * (1.0 + GameState.perk_total("tips") + GameState.COZY_TIPS * float(GameState.cozy_level()))))
+		tip = int(round(tip * (1.0 + GameState.perk_total("tips") + GameState.cozy_tip_bonus())))
 		if pastry_id != "":
 			tip = int(round(tip * (1.0 + GameState.perk_total("pastry_tips"))))
 		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
@@ -1151,7 +1226,7 @@ func _end_shift() -> void:
 func _refresh_cup() -> void:
 	var did := _cup.look_id()
 	_tray.set_contents(_drink_tex(did) if did != "" else null, _pastry_tex(_cup.pastry) if _cup.pastry != "" else null)
-	_tray.set_mods(_cup.mods if did != "" else [])
+	_tray.set_mods(_cup.mods if did != "" else [], _cup.pastry_mods)
 	if _cup.is_empty():
 		_cup_age = 0.0
 	_update_warmth()

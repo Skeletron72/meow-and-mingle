@@ -23,6 +23,11 @@ var pastry: Sprite2D
 var _steam: CPUParticles2D
 var _glow: Sprite2D
 var _badges: Array[Sprite2D] = []
+var hot := false:   # над подносом несут ингредиент: белая обводка (без масштабирования — пиксели остаются целыми)
+	set(v):
+		if hot != v:
+			hot = v
+			queue_redraw()
 var warmth := 0:   # 0 горячо (идёт пар), 1 остывает (пара нет), 2 остыл (чашка синеет)
 	set(v):
 		warmth = v
@@ -65,17 +70,22 @@ func set_contents(drink_tex: Texture2D, pastry_tex: Texture2D) -> void:
 	_steam.emitting = drink.visible and warmth == 0
 
 
-## Значки добавок (лёд, корица, сливки, вторая порция) в ряд под чашкой.
-func set_mods(mods: Array) -> void:
+## Значки добавок: у напитка — в ряд под чашкой, у выпечки (сироп, сливки, корица) — под блюдом справа.
+func set_mods(mods: Array, pastry_mods: Array = []) -> void:
 	for b in _badges:
 		b.queue_free()
 	_badges.clear()
+	_place_badges(mods, -32.0)
+	_place_badges(pastry_mods, 36.0)
+
+
+func _place_badges(mods: Array, cx: float) -> void:
 	var n := mods.size()
 	for i in n:
 		var b := Sprite2D.new()
-		b.texture = PixelArt.extra_icon("double" if String(mods[i]) == "double" else String(mods[i]))
+		b.texture = PixelArt.extra_icon(String(mods[i]))
 		b.scale = Vector2(2, 2)
-		b.position = Vector2(-32.0 + (float(i) - (n - 1) / 2.0) * 24.0, 14.0)
+		b.position = Vector2(cx + (float(i) - (n - 1) / 2.0) * 24.0, 14.0)
 		add_child(b)
 		_badges.append(b)
 
@@ -120,6 +130,8 @@ func _draw() -> void:
 	for sx in [-1.0, 1.0]:   # ручки по краям
 		draw_rect(Rect2(sx * (rx + 4) - 8, -8, 16, 16), BrewArt.OUTLINE)
 		draw_rect(Rect2(sx * (rx + 4) - 4, -4, 8, 8), RIM)
+	if hot:
+		BrewArt._ellipse_on(self, Vector2.ZERO, rx + 2.0 * g, ry + 2.0 * g, Color("fffbee"))
 	BrewArt._ellipse_on(self, Vector2.ZERO, rx + g, ry + g, BrewArt.OUTLINE)
 	BrewArt._ellipse_on(self, Vector2.ZERO, rx, ry, RIM)
 	BrewArt._ellipse_on(self, Vector2(0, g), rx - 2 * g, ry - 2 * g, RIM_L)    # светлый нижний край борта

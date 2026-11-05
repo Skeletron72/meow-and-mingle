@@ -14,7 +14,8 @@
 			2,
 			2
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 6
 	},
 	{
 		"id": "table_small",
@@ -31,7 +32,8 @@
 			1,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 3
 	},
 	{
 		"id": "stool",
@@ -48,7 +50,8 @@
 			1,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 2
 	},
 	{
 		"id": "plant",
@@ -65,7 +68,8 @@
 			1,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 2
 	},
 	{
 		"id": "machine",
@@ -82,7 +86,8 @@
 			1,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "case",
@@ -99,7 +104,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "cabinet",
@@ -116,7 +122,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 7
 	},
 	{
 		"id": "stove",
@@ -133,7 +140,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "oven",
@@ -150,7 +158,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "counter",
@@ -167,7 +176,8 @@
 			3,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "ucounter",
@@ -184,7 +194,8 @@
 			4,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 8
 	},
 	{
 		"id": "rug",
@@ -202,7 +213,8 @@
 			1
 		],
 		"flat": true,
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 2
 	},
 	{
 		"id": "bowl",
@@ -220,7 +232,8 @@
 			1
 		],
 		"flat": true,
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 1
 	},
 	{
 		"id": "window",
@@ -237,7 +250,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 4
 	},
 	{
 		"id": "board",
@@ -254,7 +268,8 @@
 			2,
 			1
 		],
-		"style": "cozy"
+		"style": "cozy",
+		"cozy": 4
 	},
 	{
 		"id": "table_big_loft",
@@ -273,7 +288,8 @@
 		],
 		"base": "table_big",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "table_small_loft",
@@ -292,7 +308,8 @@
 		],
 		"base": "table_small",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 4
 	},
 	{
 		"id": "stool_loft",
@@ -311,7 +328,8 @@
 		],
 		"base": "stool",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 2
 	},
 	{
 		"id": "plant_loft",
@@ -330,7 +348,8 @@
 		],
 		"base": "plant",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 3
 	},
 	{
 		"id": "machine_loft",
@@ -349,7 +368,8 @@
 		],
 		"base": "machine",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "case_loft",
@@ -368,7 +388,8 @@
 		],
 		"base": "case",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "cabinet_loft",
@@ -387,7 +408,8 @@
 		],
 		"base": "cabinet",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "stove_loft",
@@ -406,7 +428,8 @@
 		],
 		"base": "stove",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "oven_loft",
@@ -425,7 +448,8 @@
 		],
 		"base": "oven",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "counter_loft",
@@ -444,7 +468,8 @@
 		],
 		"base": "counter",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "ucounter_loft",
@@ -463,7 +488,8 @@
 		],
 		"base": "ucounter",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 8
 	},
 	{
 		"id": "rug_loft",
@@ -483,7 +509,8 @@
 		"flat": true,
 		"base": "rug",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 4
 	},
 	{
 		"id": "bowl_loft",
@@ -503,7 +530,8 @@
 		"flat": true,
 		"base": "bowl",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 2
 	},
 	{
 		"id": "window_loft",
@@ -522,7 +550,8 @@
 		],
 		"base": "window",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 6
 	},
 	{
 		"id": "board_loft",
@@ -541,7 +570,8 @@
 		],
 		"base": "board",
 		"style": "loft",
-		"tint": "#a9b9d0"
+		"tint": "#a9b9d0",
+		"cozy": 5
 	},
 	{
 		"id": "table_big_japan",
@@ -560,7 +590,8 @@
 		],
 		"base": "table_big",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "table_small_japan",
@@ -579,7 +610,8 @@
 		],
 		"base": "table_small",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 4
 	},
 	{
 		"id": "stool_japan",
@@ -598,7 +630,8 @@
 		],
 		"base": "stool",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 2
 	},
 	{
 		"id": "plant_japan",
@@ -617,7 +650,8 @@
 		],
 		"base": "plant",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 3
 	},
 	{
 		"id": "machine_japan",
@@ -636,7 +670,8 @@
 		],
 		"base": "machine",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "case_japan",
@@ -655,7 +690,8 @@
 		],
 		"base": "case",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "cabinet_japan",
@@ -674,7 +710,8 @@
 		],
 		"base": "cabinet",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "stove_japan",
@@ -693,7 +730,8 @@
 		],
 		"base": "stove",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "oven_japan",
@@ -712,7 +750,8 @@
 		],
 		"base": "oven",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "counter_japan",
@@ -731,7 +770,8 @@
 		],
 		"base": "counter",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "ucounter_japan",
@@ -750,7 +790,8 @@
 		],
 		"base": "ucounter",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 8
 	},
 	{
 		"id": "rug_japan",
@@ -770,7 +811,8 @@
 		"flat": true,
 		"base": "rug",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 4
 	},
 	{
 		"id": "bowl_japan",
@@ -790,7 +832,8 @@
 		"flat": true,
 		"base": "bowl",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 2
 	},
 	{
 		"id": "window_japan",
@@ -809,7 +852,8 @@
 		],
 		"base": "window",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 6
 	},
 	{
 		"id": "board_japan",
@@ -828,7 +872,8 @@
 		],
 		"base": "board",
 		"style": "japan",
-		"tint": "#bfe3b0"
+		"tint": "#bfe3b0",
+		"cozy": 5
 	},
 	{
 		"id": "table_big_winter",
@@ -847,7 +892,8 @@
 		],
 		"base": "table_big",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "table_small_winter",
@@ -866,7 +912,8 @@
 		],
 		"base": "table_small",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 4
 	},
 	{
 		"id": "stool_winter",
@@ -885,7 +932,8 @@
 		],
 		"base": "stool",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 2
 	},
 	{
 		"id": "plant_winter",
@@ -904,7 +952,8 @@
 		],
 		"base": "plant",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 3
 	},
 	{
 		"id": "machine_winter",
@@ -923,7 +972,8 @@
 		],
 		"base": "machine",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "case_winter",
@@ -942,7 +992,8 @@
 		],
 		"base": "case",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "cabinet_winter",
@@ -961,7 +1012,8 @@
 		],
 		"base": "cabinet",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "stove_winter",
@@ -980,7 +1032,8 @@
 		],
 		"base": "stove",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "oven_winter",
@@ -999,7 +1052,8 @@
 		],
 		"base": "oven",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "counter_winter",
@@ -1018,7 +1072,8 @@
 		],
 		"base": "counter",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "ucounter_winter",
@@ -1037,7 +1092,8 @@
 		],
 		"base": "ucounter",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 8
 	},
 	{
 		"id": "rug_winter",
@@ -1057,7 +1113,8 @@
 		"flat": true,
 		"base": "rug",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 4
 	},
 	{
 		"id": "bowl_winter",
@@ -1077,7 +1134,8 @@
 		"flat": true,
 		"base": "bowl",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 2
 	},
 	{
 		"id": "window_winter",
@@ -1096,7 +1154,8 @@
 		],
 		"base": "window",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 6
 	},
 	{
 		"id": "board_winter",
@@ -1115,6 +1174,7 @@
 		],
 		"base": "board",
 		"style": "winter",
-		"tint": "#d6e8ff"
+		"tint": "#d6e8ff",
+		"cozy": 5
 	}
 ]

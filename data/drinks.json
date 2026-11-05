@@ -414,5 +414,138 @@
 			"source:cream"
 		],
 		"riddle": "Какао под облачком сливок."
+	},
+	{
+		"id": "vanilla_raf",
+		"name": "Ванильный раф",
+		"price": 22,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": true,
+			"mods": [
+				"cream"
+			]
+		},
+		"col": 2,
+		"row": 0,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"source:cream"
+		],
+		"riddle": "Кофе, молоко, сироп и воздушные сливки сверху."
+	},
+	{
+		"id": "iced_caramel_latte",
+		"name": "Айс-карамель латте",
+		"price": 22,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": true,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 1,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"source:ice"
+		],
+		"riddle": "Кофе с молоком и сиропом, но очень холодный."
+	},
+	{
+		"id": "iced_bubble",
+		"name": "Холодный бабл-ти",
+		"price": 20,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": true,
+			"syrup": true,
+			"mods": [
+				"ice"
+			]
+		},
+		"col": 0,
+		"row": 2,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"source:syrup",
+			"source:ice"
+		],
+		"riddle": "Чай с молоком и сиропом — со льдом, как летом."
+	},
+	{
+		"id": "mocha",
+		"name": "Моккачино",
+		"price": 24,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "coffee",
+			"milk": true,
+			"syrup": false,
+			"mods": [
+				"cocoa",
+				"cream"
+			]
+		},
+		"col": 3,
+		"row": 1,
+		"needs": [
+			"upgrade:milk_pitcher",
+			"drink:cocoa",
+			"source:cream"
+		],
+		"riddle": "Кофе и какао вместе, с молоком и сливками."
+	},
+	{
+		"id": "spiced_tea",
+		"name": "Пряный чай",
+		"price": 15,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "tea",
+			"milk": false,
+			"syrup": true,
+			"mods": [
+				"cinnamon"
+			]
+		},
+		"col": 1,
+		"row": 0,
+		"needs": [
+			"source:syrup",
+			"source:spice"
+		],
+		"riddle": "Чай со сладким сиропом и щепоткой корицы."
+	},
+	{
+		"id": "winter_choc",
+		"name": "Зимний шоколад",
+		"price": 17,
+		"brew_time": 0.0,
+		"recipe": {
+			"base": "cocoa",
+			"milk": false,
+			"syrup": false,
+			"mods": [
+				"cream",
+				"cinnamon"
+			]
+		},
+		"col": 4,
+		"row": 0,
+		"needs": [
+			"drink:cocoa",
+			"source:cream",
+			"source:spice"
+		],
+		"riddle": "Какао со сливками и корицей — зимний вечер."
 	}
 ]

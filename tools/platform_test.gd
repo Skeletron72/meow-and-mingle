@@ -43,6 +43,7 @@ func _ready() -> void:
 	await _test_terrace_sign()
 	await _test_new_types()
 	await _test_depth()
+	await _test_shelves_and_pastry()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -370,7 +371,7 @@ func _test_s2() -> void:
 ## S3: напитки, выпечка, рецепты с сиропом, меню дня, типы посетителей, 30 уровней.
 func _test_content() -> void:
 	GameState.new_game()
-	_check(Data.drinks.size() == 21 and Data.pastries.size() == 8, "21 напиток (10 базовых + 11 с добавками) и 8 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
+	_check(Data.drinks.size() == 27 and Data.pastries.size() == 8, "27 напитков (10 базовых + 17 с добавками) и 8 видов выпечки (%d/%d)" % [Data.drinks.size(), Data.pastries.size()])
 	# рецепты не совпадают друг с другом
 	var seen := {}
 	for id in Data.drinks:
@@ -394,6 +395,8 @@ func _test_content() -> void:
 		for m in r.get("mods", []):
 			if String(m) == "double":
 				cup.add("base", String(r["base"]))   # кофе ещё раз — двойная порция
+			elif String(m) == "cocoa":
+				cup.add("base", "cocoa")             # вторая основа — «мокко»
 			else:
 				cup.add("extra", String(m))
 		_check(cup.drink_id() == String(id), "чашка собирает «%s» (получили «%s»)" % [id, cup.drink_id()])
@@ -1453,11 +1456,99 @@ func _test_depth() -> void:
 		_check(c.has("perk") and GameState.PERK_CAP.has(String(c["perk"]["kind"])), "у кота «%s» есть талант известного вида" % c["id"])
 	# уют кафе
 	GameState.layout = []
-	_check(GameState.cozy_level() == 0, "пустое кафе: уют 0")
+	_check(GameState.cozy_score() == 0 and GameState.cozy_tip_bonus() == 0.0, "пустое кафе: уют 0")
 	GameState.layout = [{"id": "table_big", "c": 0, "r": 0, "flip": false}, {"id": "plant", "c": 2, "r": 0, "flip": false}, {"id": "rug", "c": 4, "r": 0, "flip": false}]
 	var pts := GameState.cozy_points()
-	_check(pts == 6 + 2 + 3 + 6 and GameState.cozy_level() == 1, "стол, растение и ковёр дают %d очков, уют 1" % pts)
+	_check(pts == 6 + 2 + 2 + 6 and GameState.cozy_score() == pts, "стол, растение и ковёр дают %d очков уюта" % pts)
 	for i in 14:
 		GameState.layout.append({"id": "table_small", "c": i, "r": 3, "flip": false})
-	_check(GameState.cozy_level() >= 2, "больше мебели — уют растёт (%d очков, уровень %d)" % [GameState.cozy_points(), GameState.cozy_level()])
+	_check(GameState.cozy_score() > pts and absf(GameState.cozy_tip_bonus() - 0.35 * GameState.cozy_score() / 100.0) < 0.0001, "больше мебели — уют и чаевые растут (%d очков, чаевые +%d%%)" % [GameState.cozy_points(), int(round(GameState.cozy_tip_bonus() * 100.0))])
+	GameState.new_game()
+
+
+## Фиксированный стеллаж, подъём над пальцем, начинки на выпечке, мокко.
+func _test_shelves_and_pastry() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	var tops: Array = []
+	var positions := {}
+	for stage in 3:
+		match stage:
+			0:
+				GameState.unlocks = []
+				GameState.upgrades = []
+			1:
+				GameState.unlocks = ["source:syrup", "drink:cocoa"]
+				GameState.upgrades = ["milk_pitcher"]
+			2:
+				GameState.unlocks = ["source:syrup", "drink:cocoa", "source:ice", "source:spice", "source:cream", "pastry:syrniki"]
+				GameState.upgrades = ["milk_pitcher", "display_case", "espresso_pro"]
+		var m: Node2D = load(Nav.BREW).instantiate()
+		m.level = Data.levels[44].duplicate(true)
+		add_child(m)
+		await get_tree().process_frame
+		tops.append(m._table.shelves.duplicate())
+		for s in m._sources:
+			var key := String(s["id"])
+			if String(s["kind"]) != "pastry":
+				if positions.has(key):
+					_check(positions[key] == s["center"], "предмет «%s» не сдвинулся при открытии новых (%s → %s)" % [key, positions[key], s["center"]])
+				positions[key] = s["center"]
+		m.queue_free()
+		await get_tree().process_frame
+	_check(tops[0] == tops[1] and tops[1] == tops[2] and tops[0].size() == 3, "три полки на постоянных высотах в любой момент игры (%s)" % [tops[0]])
+	# подъём над пальцем: ингредиент висит на 48 px выше касания
+	var m2: Node2D = load(Nav.BREW).instantiate()
+	m2.level = Data.levels[44].duplicate(true)
+	add_child(m2)
+	await get_tree().process_frame
+	_check(m2.FINGER_LIFT == Vector2(0, -48), "перетаскиваемое поднято на 48 px над пальцем")
+	var src: Dictionary = m2._sources[0]
+	var p: Vector2 = src["center"]
+	m2._begin_drag(p)
+	m2._drag_to(m2._tray.position + Vector2(0, 48))
+	_check(m2._drag["ghost"].position.y < m2._tray.position.y + 4.0 and m2._tray.hot, "над подносом он подсвечивается белой обводкой")
+	m2._end_drag()
+	_check(not m2._tray.hot, "после броска обводка снимается")
+	m2._discard_cup()
+	# начинка: выпечка + сироп/сливки/корица на правую половину подноса
+	var c := CupState.new()
+	c.add("base", "coffee")
+	_check(c.add_to_pastry("syrup") != "", "начинку без выпечки класть некуда")
+	c.add("pastry", "croissant")
+	_check(c.add_to_pastry("syrup") == "" and c.add_to_pastry("syrup") != "" and c.add_to_pastry("ice") != "", "сироп на выпечку один раз, лёд на выпечку нельзя")
+	_check(c.add_to_pastry("cream") == "" and c.add_to_pastry("cinnamon") != "", "не больше двух начинок")
+	_check(c.matches({"drink": "", "pastry": "croissant", "pastry_mods": ["cream", "syrup"]}) == false and c.pastry_mods.size() == 2, "чашка без напитка не подходит")
+	c.fill("latte", "croissant", ["syrup"])
+	_check(c.matches({"drink": "latte", "pastry": "croissant", "pastry_mods": ["syrup"]}) and not c.matches({"drink": "latte", "pastry": "croissant", "pastry_mods": []}), "круассан с сиропом не равен просто круассану")
+	c.add("pastry", "donut")
+	_check(c.pastry_mods.is_empty(), "смена выпечки сбрасывает начинку")
+	# мокко: две основы
+	var mo := CupState.new()
+	mo.add("base", "cocoa")
+	mo.add("base", "coffee")
+	mo.add("milk", "milk")
+	mo.add("extra", "cream")
+	_check(mo.drink_id() == "mocha", "какао + кофе + молоко + сливки — моккачино (%s)" % mo.drink_id())
+	# заказ с начинкой и комбо +20%
+	GameState.unlocks = ["source:syrup", "source:cream", "source:spice", "pastry:syrniki"]
+	GameState.upgrades = ["milk_pitcher", "display_case"]
+	m2.level["pastry_mods"] = 1.0
+	m2.level["pastry"] = 1.0
+	m2.level["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 0.0, "critic": 0.0}
+	m2.level["riddle"] = 0.0
+	m2._queue.clear()
+	m2._spawn_customer()
+	var e: Dictionary = m2._queue[0]
+	_check((e["order"]["pastry_mods"] as Array).size() >= 1 and String(e["order"]["pastry"]) != "", "при шансе 1 выпечку просят с начинкой (%s)" % [e["order"]])
+	e["state"] = "wait"
+	e["t0"] = Time.get_ticks_msec()
+	m2._update_front()
+	m2._cup.fill(String(e["order"]["drink"]), String(e["order"]["pastry"]), e["order"]["pastry_mods"])
+	var before: int = m2.shift_earned
+	m2._serve(e)
+	var base_price := int(Data.drinks[String(e["order"]["drink"])]["price"]) + int(Data.pastries[String(e["order"]["pastry"])]["price"]) + 3 * (e["order"]["pastry_mods"] as Array).size()
+	_check(m2.shift_earned - before >= int(round(base_price * 1.2)), "комбо с начинкой: +20%% к чеку (%d при базе %d)" % [m2.shift_earned - before, base_price])
+	m2.queue_free()
+	await get_tree().process_frame
 	GameState.new_game()
