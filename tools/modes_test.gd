@@ -1207,7 +1207,7 @@ func _test_weather() -> void:
 	var btn: Button = city.get("_weather_btn")
 	_check(btn != null, "в настройках есть кнопка погоды")
 	city.call("_cycle_weather")
-	_check(btn.text.contains("Погода"), "кнопка показывает погоду: " + btn.text)
+	_check(btn.has_meta("value") and (btn.get_meta("value") as Label).text != "", "плитка показывает режим погоды: " + (btn.get_meta("value") as Label).text)
 	Weather.force(Weather.Kind.CLEAR)
 	Weather.set_mode(Weather.AUTO)
 	city.queue_free()

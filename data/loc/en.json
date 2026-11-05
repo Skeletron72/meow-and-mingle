@@ -836,5 +836,8 @@
  "%d/%d · очки %d": "%d/%d · score %d",
  "из %d": "of %d",
  "Упущено: %d": "Missed: %d",
- "Очки: %d": "Score: %d"
+ "Очки: %d": "Score: %d",
+ "Погода": "Weather",
+ "Язык": "Language",
+ "Качество": "Quality"
 }

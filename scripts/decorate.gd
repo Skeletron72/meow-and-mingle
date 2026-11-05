@@ -77,7 +77,7 @@ func _build_top() -> void:
 	_refresh_style_button()
 	var back := Ui.button("", Rect2(296, 8, 56, 48), "home", _ui)
 	back.pressed.connect(_back)
-	_cozy_btn = Ui.button("", Rect2(296, 60, 56, 40), "heart", _ui, true, Ui.UI_CREAM)   # «Уют» кафе: уровень и бонус; тап — подробности
+	_cozy_btn = Ui.button("0", Rect2(276, 60, 76, 40), "heart", _ui, true, Ui.UI_CREAM)   # «Уют» кафе: уровень и бонус; тап — подробности
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		_cozy_btn.add_theme_color_override(c, Ui.INK)
 	_cozy_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
@@ -86,7 +86,7 @@ func _build_top() -> void:
 
 
 func _refresh_cozy() -> void:
-	_cozy_btn.text = str(GameState.cozy_score())
+	Ui.set_button_text(_cozy_btn, str(GameState.cozy_score()))
 
 
 func _explain_cozy() -> void:

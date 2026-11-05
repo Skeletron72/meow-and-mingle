@@ -271,10 +271,38 @@ func _test_menu() -> void:
 	for k in ["main", "settings", "account", "confirm", "credits", "diary"]:
 		_check(pages.has(k), "страница меню «%s» есть" % k)
 	# настройки меняют значения по кругу
-	city._cycle_setting("music")
-	_check(is_equal_approx(float(GameState.get_setting("music")), 1.0), "музыка: 80% → 100%")
-	city._cycle_setting("music")
-	_check(is_equal_approx(float(GameState.get_setting("music")), 0.0), "музыка: 100% → 0%")
+	# громкость — ползунки: значение меняется сразу, сохраняется при отпускании
+	var ms: PixelSlider = city._music_slider
+	ms.value = 0.35
+	ms.value_changed.emit(ms.value)
+	_check(is_equal_approx(float(GameState.settings["music"]), 0.35) and city._music_val.text == "35%", "ползунок музыки двигается: 35%")
+	ms.released.emit(ms.value)
+	_check(is_equal_approx(float(GameState.get_setting("music")), 0.35), "музыка 35% сохранена")
+	ms.value = 0.0
+	ms.value_changed.emit(ms.value)
+	ms.released.emit(ms.value)
+	_check(float(GameState.get_setting("music")) == 0.0 and AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")), "музыка 0% — шина выключена")
+	var ss: PixelSlider = city._sfx_slider
+	ss.value = 1.0
+	ss.released.emit(ss.value)
+	_check(is_equal_approx(float(GameState.get_setting("sfx")), 1.0), "звуки 100%")
+	# сам ползунок: тап и перетаскивание по полосе
+	var sl := PixelSlider.new(Vector2(200, 40))
+	add_child(sl)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = Vector2(100, 20)
+	sl._gui_input(ev)
+	_check(absf(sl.value - 0.5) <= 0.06, "тап в середину полосы ставит ≈50%% (%.2f)" % sl.value)
+	var mv := InputEventMouseMotion.new()
+	mv.position = Vector2(400, 20)
+	sl._gui_input(mv)
+	_check(sl.value == 1.0, "перетаскивание за правый край — 100%")
+	mv.position = Vector2(-50, 20)
+	sl._gui_input(mv)
+	_check(sl.value == 0.0, "за левый край — 0%")
+	sl.queue_free()
 	city._cycle_setting("quality")
 	_check(GameState.get_setting("quality") == "low", "качество: авто → низкое")
 	city._cycle_setting("analytics")

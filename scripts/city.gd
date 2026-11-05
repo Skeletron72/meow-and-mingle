@@ -95,8 +95,10 @@ var _account_stats: Label
 var _shift_layer: CanvasLayer
 var _levels_layer: ListScreen              # выбор уровня-смены
 var _lang_btn: Button
-var _music_btn: Button
-var _sfx_btn: Button
+var _music_slider: PixelSlider
+var _sfx_slider: PixelSlider
+var _music_val: Label
+var _sfx_val: Label
 var _quality_btn: Button
 var _privacy_btn: Button
 var _credits_text: Label
@@ -110,7 +112,8 @@ var _fish_chip: Control
 var _fish_label: Label
 var _dock: Control
 var _perf: PerfOverlay
-var _cozy_chip: Button   # «Уют: X (чаевые +Y%)» в углу кафе, тап — режим украшения
+var _cozy_chip: Control   # плашка «Уют: X (чаевые +Y%)» в углу кафе; тапы сквозь неё проходят к залу
+var _cozy_label: Label
 var _dock_btns: Dictionary = {}
 var _sign_sprite: Sprite2D
 var _terrace: Array[Node2D] = []
@@ -525,11 +528,19 @@ func _build_ui() -> void:
 	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)   # настройки одним касанием
 	gear.pressed.connect(_open_settings)
 	GameState.repair_done.connect(_on_repair_done)
-	_cozy_chip = Ui.button("", Rect2(8, 60, 216, 40), "heart", _ui, true, Ui.UI_CREAM)
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		_cozy_chip.add_theme_color_override(c, Ui.INK)
-	_cozy_chip.add_theme_color_override("font_outline_color", Ui.CREAM)
-	_cozy_chip.pressed.connect(_open_decorate)
+	_cozy_chip = Control.new()
+	_cozy_chip.position = Vector2(8, 60)
+	_cozy_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(_cozy_chip)
+	Ui.panel(Rect2(0, 0, 260, 36), Ui.UI_CREAM, _cozy_chip)
+	var cheart := TextureRect.new()
+	cheart.texture = Ui.icon("heart")
+	cheart.stretch_mode = TextureRect.STRETCH_SCALE
+	cheart.size = Vector2(32, 32)
+	cheart.position = Vector2(4, 0)
+	cheart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cozy_chip.add_child(cheart)
+	_cozy_label = Ui.label("", Rect2(40, 2, 216, 28), Ui.FONT_SIZE, Ui.INK, _cozy_chip, HORIZONTAL_ALIGNMENT_LEFT, true)
 	_build_dock()
 	_refresh_dock()
 	_btn_shift = Ui.button("Смена", Rect2(88, 488, 184, 56), "play", _ui)
@@ -625,6 +636,7 @@ func _icon_tile(parent: Node, r: Rect2, icon_name: String, text: String, handler
 	ic.position = Vector2(Ui.snap((r.size.x - 32.0) / 2.0), 4)
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(ic)
+	b.set_meta("icon", ic)
 	var lab := Ui.label(text, Rect2(0, 36, r.size.x, 28), Ui.FONT_SIZE, Ui.CREAM, b, HORIZONTAL_ALIGNMENT_CENTER, true)
 	lab.add_theme_color_override("font_outline_color", Ui.INK)
 	lab.add_theme_constant_override("outline_size", Ui.PX)
@@ -652,7 +664,7 @@ func _refresh_dock() -> void:
 	_dock.visible = done and ListScreen.open_count == 0   # поверх списков нижняя панель не нужна
 	if _cozy_chip != null:
 		_cozy_chip.visible = _dock.visible
-		_cozy_chip.text = tr("Уют %d (чаевые +%d%%)") % [GameState.cozy_score(), int(round(GameState.cozy_tip_bonus() * 100.0))]
+		_cozy_label.text = tr("Уют %d (чаевые +%d%%)") % [GameState.cozy_score(), int(round(GameState.cozy_tip_bonus() * 100.0))]
 	if not done:
 		return
 	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())
@@ -711,21 +723,36 @@ func _build_menu() -> void:
 	if pc:
 		Ui.button("Выход", Rect2(mc.position.x, mc.position.y + 3.0 * 80.0 + Ui.BTN_H + Ui.BTN_GAP, mc.size.x, Ui.BTN_H), "exit", main).pressed.connect(get_tree().quit)
 	# настройки
-	var settings := _page("settings", Ui.column_h(8 if Platform.is_playtest() else 7), "Настройки")
-	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
-	_weather_btn.pressed.connect(_cycle_weather)
-	_lang_btn = _page_button(settings, 1, "Язык: Авто", "globe")
-	_lang_btn.pressed.connect(_cycle_setting.bind("lang"))
-	_music_btn = _page_button(settings, 2, "Музыка: 80%", "note")
-	_music_btn.pressed.connect(_cycle_setting.bind("music"))
-	_sfx_btn = _page_button(settings, 3, "Звуки: 100%", "speaker")
-	_sfx_btn.pressed.connect(_cycle_setting.bind("sfx"))
-	_quality_btn = _page_button(settings, 4, "Качество: Авто", "bolt")
-	_quality_btn.pressed.connect(_cycle_setting.bind("quality"))
-	_page_button(settings, 5, "Аккаунт", "shield").pressed.connect(_menu_page.bind("account"))
+	var tiles_n := 4 + (1 if Platform.is_playtest() else 0)
+	var rows_n := int(ceil(tiles_n / 2.0))
+	var settings := _page("settings", Ui.LINE_H + 2.0 * 52.0 + 8.0 + rows_n * (SETTING_TILE_H + Ui.BTN_GAP) + Ui.BTN_H, "Настройки", true)
+	var sc: Rect2 = settings.get_meta("content")
+	var sy := sc.position.y
+	var head := Ui.label(tr("Звук"), Rect2(sc.position.x, sy, sc.size.x, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.2), settings, HORIZONTAL_ALIGNMENT_LEFT, true)
+	head.set_meta("no_audit", true)
+	sy += Ui.LINE_H
+	_music_slider = _slider_row(settings, sc, sy, "note", "music")
+	_music_val = _music_slider.get_meta("value_label")
+	sy += 52.0
+	_sfx_slider = _slider_row(settings, sc, sy, "speaker", "sfx")
+	_sfx_val = _sfx_slider.get_meta("value_label")
+	sy += 52.0 + 8.0
+	var stile_w := Ui.snap((sc.size.x - Ui.BTN_GAP) / 2.0)
+	var defs: Array = [["Погода", "cloud", _cycle_weather], ["Язык", "globe", _cycle_setting.bind("lang")], ["Качество", "bolt", _cycle_setting.bind("quality")], ["Аккаунт", "shield", _menu_page.bind("account")]]
 	if Platform.is_playtest():
-		_page_button(settings, 6, "Для тестов", "bolt").pressed.connect(_menu_page.bind("playtest"))
-	_page_button(settings, 7 if Platform.is_playtest() else 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+		defs.append(["Для тестов", "bolt", _menu_page.bind("playtest")])
+	for i in defs.size():
+		var d: Array = defs[i]
+		var t := _setting_tile(settings, Rect2(sc.position.x + (i % 2) * (stile_w + Ui.BTN_GAP), sy + (i / 2) * (SETTING_TILE_H + Ui.BTN_GAP), stile_w, SETTING_TILE_H), String(d[1]), String(d[0]), d[2])
+		match String(d[0]):
+			"Погода":
+				_weather_btn = t
+			"Язык":
+				_lang_btn = t
+			"Качество":
+				_quality_btn = t
+	sy += rows_n * (SETTING_TILE_H + Ui.BTN_GAP)
+	Ui.button(tr("Назад"), Rect2(sc.position.x, sy, sc.size.x, Ui.BTN_H), "undo", settings, true).pressed.connect(_menu_page.bind("main"))
 	if Platform.is_playtest():   # страница тестировщика: лог событий, FPS, быстрый доступ к поздней игре
 		var pt := _page("playtest", Ui.column_h(5), "Для тестов")
 		_page_button(pt, 0, "Скопировать лог", "doc").pressed.connect(_copy_log)
@@ -770,6 +797,57 @@ func _build_menu() -> void:
 	_menu_page("main")
 
 
+const SETTING_TILE_H := 100.0
+
+
+## Плитка настройки: значок, название и под ним текущее значение (меняется по тапу по кругу).
+func _setting_tile(parent: Node, r: Rect2, icon: String, name_text: String, handler: Callable) -> Button:
+	var t := _icon_tile(parent, r, icon, tr(name_text), handler)
+	var val := Ui.label("", Rect2(2, 64, r.size.x - 4.0, 28), Ui.FONT_SIZE, Color("ffe08a"), t, HORIZONTAL_ALIGNMENT_CENTER, true)
+	val.add_theme_color_override("font_outline_color", Ui.INK)
+	val.add_theme_constant_override("outline_size", Ui.PX)
+	t.set_meta("value", val)
+	return t
+
+
+func _set_tile_value(t: Button, text: String) -> void:
+	if t != null and t.has_meta("value"):
+		(t.get_meta("value") as Label).text = text
+
+
+## Строка громкости: значок, ползунок и проценты. Во время движения громкость меняется сразу, сохраняется — когда палец отпущен.
+func _slider_row(page: Control, sc: Rect2, y: float, icon: String, key: String) -> PixelSlider:
+	var ic := TextureRect.new()
+	ic.texture = Ui.icon(icon)
+	ic.stretch_mode = TextureRect.STRETCH_SCALE
+	ic.size = Vector2(32, 32)
+	ic.position = Vector2(sc.position.x, y + 8.0)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(ic)
+	var sl := PixelSlider.new(Vector2(sc.size.x - 40.0 - 56.0, 48.0))
+	sl.position = Vector2(sc.position.x + 40.0, y + 2.0)
+	sl.value = float(GameState.get_setting(key))
+	page.add_child(sl)
+	var val := Ui.label("", Rect2(sc.position.x + sc.size.x - 52.0, y + 8.0, 52.0, 32.0), Ui.FONT_SIZE, Ui.INK, page, HORIZONTAL_ALIGNMENT_RIGHT, true)
+	sl.set_meta("value_label", val)
+	sl.value_changed.connect(_on_volume.bind(key))
+	sl.released.connect(_on_volume_released.bind(key))
+	return sl
+
+
+func _on_volume(v: float, key: String) -> void:
+	GameState.settings[key] = v   # живая громкость; на диск — при отпускании
+	Audio.apply_volumes()
+	_refresh_setting_buttons()
+
+
+func _on_volume_released(v: float, key: String) -> void:
+	GameState.set_setting(key, v)
+	if key == "sfx":
+		Audio.sfx("coin")   # пример громкости звуков
+	_refresh_setting_buttons()
+
+
 ## Кнопка в столбце страницы: i — номер, dy — сдвиг вниз от начала области (под текстом выше).
 func _page_button(page: Control, i: int, text: String, icon: String, danger := false, dy := 0.0) -> Button:
 	var c: Rect2 = page.get_meta("content")
@@ -803,8 +881,9 @@ func _cycle_weather() -> void:
 func _refresh_weather_btn() -> void:
 	if _weather_btn == null:
 		return
-	Ui.set_button_text(_weather_btn, tr("Погода: %s") % tr(Weather.mode_text()))
-	Ui.set_button_icon(_weather_btn, WeatherIcons.icon(Weather.mode))
+	_set_tile_value(_weather_btn, tr(Weather.mode_text()))
+	if _weather_btn.has_meta("icon"):
+		(_weather_btn.get_meta("icon") as TextureRect).texture = WeatherIcons.icon(Weather.mode)
 
 
 func _menu_page(page_name: String) -> void:
@@ -816,7 +895,6 @@ func _menu_page(page_name: String) -> void:
 		_account_stats.text = tr("Подано за всё время: %d\nМонет в кассе: %d\nУлучшений куплено: %d") % [GameState.served_total, GameState.coins, GameState.upgrades.size()]
 
 
-const VOLUME_STEPS := [0.0, 0.4, 0.8, 1.0]
 const LANG_STEPS := ["auto", "ru", "en"]
 const QUALITY_STEPS := ["auto", "low", "high"]
 
@@ -826,11 +904,15 @@ func _refresh_setting_buttons() -> void:
 	if _lang_btn == null:
 		return
 	var lang_names := {"auto": tr("Авто"), "ru": "Русский", "en": "English"}
-	Ui.set_button_text(_lang_btn, tr("Язык: %s") % lang_names[String(GameState.get_setting("lang"))])
-	Ui.set_button_text(_music_btn, tr("Музыка: %d%%") % int(round(float(GameState.get_setting("music")) * 100.0)))
-	Ui.set_button_text(_sfx_btn, tr("Звуки: %d%%") % int(round(float(GameState.get_setting("sfx")) * 100.0)))
+	_set_tile_value(_lang_btn, lang_names[String(GameState.get_setting("lang"))])
+	var mv := float(GameState.get_setting("music"))
+	var sv := float(GameState.get_setting("sfx"))
+	_music_slider.value = mv
+	_sfx_slider.value = sv
+	_music_val.text = "%d%%" % int(round(mv * 100.0))
+	_sfx_val.text = "%d%%" % int(round(sv * 100.0))
 	var q_names := {"auto": tr("Авто"), "low": tr("Низкое"), "high": tr("Высокое")}
-	Ui.set_button_text(_quality_btn, tr("Качество: %s") % q_names[String(GameState.get_setting("quality"))])
+	_set_tile_value(_quality_btn, q_names[String(GameState.get_setting("quality"))])
 	Ui.set_button_text(_privacy_btn, tr("Аналитика: вкл") if bool(GameState.get_setting("analytics")) else tr("Аналитика: выкл"))
 
 
@@ -838,12 +920,6 @@ func _refresh_setting_buttons() -> void:
 func _cycle_setting(key: String) -> void:
 	var cur: Variant = GameState.get_setting(key)
 	match key:
-		"music", "sfx":
-			var i := 0
-			for k in VOLUME_STEPS.size():
-				if absf(float(VOLUME_STEPS[k]) - float(cur)) < 0.05:
-					i = k
-			GameState.set_setting(key, VOLUME_STEPS[(i + 1) % VOLUME_STEPS.size()])
 		"lang":
 			GameState.set_setting(key, LANG_STEPS[(LANG_STEPS.find(String(cur)) + 1) % LANG_STEPS.size()])
 			get_tree().paused = false
