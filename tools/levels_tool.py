@@ -183,6 +183,7 @@ def simulate(level, player, rng, detail=False):
     queue = []   # {"arr", "pat_end", "steps"}
     served = lost = wrong = 0
     times = []
+    points = cap = 0   # очки смены: гость 100 (критик 200); в пределах цели скорости — всё, до 1,6× цели — 80%, медленнее — 60%; звёзды — 50/75/90% от максимума
     free_at = 0.0   # игрок занят до этого времени
     while spawned < total or queue:
         # события: приход, уход злым, готовность заказа
@@ -217,6 +218,7 @@ def simulate(level, player, rng, detail=False):
             elif level["pastry_menu"] and rng.random() < level["pastry"]:
                 steps += 1
             queue.append({"arr": t, "pat_end": t + patience, "steps": steps, "critic": critic})
+            cap += 200 if critic else 100
             spawned += 1
             next_spawn = t + rng.uniform(*interval)
         elif kind == "leave":
@@ -240,18 +242,15 @@ def simulate(level, player, rng, detail=False):
                 lost += 1
             else:
                 served += 1
-                times.append(t - c["arr"])
-    mask = 0
+                el = t - c["arr"]
+                times.append(el)
+                points += (200 if c.get("critic") else 100) * (1.0 if el <= level["speed"] else (0.8 if el <= level["speed"] * 1.6 else 0.6))
     acc = served / max(1, total)
     avg = sum(times) / len(times) if times else 0.0
     if detail:
         return (avg if avg > 0 else 99.0), acc
-    if served * 2 >= total:
-        mask |= 1
-        if acc >= level["accuracy"]:
-            mask |= 2
-        if avg > 0 and avg <= level["speed"] and served * 10 >= total * 6:
-            mask |= 4
+    stars = sum(1 for f in (0.5, 0.75, 0.9) if cap and points >= cap * f - 1e-9)
+    mask = (1 << stars) - 1
     return mask
 
 

@@ -137,6 +137,20 @@ func record_level(id: String, mask: int) -> int:
 
 # ---------------------------------------------------------------- звёзды и ремонт
 
+## Очки смены: каждый гость стоит 100 очков (критик 200); обслужил — 60…100 (быстрее — больше), ушёл или получил не то — 0, и потолок смены падает.
+## Звёзды — по доле очков от максимума смены.
+const POINTS_PER_GUEST := 100
+const STAR_FRACTIONS := [0.5, 0.75, 0.9]
+
+
+func stars_for_score(points: int, cap: int) -> int:
+	var n := 0
+	for f in STAR_FRACTIONS:
+		if cap > 0 and float(points) >= float(cap) * float(f) - 0.001:
+			n += 1
+	return n
+
+
 ## Всего заработано звёзд: уровни + бонусы.
 func stars_total() -> int:
 	var n := stars_bonus

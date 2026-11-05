@@ -52,11 +52,10 @@ func _build() -> void:
 	var cx := x + Ui.PAGE_PAD_X
 	var y := top + Ui.PAGE_PAD_TOP + Ui.PAGE_TITLE_H + Ui.PAGE_GAP
 	var mask := GameState.level_mask(String(level.get("id", "")))
-	var goals := [
-		tr("Пройти смену"),
-		tr("Точность не ниже %d%%") % int(round(float(level.get("accuracy", 0.8)) * 100.0)),
-		tr("Среднее время до %.1f с") % float(level.get("speed", 10.0)),
-	]
+	var cap := int(level.get("customers", 8)) * GameState.POINTS_PER_GUEST
+	var goals: Array[String] = []
+	for f in GameState.STAR_FRACTIONS:
+		goals.append(tr("Очки: %d") % int(ceil(float(cap) * float(f))))
 	for i in 3:
 		var star := Sprite2D.new()
 		star.texture = Fx.tex("bigstar")

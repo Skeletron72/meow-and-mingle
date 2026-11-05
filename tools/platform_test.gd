@@ -46,6 +46,7 @@ func _ready() -> void:
 	await _test_shelves_and_pastry()
 	await _test_recipe_book()
 	await _test_ad_points()
+	await _test_points()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1700,6 +1701,38 @@ func _test_ad_points() -> void:
 	await get_tree().process_frame
 	_check(not m._paused, "после подсказки смена продолжается")
 	GameState.suppress_popups = true
+	m.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+## Очки смены: пороги звёзд, очки за скорость, потолок падает при потерях.
+func _test_points() -> void:
+	_check(GameState.stars_for_score(449, 900) == 0 and GameState.stars_for_score(450, 900) == 1 and GameState.stars_for_score(675, 900) == 2 and GameState.stars_for_score(810, 900) == 3, "звёзды по очкам: 50% / 75% / 90% от максимума")
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = {"id": "pts", "name": "Очки", "customers": 3, "interval": [60.0, 60.0], "patience": 90.0, "queue": 3, "speed": 10.0, "accuracy": 0.8, "pool": ["espresso"], "pastry": 0.0}
+	add_child(m)
+	await get_tree().process_frame
+	_check(m._order_points(5.0, {"pot": 100}) == 100 and m._order_points(14.0, {"pot": 100}) == 80 and m._order_points(30.0, {"pot": 100}) == 60 and m._order_points(5.0, {"pot": 200}) == 200, "очки за заказ: в цель — 100, до 1,6× — 80, медленнее — 60, критик ×2")
+	m._queue.clear()
+	m._spawn_customer()
+	m._spawn_customer()
+	_check(m._points_cap == 200 and m._points == 0, "потолок смены растёт с приходом гостей (%d)" % m._points_cap)
+	var e: Dictionary = m._queue[0]
+	e["state"] = "wait"
+	e["t0"] = Time.get_ticks_msec()
+	m._update_front()
+	m._cup.fill(String(e["order"]["drink"]), "")
+	m._serve(e)
+	_check(m._points == 100 and m._points_lost == 0, "быстрый верный заказ — 100 очков")
+	var e2: Dictionary = m._queue[1]
+	e2["state"] = "wait"
+	m._update_front()
+	m._cup.fill("tea" if String(e2["order"]["drink"]) != "tea" else "espresso", "")
+	m._serve(e2)
+	_check(m._points == 100 and m._points_lost == 100, "ошибка: очков нет, 100 потеряно — максимум уже не взять (%d/%d)" % [m._points, m._points_lost])
 	m.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()

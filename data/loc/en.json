@@ -832,5 +832,9 @@
  "Открыть главу 4+": "Unlock chapter 4+",
  "+1000 монет": "+1000 coins",
  "Лог скопирован (%d КБ)": "Log copied (%d KB)",
- "Открыто: рецепты, добавки, улучшения": "Unlocked: recipes, toppings, upgrades"
+ "Открыто: рецепты, добавки, улучшения": "Unlocked: recipes, toppings, upgrades",
+ "%d/%d · очки %d": "%d/%d · score %d",
+ "из %d": "of %d",
+ "Упущено: %d": "Missed: %d",
+ "Очки: %d": "Score: %d"
 }

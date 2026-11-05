@@ -40,6 +40,9 @@ const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 �
 const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
 const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+var _points := 0            # очки смены
+var _points_cap := 0        # сколько очков можно было набрать у уже пришедших гостей
+var _points_lost := 0       # сколько из них потеряно (ушёл, не то налили)
 var _rescue_used := false   # страховка за ролик: раз за смену
 var _hint_used := false     # подсказка к загадке за ролик: раз за смену
 var _paused := false        # открыта шпаргалка рецептов: терпение, остывание и приход гостей стоят
@@ -370,6 +373,9 @@ func _begin_run() -> void:
 	_critic_seen = false
 	_riddle_seen = false
 	_rescue_used = false
+	_points = 0
+	_points_cap = 0
+	_points_lost = 0
 	_hint_used = false
 	_cozy_coins = 0.0
 	_cup_age = 0.0
@@ -560,7 +566,9 @@ func _spawn_customer() -> void:
 	_cat_layer.add_child(cat)
 	cat.setup(def)
 	cat.position = Vector2(CAT_SPAWN_X, CAT_POS.y)
-	var e := {"cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id, "pastry_mods": pastry_mods}, "patience": patience, "max": patience, "type": type, "slot": slot,
+	var pot := GameState.POINTS_PER_GUEST * (2 if type == "critic" else 1)
+	_points_cap += pot
+	var e := {"pot": pot, "cat": cat, "def": def, "order": {"drink": drink_id, "pastry": pastry_id, "pastry_mods": pastry_mods}, "patience": patience, "max": patience, "type": type, "slot": slot,
 		"state": "walk", "t0": 0, "bubble": null, "bar": null, "mood": 0, "tick": 0.0}
 	_queue.append(e)
 	cat.arrived.connect(_on_cat_arrived.bind(e))
@@ -743,6 +751,7 @@ func _tick_tutorial(delta: float) -> void:
 func _lose_patience(e: Dictionary) -> void:
 	e["state"] = "done"
 	_stats["left"] = int(_stats["left"]) + (2 if String(e.get("type", "normal")) == "critic" else 1)   # уход критика стоит двух заказов
+	_points_lost += int(e.get("pot", GameState.POINTS_PER_GUEST))
 	streak = 0
 	_free_bubble(e)
 	var cat: CatCustomer = e["cat"]
@@ -775,7 +784,7 @@ func _refresh_progress() -> void:
 	if tutorial or level.is_empty():
 		return
 	var handled := int(_stats["served"]) + int(_stats["left"])
-	_served_label.text = tr("Коты: %d/%d") % [handled, _total_customers()]
+	_served_label.text = tr("%d/%d · очки %d") % [handled, _total_customers(), _points]
 
 
 # ---------------------------------------------------------------- перетаскивание
@@ -873,6 +882,14 @@ func _discard_cup() -> void:
 	_tray.set_ready(false)
 	_glide(_tray, TRAY_HOME, 0.25)
 	_refresh_cup()
+
+
+## Очки за поданный заказ: потолок гостя (100, критик 200) × скорость: в пределах цели уровня — всё, до 1,6× цели — 80%, медленнее — 60%. В обучении очков нет.
+func _order_points(elapsed: float, e: Dictionary) -> int:
+	var pot := int(e.get("pot", GameState.POINTS_PER_GUEST))
+	var target := float(level.get("speed", 10.0))
+	var k := 1.0 if elapsed <= target else (0.8 if elapsed <= target * 1.6 else 0.6)
+	return int(round(pot * k))
 
 
 ## Сколько шагов в заказе: основа, молоко, сироп, добавки напитка + выпечка и её начинки.
@@ -1067,6 +1084,7 @@ func _serve(e: Dictionary = {}, skip_rescue := false) -> void:
 		streak += 1
 		_stats["served"] = int(_stats["served"]) + 1
 		(_stats["times"] as Array).append(elapsed)
+		_points += _order_points(elapsed, e)
 		if tutorial:
 			_tutorial_index += 1
 			if _tutorial_index == 1:   # первый поданный заказ: главная метрика входа (цель ≤ 20 с от запуска)
@@ -1075,6 +1093,7 @@ func _serve(e: Dictionary = {}, skip_rescue := false) -> void:
 	else:
 		streak = 0
 		_stats["wrong"] = int(_stats["wrong"]) + 1
+		_points_lost += int(e.get("pot", GameState.POINTS_PER_GUEST))
 	_cup.clear()
 	_cup_age = 0.0
 	_free_bubble(e)
@@ -1187,16 +1206,12 @@ func _finish_run() -> void:
 	for t in times:
 		avg += float(t)
 	avg = avg / float(times.size()) if not times.is_empty() else 0.0
-	var accuracy := float(served) / float(maxi(1, customers))   # ошибки и ушедшие коты — потерянные заказы
-	var mask := 0
-	if served * 2 >= customers:
-		mask |= 1
-		if accuracy >= float(level.get("accuracy", 0.8)):
-			mask |= 2
-		if avg > 0.0 and avg <= float(level.get("speed", 10.0)) and served * 10 >= customers * 6:
-			mask |= 4
+	var accuracy := float(served) / float(maxi(1, customers))   # ошибки и ушедшие коты — потерянные заказы (для аналитики)
+	var cap := _points_cap if _points_cap > 0 else customers * GameState.POINTS_PER_GUEST
+	var stars := GameState.stars_for_score(_points, cap)
+	var mask := (1 << stars) - 1   # k звёзд = первые k битов
 	var new_stars := GameState.record_level(String(level.get("id", "l1")), mask)
-	Platform.track("level_end", {"id": String(level.get("id", "l1")), "mask": mask, "acc": snappedf(accuracy, 0.01), "avg": snappedf(avg, 0.1), "served": served, "lost": int(_stats["left"]), "wrong": int(_stats["wrong"]), "len": int((Time.get_ticks_msec() - _run_started_msec) / 1000)})
+	Platform.track("level_end", {"id": String(level.get("id", "l1")), "mask": mask, "points": _points, "cap": cap, "acc": snappedf(accuracy, 0.01), "avg": snappedf(avg, 0.1), "served": served, "lost": int(_stats["left"]), "wrong": int(_stats["wrong"]), "len": int((Time.get_ticks_msec() - _run_started_msec) / 1000)})
 	if mask & 1 != 0:
 		Daily.report("level")
 		if int(_stats["left"]) == 0 and int(_stats["wrong"]) == 0:
@@ -1207,10 +1222,10 @@ func _finish_run() -> void:
 	if bonus > 0:
 		GameState.add_coins(bonus)
 		shift_earned += bonus
-	_show_results(mask, bonus, accuracy, avg)
+	_show_results(mask, bonus, cap)
 
 
-func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
+func _show_results(mask: int, bonus: int, cap: int) -> void:
 	_result = Node2D.new()
 	_result.z_index = 150
 	add_child(_result)
@@ -1218,46 +1233,78 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	dim.size = Vector2(360, 640)
 	dim.color = Color(0, 0, 0, 0.55)
 	_result.add_child(dim)
-	# рамка 336 px: орнаменты 20 px по углам, бортик 22 px снизу; содержимое — в колонке 268 px по центру
 	var x := 12.0
 	var w := 336.0
 	var cx := x + Ui.PAGE_PAD_X
 	var cw := w - 2.0 * Ui.PAGE_PAD_X
-	var top := 52.0
-	var h := 572.0   # + строки: уют, кнопка «×2 за рекламу» / «Помощь кота»
+	var has_cozy := GameState.cozy_score() > 0
+	var h := 506.0 + (28.0 if has_cozy else 0.0)
+	var top := floorf((640.0 - h) / 2.0 / 2.0) * 2.0
 	Ui.panel(Rect2(x, top, w, h), Ui.UI_WOOD, _result)
-	var done := mask & 1 != 0
+	var stars := (mask & 1) + ((mask >> 1) & 1) + ((mask >> 2) & 1)
 	var y := top + Ui.PAGE_PAD_TOP
-	Ui.label("Смена пройдена!" if done else "Смена не удалась", Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER)
+	Ui.label("Смена пройдена!" if stars > 0 else "Смена не удалась", Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER)
 	y += Ui.LINE_H
 	Ui.label(String(level.get("name", "")), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.25), _result, HORIZONTAL_ALIGNMENT_CENTER)
-	y += Ui.LINE_H + 12.0
-	var captions := ["Смена", "Точность", "Скорость"]
-	var values := ["", "%d%%" % int(round(accuracy * 100.0)), "%.1f с" % avg]
-	var star_y := y + 18.0
+	y += Ui.LINE_H + 8.0
+	# очки: крупное число, «из N», шкала с тремя звёздами на порогах; серая часть шкалы — очки, которые уже не набрать (ушёл гость, не то налили)
+	var score := Ui.label("0", Rect2(cx, y, cw, 56.0), Ui.FONT_SIZE_BIG, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER)
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void: score.text = str(int(round(v))), 0.0, float(_points), 0.8)
+	y += 56.0
+	Ui.label(tr("из %d") % cap, Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	y += Ui.LINE_H + 22.0
+	var bar := Rect2(cx, y, cw, 24.0)
+	var back := ColorRect.new()
+	back.position = bar.position - Vector2(4, 4)
+	back.size = bar.size + Vector2(8, 8)
+	back.color = Ui.INK
+	_result.add_child(back)
+	var inner := ColorRect.new()
+	inner.position = bar.position
+	inner.size = bar.size
+	inner.color = Color("6b5640")
+	_result.add_child(inner)
+	var ceiling := clampf(float(cap - _points_lost) / float(maxi(1, cap)), 0.0, 1.0)
+	if ceiling < 1.0:   # потерянное: тёмная штриховая часть справа от потолка
+		var lost := ColorRect.new()
+		lost.position = Vector2(bar.position.x + snappedf(bar.size.x * ceiling, 4.0), bar.position.y)
+		lost.size = Vector2(bar.end.x - lost.position.x, bar.size.y)
+		lost.color = Color("3a2a22")
+		_result.add_child(lost)
+	var fill := ColorRect.new()
+	fill.position = bar.position
+	fill.size = Vector2(0, bar.size.y)
+	fill.color = Color("ffd640")
+	_result.add_child(fill)
+	var fw := snappedf(bar.size.x * clampf(float(_points) / float(maxi(1, cap)), 0.0, 1.0), 4.0)
+	fill.create_tween().tween_property(fill, "size:x", fw, 0.8)
 	for i in 3:
-		var sx := cx + cw / 6.0 + i * cw / 3.0   # центры трёх колонок
-		var star := _sprite(Ui.icon("star" if (mask >> i) & 1 == 1 else "star_off"), Vector2(sx, star_y), 4.0, _result)
-		Ui.label(captions[i], Rect2(sx - cw / 6.0, y + 44.0, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-		Ui.label(values[i], Rect2(sx - cw / 6.0, y + 44.0 + Ui.LINE_H, cw / 3.0, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-		if (mask >> i) & 1 == 1:
+		var fx_: float = float(GameState.STAR_FRACTIONS[i])
+		var px := bar.position.x + snappedf(bar.size.x * fx_, 2.0)
+		var tick := ColorRect.new()
+		tick.position = Vector2(px - 2.0, bar.position.y - 4.0)
+		tick.size = Vector2(4, bar.size.y + 8.0)
+		tick.color = Ui.INK
+		_result.add_child(tick)
+		var lit := (mask >> i) & 1 == 1
+		var star := _sprite(Ui.icon("star" if lit else "star_off"), Vector2(px, bar.position.y + bar.size.y / 2.0), 2.0, _result)
+		star.z_index = 1
+		if lit:
 			star.visible = false
-			var tw := star.create_tween()
-			tw.tween_interval(0.25 + i * 0.3)
-			tw.tween_callback(func() -> void:
+			var st := star.create_tween()
+			st.tween_interval(0.7 + i * 0.3)
+			st.tween_callback(func() -> void:
 				Audio.sfx("star", 0.0)
 				star.visible = true
 				Fx.hop(star, 12.0, 0.3)
-				Fx.burst(_result, Vector2(sx, star_y), "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))
-	y += 44.0 + Ui.LINE_H * 2.0 + 8.0
-	var need := "Цель: точность %d%%, до %d с" % [int(round(float(level.get("accuracy", 0.8)) * 100.0)), int(level.get("speed", 10.0))]
-	Ui.label(need, Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	y += Ui.LINE_H + 6.0
-	var lines := "Подано: %d из %d\nОшибок: %d, ушло злыми: %d" % [int(_stats["served"]), _total_customers(), int(_stats["wrong"]), int(_stats["left"])]
-	Ui.label(lines, Rect2(cx, y, cw, Ui.LINE_H * 2.0), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	y += Ui.LINE_H * 2.0 + 4.0
+				Fx.burst(_result, star.position, "sparkle", Color("fff3b0"), 6, 120.0, 60.0, 0.6, 1.0))
+	y += bar.size.y + 16.0
+	if _points_lost > 0:
+		Ui.label(tr("Упущено: %d") % _points_lost, Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.3), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	y += Ui.LINE_H
 	Ui.label(tr("Заработано: %d") % shift_earned + ("  (+%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
-	if GameState.cozy_score() > 0:   # замыкаем петлю «купил мебель → увидел прирост»: сколько чаевых принёс Уют
+	if has_cozy:   # замыкаем петлю «купил мебель → увидел прирост»: сколько чаевых принёс Уют
 		y += Ui.LINE_H
 		var heart := _sprite(Ui.icon("heart"), Vector2(cx + 16.0, y + Ui.LINE_H / 2.0), 2.0, _result)
 		heart.z_index = 1
@@ -1267,10 +1314,10 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_leave_results)
 	# реклама за награду: после смены — монеты ×2; после проваленной — бустер «Помощь кота»
 	var extra_y := by - 2.0 * (Ui.BTN_H + Ui.BTN_GAP)
-	if done and shift_earned > 0 and Shop.ad_ready("shift_double"):
+	if stars > 0 and shift_earned > 0 and Shop.ad_ready("shift_double"):
 		var b := Ui.button(tr("Заработок ×2 (реклама)"), Rect2(cx, extra_y, cw, Ui.BTN_H), "coin", _result)
 		b.pressed.connect(_double_earnings.bind(b))
-	elif not done and Shop.ad_ready("help"):
+	elif stars == 0 and Shop.ad_ready("help"):
 		var b2 := Ui.button(tr("Помощь кота (реклама)"), Rect2(cx, extra_y, cw, Ui.BTN_H), "cat", _result)
 		b2.pressed.connect(_help_by_ad.bind(b2))
 

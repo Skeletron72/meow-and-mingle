@@ -214,6 +214,9 @@ func _run_all(lang: String) -> void:
 	rbook.queue_free()
 	m2.queue_free()
 	m._stats["served"] = 9
+	m._points = 640
+	m._points_cap = 900
+	m._points_lost = 200
 	m.shift_earned = 123
 	m._finish_run()
 	await get_tree().create_timer(0.3).timeout
