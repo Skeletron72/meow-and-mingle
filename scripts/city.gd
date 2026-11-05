@@ -491,6 +491,7 @@ func _spawn_npcs() -> void:
 		_actors.add_child(cat)
 		var avail := GameState.cats_available()
 		cat.setup(_nav, avail[i % avail.size()])
+		cat.guest = true   # гости не заходят за прилавок
 		cat.position = WorldNav.feet_at(_nav.random_cell(i % 2 == 0))
 		_npcs.append({"cat": cat, "timer": randf_range(0.5, 4.0)})
 
@@ -1671,7 +1672,11 @@ func _on_repair_done(id: String) -> void:
 	var effects: Array = GameState.repair_def(id).get("effects", [])
 	_refresh_sign()
 	_refresh_terrace()
-	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) in ["furniture", "style"]):
+	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) == "unlock" and String(e["key"]).begins_with("up:")):
+		(_spaces[SPACE_UP] as InteriorSpace).refresh_rewards()   # награда для жилой зоны наверху
+		_apply_clip_materials()
+		_set_space(_space, Vector2i(-1, -1))
+	if effects.any(func(e: Dictionary) -> bool: return String(e["kind"]) in ["furniture", "style", "counter"]):
 		_room.set_layout(GameState.layout)
 		_room.queue_redraw()
 		_apply_clip_materials()   # новая мебель прячется за фасадом, пока кот снаружи

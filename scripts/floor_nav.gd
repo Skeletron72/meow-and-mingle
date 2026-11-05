@@ -63,7 +63,7 @@ func nearest_free_cell(c: Vector2i) -> Vector2i:
 
 
 ## Путь по центрам клеток (пусто — дойти нельзя). `to` — любая точка: берётся ближайшая проходимая клетка этажа.
-func find_path(from_feet: Vector2, to: Vector2) -> PackedVector2Array:
+func find_path(from_feet: Vector2, to: Vector2, _guest := false) -> PackedVector2Array:
 	var a := nearest_free_cell(cell_of_feet(from_feet))
 	var tc := Vector2i(clampi(floori((to.x - origin.x) / T), 0, InteriorSpace.COLS - 1), clampi(floori((to.y - origin.y) / T), 0, InteriorSpace.ROWS - 1))
 	var b := nearest_free_cell(tc)

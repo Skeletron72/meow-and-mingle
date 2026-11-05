@@ -49,7 +49,7 @@ def main():
             elif k == "unlock":
                 kind, _, name = e["key"].partition(":")
                 terrace = {t["id"] for t in load("terrace.json")}
-                ok = {"cat": cats, "drink": drinks, "pastry": pastries, "source": {"syrup", "spice", "cream", "ice"}, "style": {"loft", "japan", "winter"}, "terrace": terrace}.get(kind)
+                ok = {"cat": cats, "drink": drinks, "pastry": pastries, "source": {"syrup", "spice", "cream", "ice"}, "style": {"loft", "japan", "winter"}, "terrace": terrace, "up": {"rug", "plant", "table"}}.get(kind)
                 if ok is None or name not in ok:
                     errors.append(f"задача {r['id']}: неизвестное открытие {e['key']}")
     for lv in levels:

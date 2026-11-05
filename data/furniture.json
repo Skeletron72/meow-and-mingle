@@ -196,7 +196,8 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "rug",
@@ -470,8 +471,7 @@
 		"base": "counter",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 4,
-		"hidden": true
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_loft",
@@ -491,7 +491,8 @@
 		"base": "ucounter",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "rug_loft",
@@ -773,8 +774,7 @@
 		"base": "counter",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 4,
-		"hidden": true
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_japan",
@@ -794,7 +794,8 @@
 		"base": "ucounter",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "rug_japan",
@@ -1076,8 +1077,7 @@
 		"base": "counter",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 4,
-		"hidden": true
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_winter",
@@ -1097,7 +1097,8 @@
 		"base": "ucounter",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 4
+		"cozy": 4,
+		"hidden": true
 	},
 	{
 		"id": "rug_winter",
@@ -1239,7 +1240,8 @@
 		"style": "cozy",
 		"cozy": 15,
 		"base": "ucounter",
-		"tint": "#ffd27a"
+		"tint": "#ffd27a",
+		"hidden": true
 	},
 	{
 		"id": "plant_monstera",
@@ -1325,5 +1327,46 @@
 		"base": "board",
 		"tint": "#ffe08a",
 		"ad_cost": 2
+	},
+	{
+		"id": "counter_mama",
+		"name": "Мамина",
+		"price": 900,
+		"slot": "floor",
+		"rect": [
+			17,
+			112,
+			46,
+			16
+		],
+		"tiles": [
+			3,
+			1
+		],
+		"style": "cozy",
+		"cozy": 6,
+		"base": "counter",
+		"tint": "#f4c89a",
+		"hidden": true
+	},
+	{
+		"id": "counter_gold",
+		"name": "Люкс-бар",
+		"price": 3500,
+		"slot": "floor",
+		"rect": [
+			17,
+			112,
+			46,
+			16
+		],
+		"tiles": [
+			3,
+			1
+		],
+		"style": "cozy",
+		"cozy": 15,
+		"base": "counter",
+		"tint": "#ffd27a"
 	}
 ]

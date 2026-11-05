@@ -129,9 +129,19 @@ func interior_cells() -> Rect2i:
 
 
 ## Лапки у стойки (локальные клетки стойки -> мир).
+## Лапки за прилавком (место бариста), колонка col — локальная клетка зала.
 func counter_feet(col: int) -> Vector2:
-	var f := _room_ref.counter_front() if _room_ref != null else Rect2i(1, 2, 3, 1)
+	var f := _room_ref.counter_behind() if _room_ref != null else Rect2i(0, 1, 3, 1)
 	return feet_at(_room_cell + Vector2i(clampi(col, f.position.x, f.end.x - 1), f.position.y))
+
+
+## Клетки мира, куда гостям нельзя (за прилавком).
+func guest_blocked() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if _room_ref != null:
+		for c in _room_ref.staff_only_cells():
+			out.append(_room_cell + c)
+	return out
 
 
 func is_blocked(feet: Vector2) -> bool:
@@ -142,12 +152,19 @@ func is_blocked(feet: Vector2) -> bool:
 
 
 ## Путь по центрам клеток (пусто — дойти нельзя). `to` — любая точка: берётся ближайшая проходимая клетка.
-func find_path(from_feet: Vector2, to: Vector2) -> PackedVector2Array:
+## guest — путь гостя: за прилавок (место бариста) гостям нельзя.
+func find_path(from_feet: Vector2, to: Vector2, guest := false) -> PackedVector2Array:
+	var shut: Array[Vector2i] = []
+	if guest:
+		for c in guest_blocked():
+			if _astar.is_in_boundsv(c) and not _astar.is_point_solid(c):
+				_astar.set_point_solid(c, true)
+				shut.append(c)
 	var a := _nearest_free(cell_of_feet(from_feet))
 	var b := _nearest_free(cell_at(to))
-	if a.x < 0 or b.x < 0:
-		return PackedVector2Array()
-	var pts := _astar.get_point_path(a, b)
+	var pts := PackedVector2Array() if a.x < 0 or b.x < 0 else _astar.get_point_path(a, b)
+	for c in shut:
+		_astar.set_point_solid(c, false)
 	if pts.is_empty():
 		return pts
 	if pts.size() > 1:
@@ -181,7 +198,7 @@ func _nearest_free(c: Vector2i) -> Vector2i:
 func random_cell(inside: bool) -> Vector2i:
 	for _i in 60:
 		var c := Vector2i(randi_range(0, _cols - 1), randi_range(0, _rows - 1))
-		if is_walkable(c) and is_interior(c) == inside and not (inside and CafeRoom.SPAWN_CELLS.has_point(c - _room_cell)):
+		if is_walkable(c) and is_interior(c) == inside and not (inside and CafeRoom.SPAWN_CELLS.has_point(c - _room_cell)) and not (c in guest_blocked()):
 			return c
 	return _room_cell + CafeRoom.SPAWN_CELL if inside else Vector2i(2, 12)
 

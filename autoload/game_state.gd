@@ -9,7 +9,7 @@ signal repair_done(id: String)   # задача ремонта выполнен�
 const SAVE_PATH := "user://save.json"
 const SAVE_BAK := "user://save.bak"
 const SAVE_TMP := "user://save.tmp"
-const SAVE_VERSION := 6
+const SAVE_VERSION := 7
 ## Стадии вступления (v5): игра раньше истории. 0 кадр-заставка, 1 обучающая смена (3 заказа), 2 ставни (ремонт за 1★),
 ## 3 расчистка зала (ремонт за 2★), 4 — не используется (был «первый магазин»), 5 вступление пройдено.
 const INTRO_DONE := 5
@@ -52,6 +52,7 @@ var settings: Dictionary = SETTINGS_DEFAULT.duplicate()
 var install_id := ""               # случайный анонимный идентификатор установки (аналитика)
 var first_run_unix := 0
 var suppress_popups := false       # тесты и скриншоты: окна при входе (подарок, офлайн-доход) не показываются
+var _layout_fix_pending := false
 var _pending_counter := ""         # большая стойка из старого сохранения, которая встанет на место прилавка
 var away_seconds := 0              # сколько игрока не было до этого запуска (по last_visit_unix из сохранения)
 
@@ -313,7 +314,7 @@ func swap_counter(new_id: String) -> bool:
 	for it in moved:
 		var oid := String(it["id"])
 		var spot2 := room.find_free_spot(oid)
-		if spot2.x >= 0 and (not CafeRoom.is_kitchen(oid) or spot2.y <= 1):
+		if spot2.x >= 0 and (not CafeRoom.is_kitchen(oid) or spot2.y <= 2):
 			layout.append({"id": oid, "c": spot2.x, "r": spot2.y, "flip": bool(it.get("flip", false))})
 		else:
 			coins += int(Data.furniture[oid].get("price", 0))
@@ -749,8 +750,7 @@ func load_game() -> void:
 	if _pending_counter != "" and not swap_counter(_pending_counter):
 		coins += int(Data.furniture[_pending_counter].get("price", 0))
 	_pending_counter = ""
-	if bool(data.get("layout_fix", false)):
-		_fix_auto_layout()
+	_layout_fix_pending = bool(data.get("layout_fix", false))
 	TimeOfDay.hour = clampf(float(data.get("hour", 9.0)), 0.0, 24.0)
 	intro_stage = clampi(int(data.get("intro_stage", INTRO_DONE)), 0, INTRO_DONE)
 	intro_cleaned = data.get("intro_cleaned", {})
@@ -776,6 +776,9 @@ func load_game() -> void:
 	first_run_unix = int(data.get("first_run_unix", first_run_unix))
 	Weather.set_mode(clampi(int(data.get("weather_mode", Weather.AUTO)), Weather.AUTO, Weather.Kind.SNOW))
 	sync_repairs()
+	if _layout_fix_pending:   # после чтения ремонтов: им нужно знать, какие награды уже получены
+		_layout_fix_pending = false
+		_fix_auto_layout()
 	_apply_settings_side_effects()
 
 
@@ -829,9 +832,9 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["intro_stage"] = stage
 		data["repairs"] = done_repairs
 		v = 5
-	if v < 6:
-		data["layout_fix"] = true   # v6: прилавок стал мебелью; кухню, поставленную наградами посреди зала, и двойную доску меню поправим после чтения раскладки
-		v = 6
+	if v < 7:
+		data["layout_fix"] = true   # v6–v7: прилавок стал мебелью с местом бариста; кухню из зала, двойную доску меню и награды жилой зоны поправим после чтения
+		v = 7
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data
@@ -860,34 +863,35 @@ func _fix_auto_layout() -> void:
 			coins += int(Data.furniture["board"]["price"])
 			boards -= 1
 		k -= 1
-	# большая стойка раньше стояла второй стойкой посреди зала: теперь она и есть прилавок (простой прилавок убираем)
-	var u := -1
-	for k2 in layout.size():
-		if CafeRoom.is_counter(String(layout[k2]["id"])) and String(Data.furniture[String(layout[k2]["id"])].get("base", layout[k2]["id"])) == "ucounter":
-			u = k2
-			break
-	if u >= 0:
-		var uid := String(layout[u]["id"])
-		layout.remove_at(u)
-		var plain := -1
-		for k4 in layout.size():
-			if CafeRoom.is_counter(String(layout[k4]["id"])):
-				plain = k4
-		if plain < 0:
-			layout.insert(0, {"id": CafeRoom.COUNTER_ID, "c": CafeRoom.DEFAULT_COUNTER.x, "r": CafeRoom.DEFAULT_COUNTER.y, "flip": false})
-		if not swap_counter(uid):
-			coins += int(Data.furniture[uid].get("price", 0))
+	# награды для жилой зоны наверху (ковёр, цветы, столик) раньше вставали в зал: переносим их наверх
+	for pair in [["rug2", "up:rug", "rug"], ["plant2", "up:plant", "plant"], ["table2", "up:table", "table_small"]]:
+		if not has_repair(String(pair[0])):
+			continue
+		if not (String(pair[1]) in unlocks):
+			unlocks.append(String(pair[1]))
+		var same: Array[int] = []
+		for k5 in layout.size():
+			if String(layout[k5]["id"]) == String(pair[2]):
+				same.append(k5)
+		if same.size() >= 2:
+			layout.remove_at(same[same.size() - 1])
 	var room := CafeRoom.new()
 	room.layout = layout
-	for i in layout.size():
+	for i in layout.size():   # кухня, оказавшаяся в зале или вплотную за прилавком, — к задней стене / в ряд с прилавком
 		var id := String(layout[i]["id"])
-		if not CafeRoom.is_kitchen(id) or int(layout[i]["r"]) <= 1:
+		if not CafeRoom.is_kitchen(id):
+			continue
+		var back := CafeRoom.base_id(id) in CafeRoom.BACK_WALL
+		if (back and int(layout[i]["r"]) == 0) or (not back and int(layout[i]["r"]) <= room.counter_cells().position.y):
 			continue
 		var spot := room.find_free_spot(id, i)
-		if spot.x >= 0 and spot.y <= 1:
+		if spot.x >= 0 and (spot.y == 0 or (not back and spot.y == room.counter_cells().position.y)):
 			layout[i]["c"] = spot.x
 			layout[i]["r"] = spot.y
 	room.free()
+
+
+const U_TO_SKIN := {"ucounter": "counter_mama", "ucounter_loft": "counter_loft", "ucounter_japan": "counter_japan", "ucounter_winter": "counter_winter", "ucounter_gold": "counter_gold"}
 
 
 ## Оставляет только корректную мебель: известные id, клетки внутри зала, без наложений и без перекрытия прохода.
@@ -898,6 +902,7 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 	var room := CafeRoom.new()  # только для проверки размещения, в дерево не добавляется
 	var out: Array[Dictionary] = []
 	room.layout = out
+	var counter_item := {}
 	for item in raw:
 		if not (item is Dictionary) or not Data.furniture.has(String(item.get("id", ""))):
 			continue
@@ -907,27 +912,31 @@ func _sanitize_layout(raw: Variant) -> Array[Dictionary]:
 			"r": int(item.get("r", -1)),
 			"flip": bool(item.get("flip", false)),
 		}
-		if room.check_place(fixed["id"], fixed["c"], fixed["r"]) == "":
+		var fid := String(fixed["id"])
+		if CafeRoom.is_counter(fid):   # прилавок ставим последним: его ряды (бариста и гости) проверяются по уже стоящей мебели
+			if counter_item.is_empty():
+				counter_item = fixed
+			continue
+		if U_TO_SKIN.has(fid):   # большая П-образная стойка была второй стойкой в зале — теперь это вид прилавка
+			_pending_counter = String(U_TO_SKIN[fid])
+			continue
+		if room.check_place(fid, fixed["c"], fixed["r"]) == "":
 			out.append(fixed)
-		elif CafeRoom.is_counter(fixed["id"]) and fixed["id"] != CafeRoom.COUNTER_ID:
-			_pending_counter = fixed["id"]   # большая стойка не на месте прилавка — после чтения она заменит прилавок
-		elif not CafeRoom.is_wall(fixed["id"]) and CafeRoom.cells(fixed["id"], fixed["c"], fixed["r"]).intersects(CafeRoom.STAFF_CELLS):
-			coins += int(Data.furniture[fixed["id"]].get("price", 0))   # стояла там, где теперь служебка: вернули деньги
-	# прилавок обязателен: нет в сохранении (старые игры, ошибка) — ставим на подходящее место, при нехватке места убираем мебель с участка и возвращаем её цену
-	var has_counter := false
-	for it in out:
-		if CafeRoom.is_counter(String(it["id"])):
-			has_counter = true
-	if not has_counter:
-		var spot := room.find_counter_spot()
-		if spot.x < 0:
-			spot = CafeRoom.DEFAULT_COUNTER
-			var zone := Rect2i(spot.x, spot.y, 3, 2)
-			for k in range(out.size() - 1, -1, -1):
-				var oid := String(out[k]["id"])
-				if CafeRoom.is_solid(oid) and CafeRoom.cells(oid, int(out[k]["c"]), int(out[k]["r"])).intersects(zone):
-					coins += int(Data.furniture[oid].get("price", 0))
-					out.remove_at(k)
-		out.insert(0, {"id": CafeRoom.COUNTER_ID, "c": spot.x, "r": spot.y, "flip": false})
+		else:
+			coins += int(Data.furniture[fid].get("price", 0))   # не помещается (служебка, наложение, старые правила): вернули деньги
+	# прилавок обязателен: на месте, иначе на подходящем месте, иначе освобождаем участок (мебель — в монеты)
+	var cid := String(counter_item.get("id", CafeRoom.COUNTER_ID))
+	var spot := Vector2i(int(counter_item.get("c", -1)), int(counter_item.get("r", -1)))
+	if counter_item.is_empty() or room.check_place(cid, spot.x, spot.y) != "":
+		spot = room.find_counter_spot(cid)
+	if spot.x < 0:
+		spot = CafeRoom.DEFAULT_COUNTER
+		var zone := Rect2i(spot.x, spot.y - 1, 3, 3)
+		for k in range(out.size() - 1, -1, -1):
+			var oid := String(out[k]["id"])
+			if CafeRoom.is_solid(oid) and CafeRoom.cells(oid, int(out[k]["c"]), int(out[k]["r"])).intersects(zone):
+				coins += int(Data.furniture[oid].get("price", 0))
+				out.remove_at(k)
+	out.insert(0, {"id": cid, "c": spot.x, "r": spot.y, "flip": bool(counter_item.get("flip", false))})
 	room.free()
 	return out

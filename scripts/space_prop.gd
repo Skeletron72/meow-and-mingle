@@ -19,7 +19,7 @@ var glow_lamp: Sprite2D
 
 
 func is_solid() -> bool:
-	return kind_id != "catbed"
+	return kind_id != "catbed" and not (kind_id.begins_with("sheet:") and CafeRoom.is_flat(kind_id.trim_prefix("sheet:")))
 
 
 func _draw() -> void:

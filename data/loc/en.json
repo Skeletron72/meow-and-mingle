@@ -843,5 +843,7 @@
  "Прилавок нужен кафе: его можно только двигать": "The counter is required: you can only move it",
  "Перед прилавком нужен проход": "Keep the space in front of the counter free",
  "Нет места для стойки": "No room for the bar",
- "Прилавок заменён": "Counter replaced"
+ "Прилавок заменён": "Counter replaced",
+ "Мамина": "Mom's",
+ "За прилавком нужно место для бариста": "The barista needs room behind the counter"
 }

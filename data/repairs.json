@@ -107,7 +107,7 @@
     "id": "plant",
     "at": [
      5,
-     2
+     3
     ]
    }
   ],
@@ -129,8 +129,8 @@
     "kind": "furniture",
     "id": "rug",
     "at": [
-     4,
-     3
+     0,
+     4
     ]
    }
   ],
@@ -203,7 +203,7 @@
     "id": "table_big",
     "at": [
      2,
-     3
+     4
     ]
    }
   ],
@@ -226,7 +226,7 @@
     "id": "bowl",
     "at": [
      4,
-     2
+     3
     ]
    },
    {
@@ -359,7 +359,7 @@
     "id": "case",
     "at": [
      4,
-     1
+     2
     ]
    },
    {
@@ -472,7 +472,7 @@
   "effects": [
    {
     "kind": "counter",
-    "id": "ucounter"
+    "id": "counter_mama"
    }
   ],
   "blurb": "Стойка, как у мамы",
@@ -585,12 +585,8 @@
   "after": 24,
   "effects": [
    {
-    "kind": "furniture",
-    "id": "rug",
-    "at": [
-     6,
-     5
-    ]
+    "kind": "unlock",
+    "key": "up:rug"
    }
   ],
   "blurb": "Уют в жилой зоне",
@@ -608,12 +604,8 @@
   "after": 25,
   "effects": [
    {
-    "kind": "furniture",
-    "id": "plant",
-    "at": [
-     9,
-     4
-    ]
+    "kind": "unlock",
+    "key": "up:plant"
    }
   ],
   "blurb": "Зелень в доме",
@@ -631,12 +623,8 @@
   "after": 26,
   "effects": [
    {
-    "kind": "furniture",
-    "id": "table_small",
-    "at": [
-     0,
-     3
-    ]
+    "kind": "unlock",
+    "key": "up:table"
    }
   ],
   "blurb": "Куда класть письма",
@@ -1194,7 +1182,7 @@
   "effects": [
    {
     "kind": "counter",
-    "id": "ucounter_loft"
+    "id": "counter_loft"
    },
    {
     "kind": "coins",

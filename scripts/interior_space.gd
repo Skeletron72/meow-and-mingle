@@ -64,6 +64,7 @@ func _build_up() -> void:
 	]:
 		_add(d)
 	_stairs = _add({"k": "stairs_down", "c": 7, "r": 0, "w": 3, "h": 2})
+	refresh_rewards()
 	var bed := props[2]
 	portals = [
 		{"id": "stairs_down", "hit": Rect2(ORIGIN.x + 7 * T, ORIGIN.y - 28, 3 * T, 2 * T + 28), "stand": STAIRS_STAND, "to": "cafe"},
@@ -126,6 +127,23 @@ func walk_mask() -> PackedByteArray:
 				for x in range(p.cell.x, p.cell.x + p.cells.x):
 					m[y * COLS + x] = 0
 	return m
+
+
+## Награды ремонта для жилой зоны (ковёр, цветы, столик для писем): ставятся на свои места наверху, когда открыты (`up:*` в unlocks).
+const REWARDS := {"up:rug": {"k": "sheet:rug", "c": 3, "r": 3, "w": 2}, "up:plant": {"k": "sheet:plant", "c": 6, "r": 0}, "up:table": {"k": "sheet:table_small", "c": 6, "r": 2}}
+
+
+func refresh_rewards() -> void:
+	for key in REWARDS:
+		if not GameState.has_unlock(String(key)):
+			continue
+		var def: Dictionary = REWARDS[key]
+		var have := false
+		for p in props:
+			if p.kind_id == String(def["k"]) and p.cell == Vector2i(int(def["c"]), int(def["r"])):
+				have = true
+		if not have:
+			_add(def)
 
 
 ## Портал, по которому попали тапом (комнатные координаты), или пустой словарь.

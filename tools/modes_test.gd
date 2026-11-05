@@ -311,7 +311,7 @@ func _test_world_nav() -> void:
 	_check(not nav.is_walkable(Vector2i(rc.x, front)) and not nav.is_walkable(Vector2i(rc.x + 9, front)), "витрина кафе не проходима, кроме проёма")
 	_check(nav.is_walkable(Vector2i(ex, front)) and nav.is_walkable(Vector2i(ex + 1, front)), "проём входа проходим")
 	_check(not nav.is_walkable(Vector2i(10, 26)), "дорога не проходима")
-	_check(not nav.is_walkable(rc + Vector2i(3, 2)), "стол в зале закрывает клетку")
+	_check(not nav.is_walkable(rc + Vector2i(2, 4)), "стол в зале закрывает клетку")
 	_check(not nav.is_walkable(Vector2i(7, 22)), "торговый автомат закрывает клетку на тротуаре")
 	# за дома: задний двор и проходы между зданиями
 	var yard := Vector2i(12, 6)
@@ -681,7 +681,7 @@ func _test_decorate_logic() -> void:
 	scene._dragging = true
 	scene._drag_start = Vector2i(int(GameState.layout[idx]["c"]), int(GameState.layout[idx]["r"]))
 	scene._drag_off = Vector2i.ZERO
-	scene._drag_to(CafeRoom.cell_pos(3, 2) + Vector2(10, 10))  # в клетку стола
+	scene._drag_to(CafeRoom.cell_pos(2, 4) + Vector2(10, 10))  # в клетку стола
 	_check(scene._drag_err != "", "перетаскивание в стол отклонено")
 	scene._drop()
 	_check(Vector2i(int(GameState.layout[idx]["c"]), int(GameState.layout[idx]["r"])) == scene._drag_start, "позиция вернулась")
@@ -710,31 +710,31 @@ func _test_decorate_input() -> void:
 		if GameState.layout[i]["id"] == "table_big":
 			table_idx = i
 	var pos: Vector2 = d.ROOM_POS
-	_click(pos + Vector2(128, 190), true)   # стол: клетки (3..4, 2..3)
+	_click(pos + Vector2(96, 250), true)   # стол: клетки (2..3, 4..5)
 	_check(d._sel == table_idx and d._dragging, "нажатие на стол выбирает его")
-	_move_to(pos + Vector2(128, 222))
-	_click(pos + Vector2(128, 222), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 3 and int(GameState.layout[table_idx]["r"]) == 3, "стол перетащен ровно на клетку вниз")
+	_move_to(pos + Vector2(32, 250))
+	_click(pos + Vector2(32, 250), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 0 and int(GameState.layout[table_idx]["r"]) == 4, "стол перетащен ровно на 2 клетки влево")
 	# в передний ряд (витрина) — нельзя: стол 2×2 в рядах 5–6 не поместится
-	_click(pos + Vector2(128, 222), true)
-	_move_to(pos + Vector2(128, 300))
-	_click(pos + Vector2(128, 300), false)
-	_check(int(GameState.layout[table_idx]["r"]) == 3, "в передний ряд (витрина) мебель не ставится")
-	# в занятую клетку (к пуфику (5,3)) — отклоняется
-	_click(pos + Vector2(128, 222), true)
-	_move_to(pos + Vector2(192, 222))
-	_click(pos + Vector2(192, 222), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 3, "перетаскивание на пуфик отклонено")
-	# перед прилавком (там встаёт кот) — нельзя
-	_click(pos + Vector2(128, 222), true)
-	_move_to(pos + Vector2(64, 190))
-	_click(pos + Vector2(64, 190), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 3, "перед прилавком мебель не ставится")
+	_click(pos + Vector2(32, 250), true)
+	_move_to(pos + Vector2(32, 282))
+	_click(pos + Vector2(32, 282), false)
+	_check(int(GameState.layout[table_idx]["r"]) == 4, "в передний ряд (витрина) мебель не ставится")
+	# в занятую клетку (к пуфику (5,4)) — отклоняется
+	_click(pos + Vector2(32, 250), true)
+	_move_to(pos + Vector2(160, 250))
+	_click(pos + Vector2(160, 250), false)
+	_check(int(GameState.layout[table_idx]["c"]) == 0, "перетаскивание на пуфик отклонено")
+	# перед прилавком (там гости) — нельзя
+	_click(pos + Vector2(32, 250), true)
+	_move_to(pos + Vector2(32, 218))
+	_click(pos + Vector2(32, 218), false)
+	_check(int(GameState.layout[table_idx]["r"]) == 4, "перед прилавком мебель не ставится")
 	# в служебку — нельзя
-	_click(pos + Vector2(128, 222), true)
+	_click(pos + Vector2(32, 250), true)
 	_move_to(pos + Vector2(250, 150))
 	_click(pos + Vector2(250, 150), false)
-	_check(int(GameState.layout[table_idx]["c"]) == 3, "в служебку мебель не ставится")
+	_check(int(GameState.layout[table_idx]["c"]) == 0, "в служебку мебель не ставится")
 	# прилавок можно двигать, но нельзя убрать
 	var ci: int = d._room.counter_index()
 	d._select(ci)
@@ -1322,7 +1322,7 @@ func _test_spaces() -> void:
 	city.call("_use_portal", {"id": "stairs_down", "stand": InteriorSpace.STAIRS_STAND, "to": "cafe"})
 	await get_tree().create_timer(0.9).timeout
 	_check(city.get("_space") == 0, "лестница вниз ведёт в служебку")
-	_check(nav.is_walkable(rc + Vector2i(5, 4)) and nav.is_walkable(rc + CafeRoom.STAFF_DOOR), "в зале снова проходимы его клетки")
+	_check(nav.is_walkable(rc + Vector2i(4, 4)) and nav.is_walkable(rc + CafeRoom.STAFF_DOOR), "в зале снова проходимы его клетки")
 	var back_cell := WorldNav.cell_of_feet(player.position) - rc
 	_check(CafeRoom.STAFF_INNER.has_point(back_cell) and player.nav == nav, "кот спустился в служебку и снова ходит по городской сетке: %s" % back_cell)
 	# магазин показывает все шесть улучшений

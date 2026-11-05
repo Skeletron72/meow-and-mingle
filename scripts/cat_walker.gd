@@ -14,6 +14,7 @@ const FRAME := 16
 var wander := false         # гуляющий кот сам выбирает, куда идти
 var def: Dictionary = {}
 var nav: Object   # CafeRoom (в кафе) или StreetNav (на улице): find_path, is_blocked, random_free_point
+var guest := false   # гость (не игрок): за прилавок, на место бариста, не ходит
 
 var facing := "front"       # "front" (вниз) | "side" (вбок, лист нарисован вправо) | "back" (вверх)
 
@@ -55,7 +56,7 @@ func is_moving() -> bool:
 
 ## Идти к точке. false — пути нет (кот остаётся на месте).
 func walk_to(target: Vector2) -> bool:
-	var p: PackedVector2Array = nav.find_path(position, target)
+	var p: PackedVector2Array = nav.find_path(position, target, guest)
 	if p.is_empty():
 		return false
 	_path = p

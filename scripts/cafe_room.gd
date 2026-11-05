@@ -19,14 +19,15 @@ const ORIGIN := Vector2(0, 96)       # левый верх пола в коор�
 const ROOM_SIZE := Vector2(320, 320) # 10×10 клеток: ровно по габариту фасада кафе (Building4 при масштабе 2)
 const FEET_DY := 10.0                # лапки кота ниже центра клетки
 
-# Прилавок — обязательная, но передвигаемая мебель (id "counter" в раскладке, убрать нельзя). На нём стоит кофемашина. Смена начинается у его лицевой
-# стороны: клетки ряда ПЕРЕД прилавком (counter_front) держим свободными — там встаёт кот и очередь.
+# Прилавок — обязательная, но передвигаемая мебель (id "counter" или его раскраска, убрать нельзя). На нём стоит кофемашина.
+# Ряд ЗА прилавком (counter_behind) — место бариста: туда заходит только игрок, там начинается смена; гости туда не ходят.
+# Ряд ПЕРЕД прилавком (counter_front) — место гостей. Оба ряда держим свободными от мебели. Кухня — у задней стены, за проходом бариста.
 const COUNTER_ID := "counter"
 const MACHINE_SRC := Rect2(131, 67, 11, 13)
 const MACHINE_DX := 21.0   # кофемашина в третьей клетке прилавка (при отражении — в первой): сдвиг от центра узла
 const MACHINE_DX_U := 5.0  # на большой П-образной стойке — на правой части основания
 const MACHINE_DY := -48.0
-const DEFAULT_COUNTER := Vector2i(0, 1)
+const DEFAULT_COUNTER := Vector2i(0, 2)
 ## Служебка: маленькая комната в углу зала, отделённая стенами (левая стена — колонка 6, передняя — ряд 3, в передней стене проём STAFF_DOOR).
 ## Внутри — лестница наверх и пара коробок. Пока не куплено «Коморка», это закрытый чулан с заколоченной дверью.
 const STAFF_CELLS := Rect2i(6, 0, 4, 4)            # весь блок вместе со стенами: мебель сюда не ставят
@@ -338,8 +339,7 @@ func _has_item(id: String) -> bool:
 
 ## Прилавок ли это (сам «counter» или его раскраска стиля).
 static func is_counter(id: String) -> bool:
-	var b := String(item_def(id).get("base", id))
-	return b == COUNTER_ID or b == "ucounter"
+	return String(item_def(id).get("base", id)) == COUNTER_ID
 
 
 static func _machine_dx(id: String) -> float:
@@ -362,10 +362,16 @@ func counter_cells() -> Rect2i:
 	return cells(String(layout[i]["id"]), int(layout[i]["c"]), int(layout[i]["r"]))
 
 
-## Ряд клеток перед прилавком: здесь стоит кот, начинающий смену, и очередь гостей. Мебель сюда не ставят.
+## Ряд клеток перед прилавком: место гостей. Мебель сюда не ставят.
 func counter_front() -> Rect2i:
 	var a := counter_cells()
 	return Rect2i(a.position.x, a.end.y, a.size.x, 1)
+
+
+## Ряд клеток за прилавком: место бариста. Сюда заходит только игрок (смена начинается здесь), гости — нет. Мебель сюда не ставят.
+func counter_behind() -> Rect2i:
+	var a := counter_cells()
+	return Rect2i(a.position.x, a.position.y - 1, a.size.x, 1)
 
 
 ## Только столешница прилавка (без кофемашины) и сама кофемашина — для чехла и пыли в интро.
@@ -534,18 +540,26 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 	var solid := is_solid(id)
 	if solid and area.intersects(SPAWN_CELLS):
 		return tr("Не загораживайте проход")
-	if solid and not is_counter(id):   # перед прилавком — проход
+	if solid and not is_counter(id):   # за прилавком (бариста) и перед ним (гости) — проходы
 		var ci := counter_index()
-		if ci >= 0 and ci != ignore and area.intersects(counter_front()):
+		if ci >= 0 and ci != ignore and (area.intersects(counter_front()) or area.intersects(counter_behind())):
 			return tr("Не загораживайте проход")
-	if is_counter(id):   # лицевая сторона прилавка внутри зала и не занята
+	if is_counter(id):   # за прилавком — место бариста, перед ним — гостей: оба ряда внутри зала и свободны
 		var front := Rect2i(area.position.x, area.end.y, area.size.x, 1)
+		var behind := Rect2i(area.position.x, area.position.y - 1, area.size.x, 1)
 		if front.end.y > FRONT_ROW or front.intersects(STAFF_CELLS) or front.intersects(SPAWN_CELLS):
 			return tr("Перед прилавком нужен проход")
+		if behind.position.y < 0 or behind.intersects(STAFF_CELLS):
+			return tr("За прилавком нужно место для бариста")
 		for i in layout.size():
 			var o := String(layout[i]["id"])
-			if i != ignore and is_solid(o) and front.intersects(cells(o, int(layout[i]["c"]), int(layout[i]["r"]))):
+			if i == ignore or not is_solid(o):
+				continue
+			var oa := cells(o, int(layout[i]["c"]), int(layout[i]["r"]))
+			if front.intersects(oa):
 				return tr("Перед прилавком нужен проход")
+			if behind.intersects(oa):
+				return tr("За прилавком нужно место для бариста")
 	for i in layout.size():
 		var other := String(layout[i]["id"])
 		if i == ignore or is_wall(other):
@@ -563,7 +577,7 @@ func check_place(id: String, c: int, r: int, ignore := -1) -> String:
 
 ## Место для прилавка: ближе к левой стене, на второй клетке от неё; Vector2i(-1, -1) — места нет.
 func find_counter_spot(id := COUNTER_ID, ignore := -1) -> Vector2i:
-	for r in [1, 0, 2, 3, 4]:
+	for r in [2, 3, 1, 4]:
 		for c in [0, 1, 2, 3, 4, 5, 6]:
 			if check_place(id, c, r, ignore) == "":
 				return Vector2i(c, r)
@@ -572,6 +586,7 @@ func find_counter_spot(id := COUNTER_ID, ignore := -1) -> Vector2i:
 
 ## Кухня и витрины — к задней стене, за прилавок и рядом с ним (не в зал и не к выходу).
 const KITCHEN := ["cabinet", "case", "oven", "stove", "machine"]
+const BACK_WALL := ["cabinet", "oven", "stove"]   # эти стоят только у задней стены (ряд 0)
 
 
 static func base_id(id: String) -> String:
@@ -619,10 +634,16 @@ func _preferred_cells(id: String, ignore: int) -> Array[Vector2i]:
 			var db := _min_dist(Vector2(b), others)
 			return da > db if absf(da - db) > 0.01 else (a.y > b.y if a.y != b.y else a.x < b.x))
 		return cand
-	if is_kitchen(id):   # задняя стена (за прилавком и правее), потом ряд прилавка
-		for r in [0, 1]:
-			for c in COLS:
-				out.append(Vector2i(c, r))
+	if base in BACK_WALL:   # шкаф, духовка, плита — вдоль задней стены, за проходом бариста
+		for c in COLS:
+			out.append(Vector2i(c, 0))
+		return out
+	if is_kitchen(id):   # витрина, кофемашина — в ряд с прилавком, справа от него, потом у задней стены
+		var ca := counter_cells()
+		for c in range(ca.end.x + 1, COLS):
+			out.append(Vector2i(c, ca.position.y))
+		for c in COLS:
+			out.append(Vector2i(c, 0))
 		return out
 	if base == "ucounter":   # большая стойка — вдоль витрины
 		for r in [5, 4]:
@@ -773,8 +794,13 @@ func _make_grid(blocks: Array[Rect2i]) -> AStarGrid2D:
 ## Можно ли дойти от двери до стойки в такой сетке.
 func _reachable(g: AStarGrid2D, counter_area := Rect2i()) -> bool:
 	var a := _free_cell(g, SPAWN_CELL)
-	var front := counter_front() if counter_area.size == Vector2i.ZERO else Rect2i(counter_area.position.x, counter_area.end.y, counter_area.size.x, 1)
+	var ca := counter_cells() if counter_area.size == Vector2i.ZERO else counter_area
+	var front := Rect2i(ca.position.x, ca.end.y, ca.size.x, 1)
+	var behind := Rect2i(ca.position.x, ca.position.y - 1, ca.size.x, 1)
 	var b := _free_cell(g, front.position + Vector2i(front.size.x / 2, 0))
+	var bh := behind.position + Vector2i(behind.size.x / 2, 0)   # бариста должен дойти до места за прилавком
+	if a.x < 0 or not g.is_in_boundsv(bh) or g.is_point_solid(bh) or g.get_id_path(a, bh).is_empty():
+		return false
 	if a.x < 0 or b.x < 0:
 		return false
 	var door_front := STAFF_DOOR + Vector2i(0, 1)   # и до двери в служебку
@@ -815,12 +841,18 @@ func is_blocked(feet: Vector2) -> bool:
 
 
 ## Путь для кота по центрам клеток (пусто — дойти нельзя). `to` — любая точка, берётся её клетка.
-func find_path(from_feet: Vector2, to: Vector2) -> PackedVector2Array:
+func find_path(from_feet: Vector2, to: Vector2, guest := false) -> PackedVector2Array:
+	var shut: Array[Vector2i] = []
+	if guest:   # гостям за прилавок нельзя
+		for c in staff_only_cells():
+			if _astar.is_in_boundsv(c) and not _astar.is_point_solid(c):
+				_astar.set_point_solid(c, true)
+				shut.append(c)
 	var a := _free_cell(_astar, cell_of_feet(from_feet))
 	var b := _free_cell(_astar, cell_at(to))
-	if a.x < 0 or b.x < 0:
-		return PackedVector2Array()
-	var pts := _astar.get_point_path(a, b)
+	var pts := PackedVector2Array() if a.x < 0 or b.x < 0 else _astar.get_point_path(a, b)
+	for c in shut:
+		_astar.set_point_solid(c, false)
 	if pts.is_empty():
 		return pts
 	if pts.size() > 1:
@@ -833,7 +865,7 @@ func find_path(from_feet: Vector2, to: Vector2) -> PackedVector2Array:
 func random_free_point() -> Vector2:
 	for _i in 40:
 		var c := Vector2i(randi_range(0, COLS - 1), randi_range(0, ROWS - 1))
-		if not _astar.is_point_solid(c) and not SPAWN_CELLS.has_point(c):
+		if not _astar.is_point_solid(c) and not SPAWN_CELLS.has_point(c) and not (c in staff_only_cells()):
 			return feet_at(c)
 	return feet_at(SPAWN_CELL)
 
@@ -842,8 +874,18 @@ func in_entrance_zone(feet: Vector2) -> bool:
 	return ENTRANCE_CELLS.has_point(cell_of_feet(feet))
 
 
+## Игрок встал за прилавок — можно начинать смену.
 func in_counter_zone(feet: Vector2) -> bool:
-	return counter_front().has_point(cell_of_feet(feet))
+	return counter_behind().has_point(cell_of_feet(feet))
+
+
+## Клетки, куда гостям нельзя (место бариста за прилавком).
+func staff_only_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var b := counter_behind()
+	for x in range(b.position.x, b.end.x):
+		out.append(Vector2i(x, b.position.y))
+	return out
 
 
 ## Стёкла окна поверх спрайта: цвет берётся у неба (TimeOfDay), ночью — звёзды, вокруг окна пиксельное свечение.

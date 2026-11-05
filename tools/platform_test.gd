@@ -1180,7 +1180,7 @@ func _test_decor_styles() -> void:
 			_check(int(d["price"]) >= int(b["price"]), "вариант «%s» не дешевле базового" % id)
 		else:
 			base += 1
-	_check(base == 15 and variants == 52, "15 базовых предметов и 52 раскраски (45 стилей + 7 особых) (%d/%d)" % [base, variants])
+	_check(base == 15 and variants == 54, "15 базовых предметов и 54 раскраски (45 стилей + 9 особых) (%d/%d)" % [base, variants])
 	# раскрашенный предмет ставится в зал и красится
 	var room := CafeRoom.new()
 	add_child(room)
@@ -1208,7 +1208,7 @@ func _test_decor_styles() -> void:
 	for c in d._cards:
 		if (c["holder"] as Control).visible:
 			visible_cards += 1
-	_check(visible_cards == 17, "в каталоге 17 предметов стиля «Уют» (14 + 3 золотых; прилавок уже стоит, спонсорские скрыты до 3-й смены) (%d)" % visible_cards)
+	_check(visible_cards == 16, "в каталоге 16 предметов стиля «Уют» (13 + 2 золотых + золотой прилавок; П-стойки и сам прилавок не продаются, спонсорские скрыты до 3-й смены) (%d)" % visible_cards)
 	GameState.unlocks = ["style:loft", "style:japan"]
 	_check(d.available_styles().size() == 3, "после ремонта открыты «Лофт» и «Японский»")
 	d._cycle_style()
@@ -1792,9 +1792,20 @@ func _test_collisions() -> void:
 	var front := room.counter_front()
 	for x in range(front.position.x, front.end.x):
 		_check(nav.is_walkable(rc + Vector2i(x, front.position.y)), "перед прилавком (%d,%d) можно стоять" % [x, front.position.y])
-	_check(room.in_counter_zone(CafeRoom.feet_at(front.position)) and not room.in_counter_zone(CafeRoom.feet_at(Vector2i(8, 5))), "зона прилавка — ряд перед ним")
-	var counter := room.counter_cells()
-	_check(not nav.is_walkable(rc + Vector2i(counter.position.x, counter.position.y - 1)), "карман за прилавком закрыт (до него не дойти)")
+	var behind := room.counter_behind()
+	_check(room.in_counter_zone(CafeRoom.feet_at(behind.position)) and not room.in_counter_zone(CafeRoom.feet_at(front.position)), "смена начинается за прилавком (место бариста), а не перед ним")
+	for x in range(behind.position.x, behind.end.x):
+		var bc := rc + Vector2i(x, behind.position.y)
+		_check(nav.is_walkable(bc), "за прилавком (%d,%d) игрок может стоять" % [x, behind.position.y])
+	var to_bar := nav.find_path(WorldNav.feet_at(rc + CafeRoom.SPAWN_CELL), WorldNav.feet_at(rc + behind.position), false)
+	_check(not to_bar.is_empty() and WorldNav.cell_of_feet(to_bar[to_bar.size() - 1]) == rc + behind.position, "игрок доходит до места за прилавком")
+	var guest_path := nav.find_path(WorldNav.feet_at(rc + CafeRoom.SPAWN_CELL), WorldNav.feet_at(rc + behind.position), true)
+	var bad := false
+	for pt in guest_path:
+		bad = bad or room.counter_behind().has_point(WorldNav.cell_of_feet(pt) - rc)
+	_check(not bad, "гость за прилавок не заходит")
+	for _i in 40:
+		_check(not (nav.random_cell(true) in nav.guest_blocked()), "гость не выбирает место за прилавком")
 	# прилавок обязателен: пропал из сохранения — вернулся
 	var fixed := GameState._sanitize_layout([{"id": "stool", "c": 5, "r": 3, "flip": false}])
 	var has := false
@@ -1803,9 +1814,10 @@ func _test_collisions() -> void:
 	_check(has, "прилавок вернулся в раскладку, если его не было")
 	# прилавок можно переставить: меняется и зона обслуживания
 	var idx := room.counter_index()
-	_check(room.check_place("counter", 0, 1, idx) == "" and room.check_place("counter", 4, 5, idx) != "", "прилавок: на месте можно, у входа нельзя")
-	_check(room.check_place("counter", 2, 3, idx) != "", "прилавок поверх стола нельзя")
-	_check(room.check_place("counter", 0, 0, idx) == "", "прилавок можно сдвинуть к стене (перед ним ряд свободен)")
+	_check(room.check_place("counter", 0, 2, idx) == "" and room.check_place("counter", 4, 5, idx) != "", "прилавок: на месте можно, у входа нельзя")
+	_check(room.check_place("counter", 1, 4, idx) != "", "прилавок поверх стола нельзя")
+	_check(room.check_place("counter", 0, 0, idx) != "", "к самой стене нельзя: за прилавком нужно место бариста")
+	_check(room.check_place("counter", 0, 3, idx) != "", "перед столом нельзя: ряд гостей занят")
 	city.queue_free()
 	await get_tree().process_frame
 	# коробки пролога: клетка каждой — преграда, пока не открыта
@@ -1837,7 +1849,7 @@ func _test_reward_layout() -> void:
 	for r in Data.repairs:
 		if int(r["chapter"]) <= 3:
 			for e in r["effects"]:
-				if String(e["kind"]) in ["furniture", "counter"]:
+				if String(e["kind"]) in ["furniture", "counter", "unlock"]:
 					GameState._apply_effect(e, "")
 	var boards := 0
 	var counters := 0
@@ -1847,12 +1859,23 @@ func _test_reward_layout() -> void:
 			boards += 1
 		if CafeRoom.is_counter(id):
 			counters += 1
-		if CafeRoom.is_kitchen(id):
-			_check(int(it["r"]) <= 1, "кухня «%s» у задней стены, а не в зале (ряд %d)" % [id, int(it["r"])])
+		if CafeRoom.base_id(id) in CafeRoom.BACK_WALL:
+			_check(int(it["r"]) == 0, "«%s» у задней стены (ряд %d)" % [id, int(it["r"])])
+		elif CafeRoom.is_kitchen(id):
+			_check(int(it["r"]) <= 2, "«%s» в ряд с прилавком, не в зале (ряд %d)" % [id, int(it["r"])])
 		if CafeRoom.is_solid(id) and not CafeRoom.is_counter(id):
 			_check(not CafeRoom.cells(id, int(it["c"]), int(it["r"])).intersects(Rect2i(4, 4, 2, 2)), "«%s» не загораживает вход" % id)
 	_check(boards == 1, "доска меню одна (%d)" % boards)
-	_check(counters == 1 and String(GameState.layout[0]["id"]) == "ucounter", "большая стойка заменила прилавок, стойка одна")
+	_check(counters == 1 and String(GameState.layout[0]["id"]) == "counter_mama", "«Стойка, как у мамы» — новый вид прилавка, прилавок один")
+	var rugs := 0
+	for it in GameState.layout:
+		rugs += 1 if String(it["id"]) == "rug" else 0
+	_check(rugs == 1 and GameState.has_unlock("up:rug") and GameState.has_unlock("up:table") and GameState.has_unlock("up:plant"), "ковёр, цветы и столик наверх — в жилой зоне, в зале ковёр один (%d)" % rugs)
+	var c0: Dictionary = GameState.layout[0]
+	var behind := Rect2i(int(c0["c"]), int(c0["r"]) - 1, 3, 1)
+	for it in GameState.layout:   # за прилавком — проход бариста: ни кухня, ни другая мебель там не стоят и прилавок их не перекрывает
+		if CafeRoom.is_solid(String(it["id"])) and not CafeRoom.is_counter(String(it["id"])):
+			_check(not CafeRoom.cells(String(it["id"]), int(it["c"]), int(it["r"])).intersects(behind), "«%s» не стоит в проходе за прилавком" % it["id"])
 	var room := CafeRoom.new()
 	room.layout = GameState.layout
 	_check(room._reachable(room._make_grid(room.solid_cells())), "от входа до стойки и служебки можно дойти")
@@ -1866,9 +1889,9 @@ func _test_reward_layout() -> void:
 	GameState.load_game()
 	var ids := GameState.layout.map(func(it: Dictionary) -> String: return String(it["id"]))
 	_check(ids.count("board") == 1 and GameState.coins >= int(Data.furniture["board"]["price"]), "лишняя доска снята, деньги возвращены (%s)" % [ids])
-	_check(ids.count("ucounter") == 1 and ids.count("counter") == 0, "большая стойка стала прилавком (%s)" % [ids])
+	_check(ids.count("ucounter") == 0 and ids.count("counter_mama") == 1 and ids.count("counter") == 0, "большая стойка стала видом прилавка (%s)" % [ids])
 	for it in GameState.layout:
-		if CafeRoom.is_kitchen(String(it["id"])):
-			_check(int(it["r"]) <= 1, "«%s» перенесена к задней стене (ряд %d)" % [it["id"], int(it["r"])])
+		if CafeRoom.base_id(String(it["id"])) in CafeRoom.BACK_WALL:
+			_check(int(it["r"]) == 0, "«%s» перенесена к задней стене (ряд %d)" % [it["id"], int(it["r"])])
 	GameState.new_game()
 	GameState.save_game()
