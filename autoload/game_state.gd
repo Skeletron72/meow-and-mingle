@@ -22,6 +22,7 @@ const META_DEFAULT := {
 	"shop": {"deal_day": -1, "deal_taken": false, "starter_shown_day": -1, "starter_start": 0, "ads": {}, "last_interstitial": 0, "star_views": 0},
 	"season": {"no": 1, "id": "", "start_day": -1, "xp": 0, "free": [], "premium": [], "pass": false},
 	"event": {"key": "", "progress": {}, "free": [], "premium": []},
+	"decor_views": {},   # id спонсорской мебели → сколько роликов уже просмотрено
 	"sessions": 0, "notif_asked": false, "return_gift_pending": false, "clock_max": 0, "last_open_day": -1, "return_gift_day": -1,
 }
 const SETTINGS_DEFAULT := {"lang": "auto", "music": 0.8, "sfx": 1.0, "quality": "auto", "analytics": true, "notifications": true}

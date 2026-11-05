@@ -60,6 +60,15 @@
   },
   "help": {
    "cap": 0
+  },
+  "decor": {
+   "cap": 8
+  },
+  "rescue": {
+   "cap": 3
+  },
+  "riddle_hint": {
+   "cap": 3
   }
  },
  "interstitial": {

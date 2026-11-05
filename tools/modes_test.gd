@@ -669,9 +669,10 @@ func _test_decorate_logic() -> void:
 	await get_tree().process_frame
 	var n0 := GameState.layout.size()
 	scene._buy("plant")
-	_check(GameState.layout.size() == n0 + 1 and GameState.coins == 80, "покупка растения: -20 монет")
+	var plant_price := int(Data.furniture["plant"]["price"])
+	_check(GameState.layout.size() == n0 + 1 and GameState.coins == 100 - plant_price, "покупка растения: -%d монет" % plant_price)
 	scene._buy("ucounter")
-	_check(GameState.layout.size() == n0 + 1 and GameState.coins == 80, "без монет не купить")
+	_check(GameState.layout.size() == n0 + 1 and GameState.coins == 100 - plant_price, "без монет не купить")
 	var idx: int = GameState.layout.size() - 1
 	scene._select(idx)
 	scene._dragging = true

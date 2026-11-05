@@ -809,5 +809,21 @@
  "Уют %d (чаевые +%d%%)": "Coziness %d (tips +%d%%)",
  "Откроется: %s": "Opens with: %s",
  "Бонус за Уют %d: +%d": "Coziness bonus %d: +%d",
- "Начинки — и на выпечку: бросай на правую половину подноса.": "Toppings go on pastry too: drop them on the right half of the tray."
+ "Начинки — и на выпечку: бросай на правую половину подноса.": "Toppings go on pastry too: drop them on the right half of the tray.",
+ "Монстера": "Monstera",
+ "Ролик сейчас недоступен": "No video available right now",
+ "Ещё роликов: %d": "Videos left: %d",
+ "Подарок поставщика не убрать, только двигать": "A supplier gift can't be removed, only moved",
+ "Ошибка в сложном заказе": "Mistake in a tricky order",
+ "Очистить поднос за короткий ролик? Гость подождёт, а ты попробуешь снова.": "Clear the tray for a short video? The guest will wait and you can try again.",
+ "Исправить (ролик)": "Fix it (video)",
+ "Не надо": "No thanks",
+ "Поднос очищен, гость ждёт": "Tray cleared, the guest waits",
+ "Подсказка": "Hint",
+ "Пир-стол": "Feast Table",
+ "Люкс-бар": "Lux Bar",
+ "Плед": "Plaid",
+ "Неон": "Neon",
+ "Табло": "Board",
+ "Люкс": "Lux"
 }

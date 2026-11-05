@@ -2,7 +2,7 @@
 	{
 		"id": "table_big",
 		"name": "Стол",
-		"price": 60,
+		"price": 150,
 		"slot": "floor",
 		"rect": [
 			48,
@@ -15,12 +15,12 @@
 			2
 		],
 		"style": "cozy",
-		"cozy": 6
+		"cozy": 3
 	},
 	{
 		"id": "table_small",
 		"name": "Столик",
-		"price": 30,
+		"price": 75,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -33,12 +33,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 3
+		"cozy": 2
 	},
 	{
 		"id": "stool",
 		"name": "Пуфик",
-		"price": 15,
+		"price": 40,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -51,12 +51,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "plant",
 		"name": "Растение",
-		"price": 20,
+		"price": 50,
 		"slot": "floor",
 		"rect": [
 			97,
@@ -69,12 +69,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "machine",
 		"name": "Кофемат",
-		"price": 80,
+		"price": 200,
 		"slot": "floor",
 		"rect": [
 			131,
@@ -87,12 +87,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "case",
 		"name": "Витрина",
-		"price": 120,
+		"price": 300,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -105,12 +105,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "cabinet",
 		"name": "Шкафчик",
-		"price": 70,
+		"price": 175,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -123,12 +123,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 7
+		"cozy": 4
 	},
 	{
 		"id": "stove",
 		"name": "Плита",
-		"price": 90,
+		"price": 225,
 		"slot": "floor",
 		"rect": [
 			49,
@@ -141,12 +141,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "oven",
 		"name": "Духовка",
-		"price": 100,
+		"price": 250,
 		"slot": "floor",
 		"rect": [
 			83,
@@ -159,12 +159,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "counter",
 		"name": "Прилавок",
-		"price": 110,
+		"price": 275,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -177,12 +177,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "ucounter",
 		"name": "Стойка",
-		"price": 200,
+		"price": 500,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -195,12 +195,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "rug",
 		"name": "Коврик",
-		"price": 25,
+		"price": 60,
 		"slot": "floor",
 		"rect": [
 			98,
@@ -214,12 +214,12 @@
 		],
 		"flat": true,
 		"style": "cozy",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "bowl",
 		"name": "Миска",
-		"price": 10,
+		"price": 25,
 		"slot": "floor",
 		"rect": [
 			114,
@@ -238,7 +238,7 @@
 	{
 		"id": "window",
 		"name": "Окно",
-		"price": 40,
+		"price": 100,
 		"slot": "wall",
 		"rect": [
 			145,
@@ -251,12 +251,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "board",
 		"name": "Меню",
-		"price": 35,
+		"price": 90,
 		"slot": "wall",
 		"rect": [
 			114,
@@ -269,12 +269,12 @@
 			1
 		],
 		"style": "cozy",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "table_big_loft",
 		"name": "Стол",
-		"price": 90,
+		"price": 270,
 		"slot": "floor",
 		"rect": [
 			48,
@@ -289,12 +289,12 @@
 		"base": "table_big",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "table_small_loft",
 		"name": "Столик",
-		"price": 45,
+		"price": 135,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -309,12 +309,12 @@
 		"base": "table_small",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "stool_loft",
 		"name": "Пуфик",
-		"price": 20,
+		"price": 60,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -329,12 +329,12 @@
 		"base": "stool",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "plant_loft",
 		"name": "Растение",
-		"price": 30,
+		"price": 90,
 		"slot": "floor",
 		"rect": [
 			97,
@@ -349,12 +349,12 @@
 		"base": "plant",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 3
+		"cozy": 2
 	},
 	{
 		"id": "machine_loft",
 		"name": "Кофемат",
-		"price": 120,
+		"price": 360,
 		"slot": "floor",
 		"rect": [
 			131,
@@ -369,12 +369,12 @@
 		"base": "machine",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "case_loft",
 		"name": "Витрина",
-		"price": 180,
+		"price": 540,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -389,12 +389,12 @@
 		"base": "case",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "cabinet_loft",
 		"name": "Шкафчик",
-		"price": 105,
+		"price": 315,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -409,12 +409,12 @@
 		"base": "cabinet",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "stove_loft",
 		"name": "Плита",
-		"price": 135,
+		"price": 405,
 		"slot": "floor",
 		"rect": [
 			49,
@@ -429,12 +429,12 @@
 		"base": "stove",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "oven_loft",
 		"name": "Духовка",
-		"price": 150,
+		"price": 450,
 		"slot": "floor",
 		"rect": [
 			83,
@@ -449,12 +449,12 @@
 		"base": "oven",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "counter_loft",
 		"name": "Прилавок",
-		"price": 165,
+		"price": 495,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -469,12 +469,12 @@
 		"base": "counter",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_loft",
 		"name": "Стойка",
-		"price": 300,
+		"price": 900,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -489,12 +489,12 @@
 		"base": "ucounter",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "rug_loft",
 		"name": "Коврик",
-		"price": 40,
+		"price": 120,
 		"slot": "floor",
 		"rect": [
 			98,
@@ -510,12 +510,12 @@
 		"base": "rug",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "bowl_loft",
 		"name": "Миска",
-		"price": 15,
+		"price": 45,
 		"slot": "floor",
 		"rect": [
 			114,
@@ -531,12 +531,12 @@
 		"base": "bowl",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "window_loft",
 		"name": "Окно",
-		"price": 60,
+		"price": 180,
 		"slot": "wall",
 		"rect": [
 			145,
@@ -551,12 +551,12 @@
 		"base": "window",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 6
+		"cozy": 3
 	},
 	{
 		"id": "board_loft",
 		"name": "Меню",
-		"price": 50,
+		"price": 150,
 		"slot": "wall",
 		"rect": [
 			114,
@@ -571,12 +571,12 @@
 		"base": "board",
 		"style": "loft",
 		"tint": "#a9b9d0",
-		"cozy": 5
+		"cozy": 3
 	},
 	{
 		"id": "table_big_japan",
 		"name": "Стол",
-		"price": 90,
+		"price": 270,
 		"slot": "floor",
 		"rect": [
 			48,
@@ -591,12 +591,12 @@
 		"base": "table_big",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "table_small_japan",
 		"name": "Столик",
-		"price": 45,
+		"price": 135,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -611,12 +611,12 @@
 		"base": "table_small",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "stool_japan",
 		"name": "Пуфик",
-		"price": 20,
+		"price": 60,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -631,12 +631,12 @@
 		"base": "stool",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "plant_japan",
 		"name": "Растение",
-		"price": 30,
+		"price": 90,
 		"slot": "floor",
 		"rect": [
 			97,
@@ -651,12 +651,12 @@
 		"base": "plant",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 3
+		"cozy": 2
 	},
 	{
 		"id": "machine_japan",
 		"name": "Кофемат",
-		"price": 120,
+		"price": 360,
 		"slot": "floor",
 		"rect": [
 			131,
@@ -671,12 +671,12 @@
 		"base": "machine",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "case_japan",
 		"name": "Витрина",
-		"price": 180,
+		"price": 540,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -691,12 +691,12 @@
 		"base": "case",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "cabinet_japan",
 		"name": "Шкафчик",
-		"price": 105,
+		"price": 315,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -711,12 +711,12 @@
 		"base": "cabinet",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "stove_japan",
 		"name": "Плита",
-		"price": 135,
+		"price": 405,
 		"slot": "floor",
 		"rect": [
 			49,
@@ -731,12 +731,12 @@
 		"base": "stove",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "oven_japan",
 		"name": "Духовка",
-		"price": 150,
+		"price": 450,
 		"slot": "floor",
 		"rect": [
 			83,
@@ -751,12 +751,12 @@
 		"base": "oven",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "counter_japan",
 		"name": "Прилавок",
-		"price": 165,
+		"price": 495,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -771,12 +771,12 @@
 		"base": "counter",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_japan",
 		"name": "Стойка",
-		"price": 300,
+		"price": 900,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -791,12 +791,12 @@
 		"base": "ucounter",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "rug_japan",
 		"name": "Коврик",
-		"price": 40,
+		"price": 120,
 		"slot": "floor",
 		"rect": [
 			98,
@@ -812,12 +812,12 @@
 		"base": "rug",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "bowl_japan",
 		"name": "Миска",
-		"price": 15,
+		"price": 45,
 		"slot": "floor",
 		"rect": [
 			114,
@@ -833,12 +833,12 @@
 		"base": "bowl",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "window_japan",
 		"name": "Окно",
-		"price": 60,
+		"price": 180,
 		"slot": "wall",
 		"rect": [
 			145,
@@ -853,12 +853,12 @@
 		"base": "window",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 6
+		"cozy": 3
 	},
 	{
 		"id": "board_japan",
 		"name": "Меню",
-		"price": 50,
+		"price": 150,
 		"slot": "wall",
 		"rect": [
 			114,
@@ -873,12 +873,12 @@
 		"base": "board",
 		"style": "japan",
 		"tint": "#bfe3b0",
-		"cozy": 5
+		"cozy": 3
 	},
 	{
 		"id": "table_big_winter",
 		"name": "Стол",
-		"price": 90,
+		"price": 270,
 		"slot": "floor",
 		"rect": [
 			48,
@@ -893,12 +893,12 @@
 		"base": "table_big",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "table_small_winter",
 		"name": "Столик",
-		"price": 45,
+		"price": 135,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -913,12 +913,12 @@
 		"base": "table_small",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "stool_winter",
 		"name": "Пуфик",
-		"price": 20,
+		"price": 60,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -933,12 +933,12 @@
 		"base": "stool",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "plant_winter",
 		"name": "Растение",
-		"price": 30,
+		"price": 90,
 		"slot": "floor",
 		"rect": [
 			97,
@@ -953,12 +953,12 @@
 		"base": "plant",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 3
+		"cozy": 2
 	},
 	{
 		"id": "machine_winter",
 		"name": "Кофемат",
-		"price": 120,
+		"price": 360,
 		"slot": "floor",
 		"rect": [
 			131,
@@ -973,12 +973,12 @@
 		"base": "machine",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "case_winter",
 		"name": "Витрина",
-		"price": 180,
+		"price": 540,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -993,12 +993,12 @@
 		"base": "case",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "cabinet_winter",
 		"name": "Шкафчик",
-		"price": 105,
+		"price": 315,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -1013,12 +1013,12 @@
 		"base": "cabinet",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "stove_winter",
 		"name": "Плита",
-		"price": 135,
+		"price": 405,
 		"slot": "floor",
 		"rect": [
 			49,
@@ -1033,12 +1033,12 @@
 		"base": "stove",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "oven_winter",
 		"name": "Духовка",
-		"price": 150,
+		"price": 450,
 		"slot": "floor",
 		"rect": [
 			83,
@@ -1053,12 +1053,12 @@
 		"base": "oven",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "counter_winter",
 		"name": "Прилавок",
-		"price": 165,
+		"price": 495,
 		"slot": "floor",
 		"rect": [
 			17,
@@ -1073,12 +1073,12 @@
 		"base": "counter",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "ucounter_winter",
 		"name": "Стойка",
-		"price": 300,
+		"price": 900,
 		"slot": "floor",
 		"rect": [
 			81,
@@ -1093,12 +1093,12 @@
 		"base": "ucounter",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 8
+		"cozy": 4
 	},
 	{
 		"id": "rug_winter",
 		"name": "Коврик",
-		"price": 40,
+		"price": 120,
 		"slot": "floor",
 		"rect": [
 			98,
@@ -1114,12 +1114,12 @@
 		"base": "rug",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 4
+		"cozy": 2
 	},
 	{
 		"id": "bowl_winter",
 		"name": "Миска",
-		"price": 15,
+		"price": 45,
 		"slot": "floor",
 		"rect": [
 			114,
@@ -1135,12 +1135,12 @@
 		"base": "bowl",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 2
+		"cozy": 1
 	},
 	{
 		"id": "window_winter",
 		"name": "Окно",
-		"price": 60,
+		"price": 180,
 		"slot": "wall",
 		"rect": [
 			145,
@@ -1155,12 +1155,12 @@
 		"base": "window",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 6
+		"cozy": 3
 	},
 	{
 		"id": "board_winter",
 		"name": "Меню",
-		"price": 50,
+		"price": 150,
 		"slot": "wall",
 		"rect": [
 			114,
@@ -1175,6 +1175,151 @@
 		"base": "board",
 		"style": "winter",
 		"tint": "#d6e8ff",
-		"cozy": 5
+		"cozy": 3
+	},
+	{
+		"id": "machine_gold",
+		"name": "Люкс",
+		"price": 1800,
+		"slot": "floor",
+		"rect": [
+			131,
+			67,
+			11,
+			13
+		],
+		"tiles": [
+			1,
+			1
+		],
+		"style": "cozy",
+		"cozy": 14,
+		"base": "machine",
+		"tint": "#ffd86b"
+	},
+	{
+		"id": "table_royal",
+		"name": "Пир-стол",
+		"price": 1500,
+		"slot": "floor",
+		"rect": [
+			48,
+			64,
+			32,
+			32
+		],
+		"tiles": [
+			2,
+			2
+		],
+		"style": "cozy",
+		"cozy": 12,
+		"base": "table_big",
+		"tint": "#ffb347"
+	},
+	{
+		"id": "ucounter_gold",
+		"name": "Люкс-бар",
+		"price": 3500,
+		"slot": "floor",
+		"rect": [
+			81,
+			112,
+			62,
+			31
+		],
+		"tiles": [
+			4,
+			1
+		],
+		"style": "cozy",
+		"cozy": 15,
+		"base": "ucounter",
+		"tint": "#ffd27a"
+	},
+	{
+		"id": "plant_monstera",
+		"name": "Монстера",
+		"price": 400,
+		"slot": "floor",
+		"rect": [
+			97,
+			80,
+			14,
+			16
+		],
+		"tiles": [
+			1,
+			1
+		],
+		"style": "cozy",
+		"cozy": 8,
+		"base": "plant",
+		"tint": "#7be0a0",
+		"ad_cost": 1
+	},
+	{
+		"id": "rug_plaid",
+		"name": "Плед",
+		"price": 450,
+		"slot": "floor",
+		"rect": [
+			98,
+			66,
+			28,
+			12
+		],
+		"tiles": [
+			2,
+			1
+		],
+		"flat": true,
+		"style": "cozy",
+		"cozy": 9,
+		"base": "rug",
+		"tint": "#ff9ac0",
+		"ad_cost": 1
+	},
+	{
+		"id": "window_neon",
+		"name": "Неон",
+		"price": 650,
+		"slot": "wall",
+		"rect": [
+			145,
+			19,
+			30,
+			17
+		],
+		"tiles": [
+			2,
+			1
+		],
+		"style": "cozy",
+		"cozy": 12,
+		"base": "window",
+		"tint": "#c9a0ff",
+		"ad_cost": 2
+	},
+	{
+		"id": "board_cat",
+		"name": "Табло",
+		"price": 650,
+		"slot": "wall",
+		"rect": [
+			114,
+			20,
+			28,
+			17
+		],
+		"tiles": [
+			2,
+			1
+		],
+		"style": "cozy",
+		"cozy": 12,
+		"base": "board",
+		"tint": "#ffe08a",
+		"ad_cost": 2
 	}
 ]

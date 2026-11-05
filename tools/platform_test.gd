@@ -45,6 +45,7 @@ func _ready() -> void:
 	await _test_depth()
 	await _test_shelves_and_pastry()
 	await _test_recipe_book()
+	await _test_ad_points()
 	_test_events()
 	_test_season_rollover()
 	if _failed:
@@ -1148,7 +1149,7 @@ func _test_decor_styles() -> void:
 			_check(int(d["price"]) >= int(b["price"]), "вариант «%s» не дешевле базового" % id)
 		else:
 			base += 1
-	_check(base == 15 and variants == 45, "15 базовых предметов и 45 раскрасок (%d/%d)" % [base, variants])
+	_check(base == 15 and variants == 52, "15 базовых предметов и 52 раскраски (45 стилей + 7 особых) (%d/%d)" % [base, variants])
 	# раскрашенный предмет ставится в зал и красится
 	var room := CafeRoom.new()
 	add_child(room)
@@ -1176,7 +1177,7 @@ func _test_decor_styles() -> void:
 	for c in d._cards:
 		if (c["holder"] as Control).visible:
 			visible_cards += 1
-	_check(visible_cards == 15, "в каталоге 15 предметов стиля «Уют» (%d)" % visible_cards)
+	_check(visible_cards == 18, "в каталоге 18 предметов стиля «Уют» (15 + 3 золотых; спонсорские скрыты до 3-й смены) (%d)" % visible_cards)
 	GameState.unlocks = ["style:loft", "style:japan"]
 	_check(d.available_styles().size() == 3, "после ремонта открыты «Лофт» и «Японский»")
 	d._cycle_style()
@@ -1460,7 +1461,7 @@ func _test_depth() -> void:
 	_check(GameState.cozy_score() == 0 and GameState.cozy_tip_bonus() == 0.0, "пустое кафе: уют 0")
 	GameState.layout = [{"id": "table_big", "c": 0, "r": 0, "flip": false}, {"id": "plant", "c": 2, "r": 0, "flip": false}, {"id": "rug", "c": 4, "r": 0, "flip": false}]
 	var pts := GameState.cozy_points()
-	_check(pts == 6 + 2 + 2 + 6 and GameState.cozy_score() == pts, "стол, растение и ковёр дают %d очков уюта" % pts)
+	_check(pts == 3 + 1 + 1 + 6 and GameState.cozy_score() == pts, "стол, растение и ковёр дают %d очков уюта" % pts)
 	for i in 14:
 		GameState.layout.append({"id": "table_small", "c": i, "r": 3, "flip": false})
 	_check(GameState.cozy_score() > pts and absf(GameState.cozy_tip_bonus() - 0.35 * GameState.cozy_score() / 100.0) < 0.0001, "больше мебели — уют и чаевые растут (%d очков, чаевые +%d%%)" % [GameState.cozy_points(), int(round(GameState.cozy_tip_bonus() * 100.0))])
@@ -1603,6 +1604,102 @@ func _test_recipe_book() -> void:
 	book.close()
 	await get_tree().process_frame
 	_check(not m._paused and int(e["t0"]) > t0_before, "после закрытия смена идёт, время ожидания сдвинуто")
+	m.queue_free()
+	await get_tree().process_frame
+	GameState.new_game()
+
+
+## Точки рекламы за награду: спонсорская мебель, страховка сложного заказа, подсказка к загадке (в тестах реклама «просматривается» мгновенно).
+func _test_ad_points() -> void:
+	GameState.new_game()
+	GameState.intro_stage = GameState.INTRO_DONE
+	GameState.shifts_played = 5
+	GameState.layout = []
+	GameState.coins = 0
+	var sponsored: Array[String] = []
+	for id in Data.furniture:
+		if int(Data.furniture[id].get("ad_cost", 0)) > 0:
+			sponsored.append(String(id))
+	_check(sponsored.size() >= 4, "в каталоге 4+ спонсорских предмета за ролики (%d)" % sponsored.size())
+	for id in sponsored:
+		_check(int(Data.furniture[id]["cozy"]) >= 8 and int(Data.furniture[id]["ad_cost"]) <= 2, "спонсорский «%s»: высокий уют и 1–2 ролика" % id)
+	var d: Node2D = load(Nav.DECORATE).instantiate()
+	add_child(d)
+	await get_tree().process_frame
+	d._buy("plant_monstera")
+	_check(GameState.layout.size() == 1 and GameState.coins == 0, "предмет за 1 ролик получен без монет")
+	d._buy("window_neon")
+	_check(GameState.layout.size() == 1 and Shop.decor_views("window_neon") == 1, "предмет за 2 ролика: после первого просмотра ещё не выдан (%d)" % Shop.decor_views("window_neon"))
+	d._buy("window_neon")
+	_check(GameState.layout.size() == 2 and Shop.decor_views("window_neon") == 0, "после второго ролика выдан, счётчик сброшен")
+	d._select(0)
+	d._remove_selected()
+	_check(GameState.layout.size() == 2, "спонсорский предмет не продаётся за монеты")
+	GameState.meta["shop"]["ads"] = {"decor": {"day": Daily.today(), "n": 8}}
+	d._buy("rug_plaid")
+	_check(GameState.layout.size() == 2, "дневной лимит роликов исчерпан — предмета нет")
+	GameState.meta["shop"]["ads"] = {}
+	GameState.meta["purchases"] = ["no_ads"]
+	_check(not d._is_sponsored("rug_plaid"), "с покупкой «Без рекламы» предмет продаётся за монеты")
+	GameState.coins = int(Data.furniture["rug_plaid"]["price"])
+	d._buy("rug_plaid")
+	_check(GameState.layout.size() == 3 and GameState.coins == 0, "без рекламы спонсорский предмет куплен за монеты")
+	GameState.meta["purchases"] = []
+	d.queue_free()
+	await get_tree().process_frame
+	# страховка за ролик в смене
+	GameState.suppress_popups = false
+	GameState.unlocks = ["source:syrup", "source:cream", "pastry:syrniki"]
+	GameState.upgrades = ["milk_pitcher", "display_case"]
+	var m: Node2D = load(Nav.BREW).instantiate()
+	m.level = Data.levels[44].duplicate(true)
+	m.level["interval"] = [90.0, 90.0]
+	m.level["types"] = {"rushed": 0.0, "gourmet": 0.0, "courier": 0.0, "critic": 0.0}
+	m.level["riddle"] = 0.0
+	add_child(m)
+	await get_tree().process_frame
+	m._queue.clear()
+	m._spawn_customer()
+	var e: Dictionary = m._queue[0]
+	e["order"] = {"drink": "vanilla_raf", "pastry": "syrniki", "pastry_mods": ["syrup"]}
+	e["state"] = "wait"
+	e["t0"] = Time.get_ticks_msec()
+	m._update_front()
+	_check(m._order_steps(e["order"]) == 6, "ванильный раф + сырники с сиропом — 6 шагов (%d)" % m._order_steps(e["order"]))
+	m._cup.fill("latte", "")
+	m._serve(e)
+	_check(m._paused and e["state"] == "wait", "ошибка в сложном заказе: подача отложена, предложена страховка")
+	var popup: InfoPopup
+	for c in m.get_children():
+		if c is InfoPopup:
+			popup = c
+	_check(popup != null, "показано окно со страховкой")
+	popup.chosen.emit(0)
+	await get_tree().process_frame
+	_check(not m._paused and m._rescue_used and e["state"] == "wait" and m._cup.is_empty(), "после ролика поднос очищен, гость ждёт")
+	m._cup.fill("latte", "")
+	m._serve(e)
+	_check(e["state"] == "done" and not m._paused, "второй раз за смену страховки нет: ошибка засчитана")
+	# подсказка к загадке
+	m._queue.clear()
+	m._riddle_seen = false
+	m.level["riddle"] = 1.0
+	m._spawn_customer()
+	var r: Dictionary = m._queue[0]
+	r["state"] = "wait"
+	r["t0"] = Time.get_ticks_msec()
+	m._update_front()
+	m._riddle_hint()
+	await get_tree().process_frame
+	var hint_book: RecipeBook
+	for c in m.get_children():
+		if c is RecipeBook:
+			hint_book = c
+	_check(m._hint_used and hint_book != null and hint_book.drink_ids.size() == 1, "подсказка за ролик показывает состав загаданного напитка")
+	hint_book.close()
+	await get_tree().process_frame
+	_check(not m._paused, "после подсказки смена продолжается")
+	GameState.suppress_popups = true
 	m.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()

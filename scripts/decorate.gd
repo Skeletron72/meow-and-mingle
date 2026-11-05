@@ -140,14 +140,18 @@ func _add_card(row: Container, id: String) -> void:
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(tex)
 	Ui.label(String(def["name"]), Rect2(0, 46, CARD_W, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_CENTER, true)
-	Ui.label(str(int(def["price"])), Rect2(0, 74, CARD_W - 30.0, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
+	var sponsored := _is_sponsored(id)
+	var price_label := Ui.label(str(int(def["price"])), Rect2(0, 74, CARD_W - 30.0, 28), Ui.FONT_SIZE, Ui.INK, b, HORIZONTAL_ALIGNMENT_RIGHT)
 	var coin := TextureRect.new()
-	coin.texture = Ui.icon("coin")
+	coin.texture = Ui.icon("video" if sponsored else "coin")   # спонсорская мебель — за ролики: «просмотрено/нужно» вместо цены
 	coin.stretch_mode = TextureRect.STRETCH_SCALE
-	coin.size = Vector2(22, 28)
-	coin.position = Vector2(CARD_W - 28.0, 74)
+	coin.size = Vector2(32, 32) if sponsored else Vector2(22, 28)
+	coin.position = Vector2(CARD_W - 34.0, 72) if sponsored else Vector2(CARD_W - 28.0, 74)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(coin)
+	if sponsored:
+		price_label.text = "%d/%d" % [Shop.decor_views(id), int(def["ad_cost"])]
+		price_label.set_meta("ad_label", true)
 	_cards.append({"btn": b, "id": id, "holder": holder, "style": String(def.get("style", "cozy"))})
 
 
@@ -172,15 +176,21 @@ func _refresh_style_button() -> void:
 	Ui.set_button_text(_style_btn, tr("Стиль: %s") % tr(name_text))
 
 
+## Спонсорская мебель продаётся за ролики (если реклама не отключена покупкой «Без рекламы») и открыта с 3-й смены.
+func _is_sponsored(id: String) -> bool:
+	return int(CafeRoom.item_def(id).get("ad_cost", 0)) > 0 and not Shop.ads_removed()
+
+
 func _apply_style_filter() -> void:
 	for c in _cards:
-		(c["holder"] as Control).visible = String(c["style"]) == _style
+		var hidden_ad := int(CafeRoom.item_def(String(c["id"])).get("ad_cost", 0)) > 0 and GameState.shifts_played < 3
+		(c["holder"] as Control).visible = String(c["style"]) == _style and not hidden_ad
 
 
 func _on_coins_changed(value: int) -> void:
 	_coins_label.text = str(value)
 	for c in _cards:
-		var affordable := value >= int(CafeRoom.item_def(c["id"])["price"])
+		var affordable := value >= int(CafeRoom.item_def(c["id"])["price"]) or _is_sponsored(String(c["id"]))
 		(c["btn"] as Button).modulate = Color.WHITE if affordable else Color(0.7, 0.7, 0.7)
 
 
@@ -292,13 +302,35 @@ func _draw_selection() -> void:
 # ---------------------------------------------------------------- покупка, отражение, продажа
 
 func _buy(id: String) -> void:
-	var price := int(CafeRoom.item_def(id)["price"])
+	var def := CafeRoom.item_def(id)
+	var price := int(def["price"])
 	if GameState.layout.size() >= MAX_ITEMS:
 		_toast("Кафе переполнено", Vector2(180, 470))
+		return
+	if _is_sponsored(id):   # за ролики; место проверяем заранее, чтобы не тратить просмотры впустую
+		if _room.find_free_spot(id).x < 0:
+			_toast("Нет свободного места", Vector2(180, 470))
+			return
+		if not Shop.ad_ready("decor"):
+			_toast("Ролик сейчас недоступен", Vector2(180, 470))
+			return
+		Shop.watch_for_item(id, int(def["ad_cost"]), func(ok: bool, got: bool) -> void:
+			if not ok:
+				return
+			_refresh_cards()
+			if got:
+				_place(id, 0)
+			else:
+				_toast(tr("Ещё роликов: %d") % (int(def["ad_cost"]) - Shop.decor_views(id)), Vector2(180, 470)))
 		return
 	if GameState.coins < price:
 		_toast("Не хватает монет", Vector2(180, 470))
 		return
+	_place(id, price)
+
+
+## Ставит купленный предмет на свободное место и выбирает его; price монет списывается (0 — подарок за ролики).
+func _place(id: String, price: int) -> void:
 	var spot := _room.find_free_spot(id)
 	if spot.x < 0:
 		_toast("Нет свободного места", Vector2(180, 470))
@@ -306,8 +338,21 @@ func _buy(id: String) -> void:
 	GameState.layout.append({"id": id, "c": spot.x, "r": spot.y, "flip": false})
 	_room.rebuild()
 	_refresh_cozy()
-	GameState.spend_coins(price)  # сохраняет и расстановку
+	if price > 0:
+		GameState.spend_coins(price)  # сохраняет и расстановку
+	else:
+		GameState.save_game()
 	_select(GameState.layout.size() - 1)
+
+
+## Обновляет «просмотрено/нужно» на карточках спонсорской мебели.
+func _refresh_cards() -> void:
+	for c in _cards:
+		var id := String(c["id"])
+		if _is_sponsored(id):
+			for n in (c["btn"] as Control).get_children():
+				if n is Label and (n as Label).has_meta("ad_label"):
+					(n as Label).text = "%d/%d" % [Shop.decor_views(id), int(CafeRoom.item_def(id)["ad_cost"])]
 
 
 func _flip_selected() -> void:
@@ -323,6 +368,9 @@ func _remove_selected() -> void:
 	if _sel < 0:
 		return
 	var item := GameState.layout[_sel]
+	if int(CafeRoom.item_def(String(item["id"])).get("ad_cost", 0)) > 0:   # спонсорский подарок не продаётся (иначе — монеты за ролики)
+		_toast("Подарок поставщика не убрать, только двигать", Vector2(180, 470))
+		return
 	var price := int(CafeRoom.item_def(String(item["id"]))["price"])
 	var at := _room.node_for(_sel).position
 	GameState.layout.remove_at(_sel)

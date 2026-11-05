@@ -229,6 +229,26 @@ func show_ad(placement: String, cb: Callable) -> void:
 		cb.call(ok))
 
 
+## Спонсорская мебель (`ad_cost` в data/furniture.json): один засчитанный ролик = один просмотр; набрал нужное число — предмет выдаётся.
+## cb(ok, got_item). Счётчик просмотров хранится в meta["decor_views"] и не сбрасывается, пока предмет не получен.
+func watch_for_item(id: String, need: int, cb: Callable) -> void:
+	show_ad("decor", func(ok: bool) -> void:
+		if not ok:
+			cb.call(false, false)
+			return
+		var views: Dictionary = GameState.meta["decor_views"]
+		views[id] = int(views.get(id, 0)) + 1
+		var got := int(views[id]) >= need
+		if got:
+			views[id] = 0
+		GameState.save_game()
+		cb.call(true, got))
+
+
+func decor_views(id: String) -> int:
+	return int((GameState.meta["decor_views"] as Dictionary).get(id, 0))
+
+
 ## Звезда за рекламу (нехватка звёзд до задачи): 2 просмотра = 1 звезда, не чаще 3 звёзд в день.
 ## cb(ok, got_star).
 func watch_for_star(cb: Callable) -> void:

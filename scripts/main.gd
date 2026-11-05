@@ -40,6 +40,8 @@ const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 �
 const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
 const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+var _rescue_used := false   # страховка за ролик: раз за смену
+var _hint_used := false     # подсказка к загадке за ролик: раз за смену
 var _paused := false        # открыта шпаргалка рецептов: терпение, остывание и приход гостей стоят
 var _pause_started := 0
 var _cozy_coins := 0.0     # чаевые за смену, которые принёс Уют (для строки в итогах)
@@ -367,6 +369,8 @@ func _begin_run() -> void:
 	Audio.music("shift")
 	_critic_seen = false
 	_riddle_seen = false
+	_rescue_used = false
+	_hint_used = false
 	_cozy_coins = 0.0
 	_cup_age = 0.0
 	_auto_left = 3 if ("auto" in boosters and not tutorial) else 0
@@ -416,13 +420,13 @@ func _update_front() -> void:
 
 
 ## Плашка с загадкой загадочного гостя: вывеска прячется, на её месте — подсказка словами (пока такой гость ждёт).
-func _refresh_clue() -> void:
+func _refresh_clue(force := false) -> void:
 	var key := ""
 	for e in _queue:
 		if e["state"] == "wait" and String(e.get("type", "")) == "riddle":
 			key = String(e["order"]["drink"])
 			break
-	if _clue != null and is_instance_valid(_clue) and String(_clue.get_meta("key", "")) == key:
+	if not force and _clue != null and is_instance_valid(_clue) and String(_clue.get_meta("key", "")) == key:
 		return
 	if _clue != null and is_instance_valid(_clue):
 		_clue.queue_free()
@@ -436,13 +440,16 @@ func _refresh_clue() -> void:
 	_clue.set_meta("key", key)
 	add_child(_clue)
 	Ui.panel(Rect2(12, 48, 336, 58), Ui.UI_CREAM, _clue)
-	var l := Ui.label(tr(String(Data.drinks[key]["riddle"])), Rect2(22, 52, 316, 48), 20, Ui.INK, _clue, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var l := Ui.label(tr(String(Data.drinks[key]["riddle"])), Rect2(22, 52, 264 if not _hint_used else 316, 48), 20, Ui.INK, _clue, HORIZONTAL_ALIGNMENT_CENTER, true)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.max_lines_visible = 2
 	l.position = Vector2(22, 52)
-	l.size = Vector2(316, 48)
+	l.size = Vector2(264 if not _hint_used else 316, 48)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.set_meta("max_h", 48.0)
+	if not _hint_used and not tutorial and Shop.ad_ready("riddle_hint"):   # подсказка за ролик
+		var hb := Ui.button("", Rect2(292, 54, 48, 44), "video", _clue)
+		hb.pressed.connect(_riddle_hint)
 	Fx.rise_in(_clue, 12.0, 0.25, 2.0)
 
 
@@ -865,6 +872,62 @@ func _discard_cup() -> void:
 	_refresh_cup()
 
 
+## Сколько шагов в заказе: основа, молоко, сироп, добавки напитка + выпечка и её начинки.
+func _order_steps(order: Dictionary) -> int:
+	var r: Dictionary = Data.drinks[String(order["drink"])]["recipe"]
+	var n := 1 + (1 if bool(r["milk"]) else 0) + (1 if bool(r.get("syrup", false)) else 0) + (r.get("mods", []) as Array).size()
+	if String(order["pastry"]) != "":
+		n += 1 + (order.get("pastry_mods", []) as Array).size()
+	return n
+
+
+## Страховка за ролик: сложный заказ (4+ шага) собран с ошибкой — один раз за смену можно очистить поднос, и гость не уйдёт. Возвращает true, если
+## показано предложение (подача отложена до ответа). Не работает в обучении, при отключённых окнах (тесты) и без доступной рекламы.
+func _rescue_offer(e: Dictionary) -> bool:
+	if tutorial or _rescue_used or _forgive_left > 0 or GameState.suppress_popups or _order_steps(e["order"]) < 4 or not Shop.ad_ready("rescue"):
+		return false
+	_pause()
+	var p := InfoPopup.open(self, "Ошибка в сложном заказе", "Очистить поднос за короткий ролик? Гость подождёт, а ты попробуешь снова.", ["Исправить (ролик)", "Не надо"] as Array[String], ["video", ""] as Array[String])
+	p.chosen.connect(func(i: int) -> void:
+		if i != 0:
+			_resume()
+			_serve(e, true)
+			return
+		Shop.show_ad("rescue", func(ok: bool) -> void:
+			_resume()
+			if ok:
+				_rescue_used = true
+				_toast(tr("Поднос очищен, гость ждёт"), Vector2(180, 430))
+				_reject_in_tutorial(e)
+			else:
+				_serve(e, true)))
+	return true
+
+
+## Подсказка к загадке за ролик: показывает состав загаданного напитка (раз за смену).
+func _riddle_hint() -> void:
+	if _hint_used or _paused or _clue == null:
+		return
+	var key := String(_clue.get_meta("key", ""))
+	if key == "" or not Shop.ad_ready("riddle_hint"):
+		_toast(tr("Ролик сейчас недоступен"), Vector2(180, 430))
+		return
+	_pause()
+	Shop.show_ad("riddle_hint", func(ok: bool) -> void:
+		if not ok:
+			_resume()
+			return
+		_hint_used = true
+		_refresh_clue(true)
+		var book := RecipeBook.new()
+		book.title_text = "Подсказка"
+		book.drink_ids = [key] as Array[String]
+		book.cell_tex = _drink_tex
+		book.base_tex = func(id: String) -> Texture2D: return _drink_tex({"coffee": "espresso", "tea": "tea", "cocoa": "cocoa"}[id])
+		book.closed.connect(_resume)
+		add_child(book))
+
+
 ## Куда ляжет ингредиент, брошенный в точке at: вся чашка (WHOLE), напиток (DRINK) или выпечка (PASTRY). Сироп, сливки и корица ложатся на выпечку,
 ## если она на подносе и бросок — в правой половине; всё остальное — в напиток. Тот же расчёт рисует белую рамку.
 func _drop_half(kind: String, id: String, at: Vector2) -> ServingTray.Half:
@@ -914,13 +977,15 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 # ---------------------------------------------------------------- подача заказа
 
 ## Подача подноса коту e (пусто — первому ждущему). Начисление наград — сразу (тесты и логика), анимация — поверх.
-func _serve(e: Dictionary = {}) -> void:
+func _serve(e: Dictionary = {}, skip_rescue := false) -> void:
 	if e.is_empty():
 		e = _front()
 	if e.is_empty() or e["state"] != "wait":
 		return
 	var order: Dictionary = e["order"]
 	var ok := _cup.matches(order)
+	if not ok and not skip_rescue and _rescue_offer(e):
+		return
 	if tutorial and not ok:
 		_reject_in_tutorial(e)
 		return
@@ -1317,8 +1382,7 @@ func _update_warmth() -> void:
 func _open_book() -> void:
 	if _paused or _run_over or _result != null or tutorial:
 		return
-	_paused = true
-	_pause_started = Time.get_ticks_msec()
+	_pause()
 	var book := RecipeBook.new()
 	var ids: Array[String] = []
 	for id in GameState.drink_ids():
@@ -1330,6 +1394,11 @@ func _open_book() -> void:
 	book.closed.connect(_resume)
 	add_child(book)
 	Platform.track("recipe_book", {"drinks": ids.size()})
+
+
+func _pause() -> void:
+	_paused = true
+	_pause_started = Time.get_ticks_msec()
 
 
 func _resume() -> void:

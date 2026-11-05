@@ -11,6 +11,7 @@ const W := 336.0
 const ROW_H := 56.0
 const CHIP := 32.0
 
+var title_text := "Рецепты"
 var drink_ids: Array[String] = []
 var cell_tex: Callable      # id напитка → текстура готовой чашки
 var base_tex: Callable      # id основы (coffee/tea/cocoa) → текстура
@@ -64,7 +65,7 @@ func _build() -> void:
 	var h := 560.0
 	var top := 40.0
 	Ui.panel(Rect2(X, top, W, h), Ui.UI_WOOD, _root)
-	Ui.label(tr("Рецепты"), Rect2(X, top + Ui.PAGE_PAD_TOP, W, Ui.PAGE_TITLE_H), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_CENTER)
+	Ui.label(tr(title_text), Rect2(X, top + Ui.PAGE_PAD_TOP, W, Ui.PAGE_TITLE_H), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_CENTER)
 	var cx := X + Ui.PAGE_PAD_X
 	var cw := W - 2.0 * Ui.PAGE_PAD_X
 	var y := top + Ui.PAGE_PAD_TOP + Ui.PAGE_TITLE_H + 4.0
