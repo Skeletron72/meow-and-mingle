@@ -51,6 +51,9 @@ jobs:
           $GODOT_BIN --headless --path . --export-pack "Android (RuStore, APK)" build/warm-paw.pck
           ls -l build/warm-paw.pck
           test "$(stat -c %s build/warm-paw.pck)" -lt 83886080   # бюджет установки 80 МБ
+          for p in "Android (TEST — debug APK, arm64)" "Web (TEST)" "Windows (TEST)" "Linux (TEST)"; do   # тестовые пресеты должны собираться в пакет
+            $GODOT_BIN --headless --path . --export-pack "$p" build/test.pck
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: warm-paw-pck

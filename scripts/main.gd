@@ -834,7 +834,10 @@ func _end_drag() -> void:
 		return
 	var ghost: Sprite2D = d["ghost"]
 	var drop := ghost.position
-	if drop.distance_to(_tray.position + Vector2(0, -20)) < 100.0:
+	var hit := drop.distance_to(_tray.position + Vector2(0, -20)) < 100.0
+	if not tutorial:   # телеметрия для живого теста пальцем: куда бросают, попадают ли, какая половина подноса
+		Platform.track("drop", {"kind": String(d["kind"]), "id": String(d["id"]), "hit": hit, "half": int(_drop_half(String(d["kind"]), String(d["id"]), drop)), "x": int(drop.x), "y": int(drop.y), "sx": int((d["src"]["center"] as Vector2).x)})
+	if hit:
 		ghost.queue_free()
 		_add_ingredient(String(d["kind"]), String(d["id"]), drop)
 	else:   # промах: ингредиент возвращается на место

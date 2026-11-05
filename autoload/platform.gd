@@ -31,6 +31,11 @@ func _notification(what: int) -> void:
 		Daily.on_resume()
 
 
+## Тестовая сборка (пресеты «… (TEST)» ставят признак `playtest`): панель FPS, лог событий на устройстве, страница «Для тестов» в настройках.
+func is_playtest() -> bool:
+	return OS.has_feature("playtest") or OS.get_environment("WARMPAW_PLAYTEST") == "1"   # переменная — для проверки на ПК без экспорта
+
+
 func session_seconds() -> int:
 	return int((Time.get_ticks_msec() - session_started_msec) / 1000)
 

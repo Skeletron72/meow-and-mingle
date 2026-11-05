@@ -559,6 +559,20 @@ func cozy_patience_bonus() -> float:
 	return COZY_PATIENCE * float(cozy_score()) / float(COZY_MAX)
 
 
+## Тестовая сборка («Для тестов»): открывает источники, рецепты, улучшения и выпечку, чтобы сразу играть смены главы 4+.
+func debug_unlock_all() -> void:
+	for key in ["source:syrup", "source:ice", "source:spice", "source:cream", "drink:cocoa", "drink:raf", "drink:sea_tea", "drink:hot_choc", "drink:caramel", "drink:sbiten", "pastry:syrniki", "pastry:eclair", "pastry:pirozhok", "pastry:medovik", "pastry:keks"]:
+		if not (key in unlocks):
+			unlocks.append(key)
+	for u in Data.upgrades:
+		if not has_upgrade(String(u["id"])):
+			upgrades.append(String(u["id"]))
+	shifts_played = maxi(shifts_played, 10)
+	coins += 2000
+	coins_changed.emit(coins)
+	save_game()
+
+
 ## Смена закончена (не обучающая): считаем для подсказок и аналитики.
 func register_shift() -> void:
 	shifts_played += 1

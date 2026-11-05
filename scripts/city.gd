@@ -109,6 +109,7 @@ var _coins_chip: Control
 var _fish_chip: Control
 var _fish_label: Label
 var _dock: Control
+var _perf: PerfOverlay
 var _cozy_chip: Button   # «Уют: X (чаевые +Y%)» в углу кафе, тап — режим украшения
 var _dock_btns: Dictionary = {}
 var _sign_sprite: Sprite2D
@@ -152,8 +153,10 @@ func _ready() -> void:
 	_snow.camera = _camera
 	_world.add_child(_snow)
 	_build_ui()
-	if OS.is_debug_build():
-		add_child(PerfOverlay.new())   # F2
+	if OS.is_debug_build() or Platform.is_playtest():
+		_perf = PerfOverlay.new()
+		add_child(_perf)   # F2
+		_perf.visible = Platform.is_playtest()   # в тестовой сборке панель FPS видна сразу (на телефоне нет F2)
 	_apply_safe_area()
 	get_viewport().size_changed.connect(_apply_safe_area)
 	Audio.music("city")
@@ -708,7 +711,7 @@ func _build_menu() -> void:
 	if pc:
 		Ui.button("Выход", Rect2(mc.position.x, mc.position.y + 3.0 * 80.0 + Ui.BTN_H + Ui.BTN_GAP, mc.size.x, Ui.BTN_H), "exit", main).pressed.connect(get_tree().quit)
 	# настройки
-	var settings := _page("settings", Ui.column_h(7), "Настройки")
+	var settings := _page("settings", Ui.column_h(8 if Platform.is_playtest() else 7), "Настройки")
 	_weather_btn = _page_button(settings, 0, "Погода: Авто", "cloud")   # с текстом: иконка встаёт слева
 	_weather_btn.pressed.connect(_cycle_weather)
 	_lang_btn = _page_button(settings, 1, "Язык: Авто", "globe")
@@ -720,7 +723,16 @@ func _build_menu() -> void:
 	_quality_btn = _page_button(settings, 4, "Качество: Авто", "bolt")
 	_quality_btn.pressed.connect(_cycle_setting.bind("quality"))
 	_page_button(settings, 5, "Аккаунт", "shield").pressed.connect(_menu_page.bind("account"))
-	_page_button(settings, 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+	if Platform.is_playtest():
+		_page_button(settings, 6, "Для тестов", "bolt").pressed.connect(_menu_page.bind("playtest"))
+	_page_button(settings, 7 if Platform.is_playtest() else 6, "Назад", "undo").pressed.connect(_menu_page.bind("main"))
+	if Platform.is_playtest():   # страница тестировщика: лог событий, FPS, быстрый доступ к поздней игре
+		var pt := _page("playtest", Ui.column_h(5), "Для тестов")
+		_page_button(pt, 0, "Скопировать лог", "doc").pressed.connect(_copy_log)
+		_page_button(pt, 1, "Панель FPS", "bolt").pressed.connect(func() -> void: _perf.visible = not _perf.visible)
+		_page_button(pt, 2, "Открыть главу 4+", "star").pressed.connect(_playtest_unlock)
+		_page_button(pt, 3, "+1000 монет", "coin").pressed.connect(func() -> void: GameState.add_coins(1000))
+		_page_button(pt, 4, "Назад", "undo").pressed.connect(_menu_page.bind("settings"))
 	# аккаунт: статистика, конфиденциальность, титры и спрятанный сброс
 	var account := _page("account", 84.0 + Ui.BTN_GAP + Ui.column_h(5), "Аккаунт")
 	var ac: Rect2 = account.get_meta("content")
@@ -1898,6 +1910,22 @@ func _end_shift(served: int, earned: int) -> void:
 
 
 # ---------------------------------------------------------------- меню в игре
+
+## Тестовая сборка: скопировать лог событий (user://analytics.log) в буфер обмена.
+func _copy_log() -> void:
+	var text := ""
+	if FileAccess.file_exists(DummyBackend.LOG_PATH):
+		text = FileAccess.get_file_as_string(DummyBackend.LOG_PATH)
+	DisplayServer.clipboard_set(text)
+	Ui.toast(_menu, "Лог скопирован (%d КБ)" % int(ceil(text.length() / 1024.0)), Vector2(180, 560))
+
+
+## Тестовая сборка: сразу открывает всё, что нужно для проверки поздней игры (источники, улучшения, выпечку, кошек), и ставит монеты.
+func _playtest_unlock() -> void:
+	GameState.debug_unlock_all()
+	_refresh_dock()
+	Ui.toast(_menu, "Открыто: рецепты, добавки, улучшения", Vector2(180, 560))
+
 
 func _open_settings() -> void:
 	_menu_page("settings")

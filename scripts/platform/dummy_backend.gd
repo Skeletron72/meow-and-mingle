@@ -11,7 +11,7 @@ var scheduled: Dictionary = {}   # id -> {"seconds", "title", "body"}
 var reviews_requested := 0
 var cloud_text := ""
 var simulate_ads := true
-var simulate_purchases := OS.is_debug_build()
+var simulate_purchases := OS.is_debug_build() or OS.has_feature("playtest")
 var restore_skus: Array[String] = []   # что «вернёт» восстановление покупок (тесты)
 
 
@@ -28,7 +28,7 @@ func track(event: String, params: Dictionary) -> void:
 	events.append(row)
 	if events.size() > 500:
 		events.pop_front()
-	if OS.is_debug_build():
+	if OS.is_debug_build() or OS.has_feature("playtest"):
 		var f := FileAccess.open(LOG_PATH, FileAccess.READ_WRITE if FileAccess.file_exists(LOG_PATH) else FileAccess.WRITE)
 		if f != null:
 			if f.get_length() > LOG_LIMIT:
