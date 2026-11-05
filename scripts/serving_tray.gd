@@ -23,11 +23,18 @@ var pastry: Sprite2D
 var _steam: CPUParticles2D
 var _glow: Sprite2D
 var _badges: Array[Sprite2D] = []
-var hot := false:   # над подносом несут ингредиент: белая обводка (без масштабирования — пиксели остаются целыми)
+const SEAM := 4.0   # граница половин: левая — напиток, правая — выпечка
+enum Half { NONE, WHOLE, DRINK, PASTRY }
+var hot_half: Half = Half.NONE:   # над подносом несут ингредиент: белая обводка всего подноса или только той половины, куда он ляжет
 	set(v):
-		if hot != v:
-			hot = v
+		if hot_half != v:
+			hot_half = v
 			queue_redraw()
+var hot: bool:   # совместимость: «поднос подсвечен»
+	get:
+		return hot_half != Half.NONE
+	set(v):
+		hot_half = Half.WHOLE if v else Half.NONE
 var warmth := 0:   # 0 горячо (идёт пар), 1 остывает (пара нет), 2 остыл (чашка синеет)
 	set(v):
 		warmth = v
@@ -130,8 +137,12 @@ func _draw() -> void:
 	for sx in [-1.0, 1.0]:   # ручки по краям
 		draw_rect(Rect2(sx * (rx + 4) - 8, -8, 16, 16), BrewArt.OUTLINE)
 		draw_rect(Rect2(sx * (rx + 4) - 4, -4, 8, 8), RIM)
-	if hot:
+	if hot_half == Half.WHOLE:
 		BrewArt._ellipse_on(self, Vector2.ZERO, rx + 2.0 * g, ry + 2.0 * g, Color("fffbee"))
+	elif hot_half != Half.NONE:   # только одна половина: белая рамка и лёгкая заливка внутри
+		var lo := -1000.0 if hot_half == Half.DRINK else SEAM
+		var hi := SEAM if hot_half == Half.DRINK else 1000.0
+		BrewArt._ellipse_clip(self, Vector2.ZERO, rx + 3.0 * g, ry + 3.0 * g, Color("fffbee"), lo, hi)
 	BrewArt._ellipse_on(self, Vector2.ZERO, rx + g, ry + g, BrewArt.OUTLINE)
 	BrewArt._ellipse_on(self, Vector2.ZERO, rx, ry, RIM)
 	BrewArt._ellipse_on(self, Vector2(0, g), rx - 2 * g, ry - 2 * g, RIM_L)    # светлый нижний край борта
@@ -139,3 +150,7 @@ func _draw() -> void:
 	BrewArt._ellipse_on(self, Vector2(0, g / 2.0 * 2.0), rx - 3 * g, ry - 3 * g, INNER)
 	draw_rect(Rect2(-48, -20, 20, 4), Color(1, 1, 1, 0.6))   # блик
 	draw_rect(Rect2(-24, -20, 8, 4), Color(1, 1, 1, 0.6))
+	if hot_half == Half.DRINK or hot_half == Half.PASTRY:
+		var lo2 := -1000.0 if hot_half == Half.DRINK else SEAM
+		var hi2 := SEAM if hot_half == Half.DRINK else 1000.0
+		BrewArt._ellipse_clip(self, Vector2(0, g / 2.0 * 2.0), rx - 3 * g, ry - 3 * g, Color(1, 1, 1, 0.55), lo2, hi2)

@@ -1511,6 +1511,15 @@ func _test_shelves_and_pastry() -> void:
 	m2._end_drag()
 	_check(not m2._tray.hot, "после броска обводка снимается")
 	m2._discard_cup()
+	# раздельная подсветка половин подноса: сироп при выпечке на подносе — левая/правая половина, лёд и молоко — всё
+	m2._cup.add("base", "coffee")
+	m2._cup.add("pastry", "croissant")
+	var tp: Vector2 = m2._tray.position
+	_check(m2._drop_half("syrup", "syrup", tp + Vector2(-40, 0)) == ServingTray.Half.DRINK and m2._drop_half("syrup", "syrup", tp + Vector2(40, 0)) == ServingTray.Half.PASTRY, "сироп: левая половина — напиток, правая — выпечка")
+	_check(m2._drop_half("extra", "cream", tp + Vector2(40, 0)) == ServingTray.Half.PASTRY and m2._drop_half("extra", "ice", tp + Vector2(40, 0)) == ServingTray.Half.WHOLE, "сливки на выпечку, лёд — в чашку при любом броске")
+	m2._cup.clear()
+	_check(m2._drop_half("syrup", "syrup", tp + Vector2(40, 0)) == ServingTray.Half.WHOLE, "без выпечки на подносе сироп всегда в напиток")
+	m2._discard_cup()
 	# начинка: выпечка + сироп/сливки/корица на правую половину подноса
 	var c := CupState.new()
 	c.add("base", "coffee")

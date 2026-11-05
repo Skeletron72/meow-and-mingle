@@ -800,7 +800,10 @@ func _drag_to(p: Vector2) -> void:
 		return
 	var ghost: Sprite2D = _drag["ghost"]
 	ghost.position = _snap(p + FINGER_LIFT)
-	_tray.hot = ghost.position.distance_to(_tray.position + Vector2(0, -20)) < 100.0   # поднос обводится белым, когда ингредиент над ним
+	if ghost.position.distance_to(_tray.position + Vector2(0, -20)) < 100.0:   # поднос обводится белым (целиком или нужной половиной), когда ингредиент над ним
+		_tray.hot_half = _drop_half(String(_drag["kind"]), String(_drag["id"]), ghost.position)
+	else:
+		_tray.hot_half = ServingTray.Half.NONE
 
 
 func _end_drag() -> void:
@@ -852,11 +855,19 @@ func _discard_cup() -> void:
 	_refresh_cup()
 
 
+## Куда ляжет ингредиент, брошенный в точке at: вся чашка (WHOLE), напиток (DRINK) или выпечка (PASTRY). Сироп, сливки и корица ложатся на выпечку,
+## если она на подносе и бросок — в правой половине; всё остальное — в напиток. Тот же расчёт рисует белую рамку.
+func _drop_half(kind: String, id: String, at: Vector2) -> ServingTray.Half:
+	var topping := "syrup" if kind == "syrup" else id
+	if kind in ["syrup", "extra"] and _cup.pastry != "" and CupState.PASTRY_TOPPINGS.has(topping):
+		return ServingTray.Half.PASTRY if at.x > _tray.position.x + ServingTray.SEAM else ServingTray.Half.DRINK
+	return ServingTray.Half.WHOLE
+
+
 func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
-	var on_pastry := false
+	var on_pastry := _drop_half(kind, id, at) == ServingTray.Half.PASTRY
 	var err := ""
-	if kind in ["syrup", "extra"] and _cup.pastry != "" and CupState.PASTRY_TOPPINGS.has("syrup" if kind == "syrup" else id) and at.x > _tray.position.x + 4.0:
-		on_pastry = true   # бросили в правую половину подноса, где выпечка: сироп, сливки и корица ложатся на неё
+	if on_pastry:   # бросили в правую половину подноса, где выпечка: сироп, сливки и корица ложатся на неё
 		err = _cup.add_to_pastry("syrup" if kind == "syrup" else id)
 	else:
 		err = _cup.add(kind, id)

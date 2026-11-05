@@ -81,6 +81,20 @@ static func _ellipse_on(ci: CanvasItem, c: Vector2, rx: float, ry: float, color:
 		dy += G
 
 
+## Тот же эллипс, но только в полосе x ∈ [x_min, x_max] (подсветка одной половины подноса).
+static func _ellipse_clip(ci: CanvasItem, c: Vector2, rx: float, ry: float, color: Color, x_min: float, x_max: float) -> void:
+	var dy := -ry
+	while dy < ry:
+		var k := 1.0 - pow((dy + G / 2.0) / ry, 2.0)
+		var half := floorf(rx * sqrt(maxf(0.0, k)) / G) * G
+		if half > 0.0:
+			var x0 := maxf(c.x - half, x_min)
+			var x1 := minf(c.x + half, x_max)
+			if x1 > x0:
+				ci.draw_rect(Rect2(x0, c.y + dy, x1 - x0, G), color)
+		dy += G
+
+
 ## Смещение «центра» рисунка в клетке 16×16 от центра клетки, целое число пикселей спрайта.
 ## Для посуды (bowl = true) центр — это ЧАША (колонки, почти такие же плотные, как самая широкая), без ручки:
 ## чашку ставят по центру чаши, а не по середине между чашей и ручкой. Для выпечки — середина рисунка.
