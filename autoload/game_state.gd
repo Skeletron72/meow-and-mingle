@@ -9,7 +9,7 @@ signal repair_done(id: String)   # задача ремонта выполнен�
 const SAVE_PATH := "user://save.json"
 const SAVE_BAK := "user://save.bak"
 const SAVE_TMP := "user://save.tmp"
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 ## Стадии вступления (v5): игра раньше истории. 0 кадр-заставка, 1 обучающая смена (3 заказа), 2 ставни (ремонт за 1★),
 ## 3 расчистка зала (ремонт за 2★), 4 — не используется (был «первый магазин»), 5 вступление пройдено.
 const INTRO_DONE := 5
@@ -832,9 +832,9 @@ func _migrate(data: Dictionary) -> Dictionary:
 		data["intro_stage"] = stage
 		data["repairs"] = done_repairs
 		v = 5
-	if v < 7:
+	if v < 8:
 		data["layout_fix"] = true   # v6–v7: прилавок стал мебелью с местом бариста; кухню из зала, двойную доску меню и награды жилой зоны поправим после чтения
-		v = 7
+		v = 8
 	if v > SAVE_VERSION:
 		push_warning("Сохранение новее игры (v%d)" % v)
 	return data
@@ -877,6 +877,18 @@ func _fix_auto_layout() -> void:
 			layout.remove_at(same[same.size() - 1])
 	var room := CafeRoom.new()
 	room.layout = layout
+	# миска и цветок из наград стояли посреди прохода или за витриной: миску — в угол у стены, цветок — к стене служебки
+	for i in layout.size():
+		var it: Dictionary = layout[i]
+		var cell := Vector2i(int(it["c"]), int(it["r"]))
+		var want := Vector2i(-1, -1)
+		if String(it["id"]) == "bowl" and cell in [Vector2i(4, 2), Vector2i(4, 3), Vector2i(5, 2), Vector2i(0, 3)]:
+			want = Vector2i(0, 5)
+		elif String(it["id"]) == "plant" and cell in [Vector2i(5, 1), Vector2i(5, 2), Vector2i(4, 3)]:
+			want = Vector2i(5, 3)
+		if want.x >= 0 and room.check_place(String(it["id"]), want.x, want.y, i) == "":
+			it["c"] = want.x
+			it["r"] = want.y
 	for i in layout.size():   # кухня, оказавшаяся в зале или вплотную за прилавком, — к задней стене / в ряд с прилавком
 		var id := String(layout[i]["id"])
 		if not CafeRoom.is_kitchen(id):

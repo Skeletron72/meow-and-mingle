@@ -1866,6 +1866,11 @@ func _test_reward_layout() -> void:
 		if CafeRoom.is_solid(id) and not CafeRoom.is_counter(id):
 			_check(not CafeRoom.cells(id, int(it["c"]), int(it["r"])).intersects(Rect2i(4, 4, 2, 2)), "«%s» не загораживает вход" % id)
 	_check(boards == 1, "доска меню одна (%d)" % boards)
+	for it in GameState.layout:   # миска — в углу у стены, цветок у входа — у стены, не в проходе
+		if String(it["id"]) == "bowl":
+			_check(Vector2i(int(it["c"]), int(it["r"])) == Vector2i(0, 5), "миска для котов в углу у стены (%d,%d)" % [int(it["c"]), int(it["r"])])
+		if String(it["id"]) == "plant":
+			_check(int(it["c"]) in [0, 5, 9] or int(it["r"]) == 5, "цветок у стены (%d,%d)" % [int(it["c"]), int(it["r"])])
 	_check(counters == 1 and String(GameState.layout[0]["id"]) == "counter_mama", "«Стойка, как у мамы» — новый вид прилавка, прилавок один")
 	var rugs := 0
 	for it in GameState.layout:

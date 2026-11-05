@@ -662,7 +662,10 @@ func _preferred_cells(id: String, ignore: int) -> Array[Vector2i]:
 					out.append(Vector2i(x, a.end.y))
 		return out
 	if base == "plant":   # углы и края зала
-		out.assign([Vector2i(5, 1), Vector2i(9, 4), Vector2i(0, 5), Vector2i(5, 4), Vector2i(0, 3), Vector2i(3, 0), Vector2i(9, 5), Vector2i(5, 0)])
+		out.assign([Vector2i(5, 3), Vector2i(9, 4), Vector2i(9, 5), Vector2i(5, 4), Vector2i(6, 5)])   # у стены служебки, в углах
+		return out
+	if base == "bowl":   # миска для котов — на полу в углу у стены, не в проходе
+		out.assign([Vector2i(0, 5), Vector2i(1, 5), Vector2i(9, 5), Vector2i(5, 4)])
 		return out
 	if base in ["table_big", "table_small"]:   # в зале: середина пола, не у самой витрины
 		var cand2: Array[Vector2i] = []
