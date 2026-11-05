@@ -807,5 +807,6 @@
  "Достаточно начинки": "Enough toppings",
  "Уют %d из %d: чаевые +%d%%, терпение гостей +%d%%": "Coziness %d of %d: tips +%d%%, guest patience +%d%%",
  "Уют %d (чаевые +%d%%)": "Coziness %d (tips +%d%%)",
- "Откроется: %s": "Opens with: %s"
+ "Откроется: %s": "Opens with: %s",
+ "Бонус за Уют %d: +%d": "Coziness bonus %d: +%d"
 }

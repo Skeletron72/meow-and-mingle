@@ -40,6 +40,7 @@ const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 �
 const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
 const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+var _cozy_coins := 0.0     # чаевые за смену, которые принёс Уют (для строки в итогах)
 var _riddle_seen := false   # загадочный гость приходит раз за смену
 var _cup_age := 0.0         # сколько секунд горячий напиток стоит на подносе
 var _rail_n := 0            # сколько баночек-добавок (лёд, корица, сливки) на полке
@@ -360,6 +361,7 @@ func _begin_run() -> void:
 	Audio.music("shift")
 	_critic_seen = false
 	_riddle_seen = false
+	_cozy_coins = 0.0
 	_cup_age = 0.0
 	_auto_left = 3 if ("auto" in boosters and not tutorial) else 0
 	_forgive_left = 1 if ("cat_help" in boosters and not tutorial) else 0
@@ -949,7 +951,9 @@ func _serve(e: Dictionary = {}) -> void:
 		if cold:
 			price = int(round(price * COLD_PRICE))
 		tip = maxi(1, int(round(price * 0.2)))
-		tip = int(round(tip * (1.0 + GameState.perk_total("tips") + GameState.cozy_tip_bonus())))
+		var tip_mult := 1.0 + GameState.perk_total("tips") + GameState.cozy_tip_bonus()
+		tip = int(round(tip * tip_mult))
+		var cozy_share := GameState.cozy_tip_bonus() / tip_mult   # доля чаевых, которую дал Уют (для итогов смены)
 		if pastry_id != "":
 			tip = int(round(tip * (1.0 + GameState.perk_total("pastry_tips"))))
 		if String(e.get("type", "normal")) == "rushed" and elapsed <= float(e["max"]) * 0.5:
@@ -961,6 +965,7 @@ func _serve(e: Dictionary = {}) -> void:
 		if cold:
 			tip = 0
 			_toast(tr("Остыло: цена −30%, без чаевых"), Vector2(180, 470))
+		_cozy_coins += float(tip) * cozy_share
 		var target := float(level.get("speed", 10.0))
 		bonus = 0 if tutorial else (5 if elapsed <= target * 0.6 else (2 if elapsed <= target else 0))
 		if bonus > 0:
@@ -1142,8 +1147,8 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	var w := 336.0
 	var cx := x + Ui.PAGE_PAD_X
 	var cw := w - 2.0 * Ui.PAGE_PAD_X
-	var top := 64.0
-	var h := 522.0   # + строка кнопки «×2 за рекламу» / «Помощь кота»
+	var top := 52.0
+	var h := 572.0   # + строки: уют, кнопка «×2 за рекламу» / «Помощь кота»
 	Ui.panel(Rect2(x, top, w, h), Ui.UI_WOOD, _result)
 	var done := mask & 1 != 0
 	var y := top + Ui.PAGE_PAD_TOP
@@ -1176,6 +1181,11 @@ func _show_results(mask: int, bonus: int, accuracy: float, avg: float) -> void:
 	Ui.label(lines, Rect2(cx, y, cw, Ui.LINE_H * 2.0), Ui.FONT_SIZE, Ui.INK, _result, HORIZONTAL_ALIGNMENT_CENTER, true)
 	y += Ui.LINE_H * 2.0 + 4.0
 	Ui.label(tr("Заработано: %d") % shift_earned + ("  (+%d)" % bonus if bonus > 0 else ""), Rect2(cx, y, cw, Ui.LINE_H), Ui.FONT_SIZE, Color("3c8c4a"), _result, HORIZONTAL_ALIGNMENT_CENTER, true)
+	if GameState.cozy_score() > 0:   # замыкаем петлю «купил мебель → увидел прирост»: сколько чаевых принёс Уют
+		y += Ui.LINE_H
+		var heart := _sprite(Ui.icon("heart"), Vector2(cx + 16.0, y + Ui.LINE_H / 2.0), 2.0, _result)
+		heart.z_index = 1
+		Ui.label(tr("Бонус за Уют %d: +%d") % [GameState.cozy_score(), int(round(_cozy_coins))], Rect2(cx + 36.0, y, cw - 36.0, Ui.LINE_H), Ui.FONT_SIZE, Color("b0455a"), _result, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
 	Ui.button("Ещё раз", Rect2(cx, by - Ui.BTN_H - Ui.BTN_GAP, cw, Ui.BTN_H), "play", _result).pressed.connect(_restart_run)
 	Ui.button("В кафе", Rect2(cx, by, cw, Ui.BTN_H), "exit", _result).pressed.connect(_leave_results)

@@ -1558,6 +1558,18 @@ func _test_shelves_and_pastry() -> void:
 	m2._serve(e)
 	var base_price := int(Data.drinks[String(e["order"]["drink"])]["price"]) + int(Data.pastries[String(e["order"]["pastry"])]["price"]) + 3 * (e["order"]["pastry_mods"] as Array).size()
 	_check(m2.shift_earned - before >= int(round(base_price * 1.2)), "комбо с начинкой: +20%% к чеку (%d при базе %d)" % [m2.shift_earned - before, base_price])
+	# Уют в итогах: чаевые, принесённые Уютом, считаются отдельно
+	GameState.layout = [{"id": "table_big", "c": 0, "r": 0, "flip": false}, {"id": "plant", "c": 2, "r": 0, "flip": false}, {"id": "rug", "c": 4, "r": 0, "flip": false}]
+	m2._cozy_coins = 0.0
+	m2._queue.clear()
+	m2._spawn_customer()
+	var e2: Dictionary = m2._queue[0]
+	e2["state"] = "wait"
+	e2["t0"] = Time.get_ticks_msec()
+	m2._update_front()
+	m2._cup.fill(String(e2["order"]["drink"]), String(e2["order"]["pastry"]), e2["order"]["pastry_mods"])
+	m2._serve(e2)
+	_check(m2._cozy_coins > 0.0, "Уют дал часть чаевых, она посчитана для итогов (%.2f)" % m2._cozy_coins)
 	m2.queue_free()
 	await get_tree().process_frame
 	GameState.new_game()
