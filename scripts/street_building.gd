@@ -6,6 +6,8 @@ extends Sprite2D
 ## Окна для ночной подсветки берутся из data/street.json по имени текстуры (building4.png -> «building4»).
 
 @export var is_cafe := false
+## Место-активность в этом здании (data/places.json): касание по фасаду открывает нужный экран, над дверью висит табличка. «none» — обычный дом.
+@export_enum("none", "shop", "quests", "upgrades", "cats", "events", "season") var place := "none"
 
 
 func _ready() -> void:

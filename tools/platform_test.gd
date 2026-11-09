@@ -564,9 +564,26 @@ func _test_ui_screens() -> void:
 	add_child(city)
 	await get_tree().process_frame
 	# кнопка звёзд в шапке и доска ремонта
-	_check(city._dock != null and city._dock.visible and city._dock_btns.size() == 5, "внизу города панель из пяти кнопок: ремонт, дела, декор, лавка, меню")
+	_check(city._dock != null and city._dock.visible and city._dock_btns.size() == 5, "внизу города панель из пяти кнопок: ремонт, дела, смена, декор, лавка")
+	_check((city._star_chip.get_meta("label") as Label).text == str(GameState.stars_free()), "в шапке число свободных звёзд")
 	var repair_badge: Label = city._dock_btns["dock_repair"].get_meta("badge")
-	_check(repair_badge.text == str(GameState.stars_free()), "на кнопке «Ремонт» число свободных звёзд")
+	_check(repair_badge.text == "!", "на кнопке «Ремонт» отметка: звёзд хватает на задачу")
+	var goal: Dictionary = city.next_goal()
+	_check(not goal.is_empty() and bool(goal["ready"]) and city._goal_btn.visible, "плашка цели зовёт в ремонт, когда звёзд хватает")
+	_check(city._place_marks.size() == 6, "на улице шесть домов-мест: лавка, доска дел, мастерская, клуб котов, ярмарка, пасс")
+	_check(city.place_badge("shop") == (Daily.gift_ready() or not Shop.deal_taken()), "отметка на «Лавке» — пока есть подарок или предложение дня")
+	var open_before := ListScreen.open_count
+	city._open_place("upgrades")
+	_check(ListScreen.open_count == open_before + 1, "«Мастерская» открывает улучшения")
+	city._upgrade_screen.close()
+	await get_tree().process_frame
+	var keep_bonus := GameState.stars_bonus
+	GameState.stars_bonus = -GameState.stars_total() + GameState.stars_bonus + GameState.stars_spent   # свободных звёзд — ноль
+	city._refresh_dock()
+	goal = city.next_goal()
+	_check(not goal.is_empty() and not bool(goal["ready"]) and int(goal["left"]) > 0, "звёзд не хватает — цель показывает, сколько осталось, и ведёт в смену")
+	GameState.stars_bonus = keep_bonus
+	city._refresh_dock()
 	city._open_repairs()
 	var board: RepairBoard = city._repair_board
 	_check(board != null, "доска ремонта открылась")

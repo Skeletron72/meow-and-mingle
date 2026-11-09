@@ -846,5 +846,17 @@
  "Пиала": "Bowl",
  "Пиала с печеньем": "Bowl of Cookies",
  "Печенье в пиале — это всем? А какао у вас есть?": "Cookies in a bowl — for everyone? And do you have cocoa?",
- "Это ставится на стол": "This goes on a table"
+ "Это ставится на стол": "This goes on a table",
+ "Подарок дня и предложения": "Daily gift and deals",
+ "Доска дел": "Task board",
+ "Мастерская": "Workshop",
+ "Оборудование кафе": "Café equipment",
+ "Клуб котов": "Cat club",
+ "Друзья и их таланты": "Friends and their talents",
+ "События сезона": "Season events",
+ "Награды сезона": "Season rewards",
+ "Можно: %s": "Ready: %s",
+ "Ещё %d★: %s": "%d★ to go: %s",
+ "Смена %d": "Shift %d",
+ "Время": "Time"
 }

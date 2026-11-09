@@ -1,0 +1,38 @@
+[
+ {
+  "id": "shop",
+  "name": "Лавка",
+  "icon": "bag",
+  "blurb": "Подарок дня и предложения"
+ },
+ {
+  "id": "quests",
+  "name": "Доска дел",
+  "icon": "quest",
+  "blurb": "Задания дня"
+ },
+ {
+  "id": "upgrades",
+  "name": "Мастерская",
+  "icon": "wrench",
+  "blurb": "Оборудование кафе"
+ },
+ {
+  "id": "cats",
+  "name": "Клуб котов",
+  "icon": "cat",
+  "blurb": "Друзья и их таланты"
+ },
+ {
+  "id": "events",
+  "name": "Ярмарка",
+  "icon": "calendar",
+  "blurb": "События сезона"
+ },
+ {
+  "id": "season",
+  "name": "Мурлык-пасс",
+  "icon": "crown",
+  "blurb": "Награды сезона"
+ }
+]

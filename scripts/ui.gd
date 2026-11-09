@@ -10,7 +10,6 @@ const PX := 2
 const INK := Color("4a2e1a")
 const CREAM := Color("fff1d6")
 
-const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
 const GAME_ICONS: Texture2D = preload("res://assets/ui/icons_game.png")   # свой набор 16×16, см. tools/generators/make_icons.py
 const UI_BTN: Texture2D = preload("res://assets/ui/SquareButton1_wood.png")
 const UI_WOOD: Texture2D = preload("res://assets/ui/WoodenContainer5.png")
@@ -48,26 +47,6 @@ const GLYPH_BOTTOM := 28.0   # с хвостами; у цифр и заглав�
 const FONT_SIZE := 24   # 12 px шрифта × PX
 const FONT_SIZE_BIG := 48
 
-## Область иконки в IconsEssential.png (x, y, w, h).
-const ICON_RECTS := {
-	"home": Rect2(113, 17, 14, 15),
-	"gear": Rect2(16, 16, 16, 16),
-	"cat": Rect2(145, 82, 13, 12),
-	"play": Rect2(212, 177, 9, 13),
-	"brush": Rect2(308, 114, 7, 13),
-	"trash": Rect2(80, 208, 15, 17),
-	"coin": Rect2(210, 209, 11, 14),
-	"undo": Rect2(17, 209, 14, 13),
-	"check": Rect2(305, 18, 14, 12),
-	"cart": Rect2(113, 114, 14, 12),
-	"exit": Rect2(272, 48, 16, 15),
-	"flower": Rect2(308, 176, 9, 16),
-	"forks": Rect2(273, 210, 14, 13),
-	"hand": Rect2(82, 144, 12, 15),
-	"cloud": Rect2(272, 82, 16, 11),
-}
-
-
 static func atlas(tex: Texture2D, region: Rect2) -> AtlasTexture:
 	var a := AtlasTexture.new()
 	a.atlas = tex
@@ -78,7 +57,7 @@ static func atlas(tex: Texture2D, region: Rect2) -> AtlasTexture:
 static var _game_rects: Dictionary = {}
 
 
-## Область значка в его листе: сначала свой набор (data/icons.json), потом старый IconsEssential.
+## Область значка в листе своего набора (data/icons.json): все значки 16×16, рисуются ровно ×2.
 static func icon_rect(icon_name: String) -> Rect2:
 	if _game_rects.is_empty():
 		var f := FileAccess.open("res://data/icons.json", FileAccess.READ)
@@ -88,21 +67,16 @@ static func icon_rect(icon_name: String) -> Rect2:
 				for k in parsed:
 					var a: Array = parsed[k]
 					_game_rects[String(k)] = Rect2(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
-	if _game_rects.has(icon_name):
-		return _game_rects[icon_name]
-	return ICON_RECTS[icon_name]
+	return _game_rects[icon_name]
 
 
 static func has_icon(icon_name: String) -> bool:
 	icon_rect("star")   # прогрев
-	return _game_rects.has(icon_name) or ICON_RECTS.has(icon_name)
+	return _game_rects.has(icon_name)
 
 
 static func icon(icon_name: String) -> AtlasTexture:
-	icon_rect("star")
-	if _game_rects.has(icon_name):
-		return atlas(GAME_ICONS, _game_rects[icon_name])
-	return atlas(ICONS, ICON_RECTS[icon_name])
+	return atlas(GAME_ICONS, icon_rect(icon_name))
 
 
 ## Чётное число пикселей (сетка арта: 1 пиксель = 2 логических).

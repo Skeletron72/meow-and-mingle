@@ -401,6 +401,30 @@ static func blob(rx: int, ry: int, levels := 3) -> ImageTexture:
 
 
 ## Спрайт из текстуры арта в масштабе px (по умолчанию 2; центрирован; позиция привязывается к сетке).
+## Табличка места на карте: кремовый квадрат 22×22 с тёмным контуром и «хвостиком» вниз (всего 22×25), внутрь кладётся значок 16×16.
+static func place_plate() -> ImageTexture:
+	if _cache.has("place_plate"):
+		return _cache["place_plate"]
+	var img := image(22, 25)
+	var ink := Color("3b2a3d")
+	var cream := Color("fff1d6")
+	var shade := Color("e8cfa0")
+	for y in 22:
+		for x in 22:
+			if (x == 0 or x == 21) and (y == 0 or y == 21):
+				continue
+			var edge := x == 0 or x == 21 or y == 0 or y == 21 or ((x == 1 or x == 20) and (y == 1 or y == 20))
+			img.set_pixel(x, y, ink if edge else (shade if y >= 19 else cream))
+	for i in 3:   # хвостик
+		for x in range(8 + i, 14 - i):
+			img.set_pixel(x, 22 + i, ink if (x == 8 + i or x == 13 - i) else shade)
+	for x in range(9, 13):
+		img.set_pixel(x, 21, shade)
+	var tex := ImageTexture.create_from_image(img)
+	_cache["place_plate"] = tex
+	return tex
+
+
 static func sprite(tex: Texture2D, pos: Vector2, centered := true, px := 2.0) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = tex

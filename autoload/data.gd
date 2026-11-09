@@ -24,6 +24,7 @@ var story: Array[Dictionary] = []           # сюжетные сцены (data/
 var chapters: Array[Dictionary] = []        # главы кампании (data/chapters.json)
 var styles: Dictionary = {}                 # палитры стен, пола и плинтусов (data/styles.json)
 var repairs: Array[Dictionary] = []         # задачи ремонта за звёзды (data/repairs.json), по порядку
+var places: Dictionary = {}    # места-активности на улице: id -> {name, icon, blurb} (data/places.json); здание получает место в scenes/street.tscn
 var street: Dictionary = {}    # городские ассеты: размеры, окна фасадов, машины (data/street.json, делает tools/curate_street_assets.py)
 
 
@@ -35,6 +36,8 @@ func _ready() -> void:
 		pastries[p["id"]] = p
 	for f in _read_array("res://data/furniture.json"):
 		furniture[f["id"]] = f
+	for pl in _read_array("res://data/places.json"):
+		places[pl["id"]] = pl
 	default_layout = _read_array("res://data/default_layout.json")
 	intro_layout = _read_array("res://data/intro_layout.json")
 	upgrades = _read_array("res://data/upgrades.json")

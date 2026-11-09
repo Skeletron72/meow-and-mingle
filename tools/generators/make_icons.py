@@ -50,6 +50,13 @@ class Canvas:
     def px(self, x, y, c):
         self.img.putpixel((x, y), C[c])
 
+    def art(self, rows):
+        """Рисунок строками: символ — ключ палитры, точка — пусто."""
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    self.img.putpixel((x, y), C[ch])
+
     def outline(self):
         src = self.img.copy()
         for y in range(16):
@@ -365,6 +372,192 @@ def _(c):
     c.px(5, 4, "w")
 
 
+# ---- бывшие значки из IconsEssential (разного размера, тянулись не кратно): теперь свои 16×16, тот же стиль
+
+@icon("coin")
+def _(c):
+    c.ell(1, 1, 14, 14, "y")
+    c.ell(4, 4, 11, 11, "Y")
+    c.ell(5, 5, 10, 10, "y")
+    c.rect(7, 6, 8, 9, "Y")
+    c.px(4, 3, "w"); c.px(3, 4, "w"); c.px(3, 5, "w")
+    for p in ((12, 10), (11, 12), (12, 11), (10, 13), (9, 13)):
+        c.px(p[0], p[1], "Y")
+
+
+@icon("gear")
+def _(c):
+    for x0, y0, x1, y1 in ((7, 1, 8, 14), (1, 7, 14, 8), (3, 3, 4, 4), (11, 3, 12, 4), (3, 11, 4, 12), (11, 11, 12, 12)):
+        c.rect(x0, y0, x1, y1, "s")
+    c.ell(3, 3, 12, 12, "s")
+    c.ell(6, 6, 9, 9, "k")
+    c.px(5, 4, "w"); c.px(4, 5, "w")
+    c.px(10, 11, "S"); c.px(11, 10, "S"); c.px(9, 12, "S"); c.px(12, 9, "S")
+
+
+@icon("play")
+def _(c):
+    c.poly([(4, 2), (13, 8), (4, 14)], "y")
+    c.line([(5, 13), (12, 9)], "Y")
+    c.px(5, 4, "w"); c.px(5, 5, "w")
+
+
+@icon("home")
+def _(c):
+    c.rect(3, 8, 12, 14, "w")
+    c.poly([(8, 1), (14, 7), (14, 8), (1, 8), (1, 7), (7, 1)], "r")
+    c.rect(7, 10, 8, 14, "n")
+    c.rect(3, 13, 12, 14, "c")
+    c.rect(7, 13, 8, 14, "N")
+    c.px(7, 3, "p"); c.px(5, 5, "p")
+
+
+@icon("trash")
+def _(c):
+    c.rect(3, 5, 12, 14, "s")
+    c.rect(2, 3, 13, 4, "S")
+    c.rect(6, 1, 9, 2, "S")
+    for x in (5, 8, 10):
+        c.rect(x, 7, x, 12, "S")
+    c.px(4, 6, "w")
+
+
+@icon("undo")
+def _(c):
+    c.art([
+        "................",
+        ".....w..........",
+        "....ww..........",
+        "...wwwwwwww.....",
+        "..wwwwwwwwww....",
+        "...wwwwwwwwww...",
+        "....ww....www...",
+        ".....w.....www..",
+        "...........wcc..",
+        "..........wcc...",
+        "....wwwwwwcc....",
+        "....wwwwwcc.....",
+        "....cccccc......",
+        "................",
+    ])
+
+
+@icon("check")
+def _(c):
+    c.poly([(1, 8), (3, 6), (6, 9), (12, 2), (14, 4), (6, 13)], "g")
+    c.line([(6, 12), (13, 5)], "G")
+    c.px(3, 7, "w")
+
+
+@icon("cart")
+def _(c):
+    c.line([(1, 2), (3, 2), (5, 10), (12, 10)], "S")
+    c.poly([(4, 4), (14, 4), (12, 9), (5, 9)], "s")
+    c.rect(5, 12, 6, 13, "k"); c.rect(11, 12, 12, 13, "k")
+    c.px(6, 5, "w"); c.px(9, 6, "S"); c.px(11, 6, "S"); c.px(7, 6, "S")
+
+
+@icon("exit")
+def _(c):
+    c.rect(1, 1, 8, 14, "n")
+    c.rect(2, 2, 7, 13, "N")
+    c.px(6, 8, "y")
+    c.poly([(9, 7), (11, 7), (11, 5), (14, 8), (11, 11), (11, 9), (9, 9)], "r")
+
+
+@icon("cloud")
+def _(c):
+    c.ell(1, 7, 7, 13, "w"); c.ell(4, 3, 11, 11, "w"); c.ell(8, 6, 14, 13, "w")
+    c.rect(4, 10, 11, 13, "w")
+    c.rect(3, 13, 12, 13, "l")
+    c.px(6, 5, "l")
+
+
+@icon("brush")
+def _(c):
+    c.poly([(9, 1), (14, 6), (9, 11), (4, 6)], "n")
+    c.line([(10, 3), (12, 5)], "t")
+    c.poly([(4, 7), (8, 11), (5, 14), (1, 14), (1, 10)], "b")
+    c.px(2, 13, "B"); c.px(3, 13, "B"); c.px(4, 13, "B")
+
+
+@icon("flower")
+def _(c):
+    for x0, y0, x1, y1 in ((6, 1, 9, 4), (2, 4, 5, 7), (10, 4, 13, 7), (4, 7, 7, 10), (8, 7, 11, 10)):
+        c.ell(x0, y0, x1, y1, "p")
+    c.rect(7, 5, 8, 6, "y")
+    c.rect(7, 10, 8, 14, "G")
+    c.px(6, 12, "g"); c.px(5, 11, "g"); c.px(9, 12, "g"); c.px(10, 11, "g")
+
+
+@icon("forks")
+def _(c):
+    for x in (2, 4, 6):
+        c.rect(x, 1, x, 5, "s")
+    c.rect(2, 5, 6, 6, "s")
+    c.rect(4, 7, 4, 14, "S")
+    c.poly([(10, 1), (13, 3), (13, 8), (11, 8), (11, 14), (10, 14)], "s")
+    c.rect(11, 9, 11, 14, "S")
+
+
+@icon("hand")
+def _(c):
+    c.rect(6, 1, 8, 9, "t")
+    c.rect(4, 6, 12, 12, "t")
+    c.rect(9, 5, 10, 6, "t"); c.rect(11, 6, 12, 7, "t")
+    c.rect(2, 8, 4, 10, "t")
+    c.rect(5, 12, 11, 14, "w")
+    c.px(7, 2, "w"); c.px(9, 8, "n"); c.px(11, 8, "n")
+
+
+# ---- новые: места на карте, оборудование, цель
+
+@icon("pin")
+def _(c):
+    c.poly([(8, 14), (3, 7), (3, 4), (5, 2), (10, 2), (12, 4), (12, 7)], "r")
+    c.ell(6, 4, 9, 7, "w")
+    c.px(5, 3, "p")
+    c.px(11, 7, "R"); c.px(10, 9, "R"); c.px(9, 11, "R")
+
+
+@icon("wrench")
+def _(c):
+    c.art([
+        "................",
+        ".........sss....",
+        "........sw......",
+        ".......ss....s..",
+        ".......ss...ss..",
+        ".......sssssss..",
+        "......ssssssS...",
+        ".....sssSSSS....",
+        "....sssS........",
+        "...sssS.........",
+        "..sssS..........",
+        ".sssS...........",
+        ".ssS............",
+        "................",
+    ])
+
+
+@icon("jar")
+def _(c):
+    c.rect(3, 4, 12, 14, "l")
+    c.rect(4, 2, 11, 3, "n")
+    c.rect(4, 10, 11, 13, "y")
+    c.rect(4, 12, 11, 13, "Y")
+    c.px(6, 9, "y"); c.px(7, 9, "y"); c.px(9, 9, "y")
+    c.px(4, 5, "w"); c.px(4, 6, "w")
+
+
+@icon("flag")
+def _(c):
+    c.rect(3, 1, 4, 14, "N")
+    c.poly([(5, 2), (13, 2), (11, 5), (13, 8), (5, 8)], "r")
+    c.rect(5, 7, 12, 8, "R")
+    c.px(6, 3, "p")
+
+
 def main():
     names = list(ICONS)
     cols = 8
@@ -381,7 +574,7 @@ def main():
     json.dump(rects, open(OUT_JSON, "w"), indent=1)
     big = Image.new("RGBA", (atlas.width, atlas.height), (176, 140, 100, 255))
     big.alpha_composite(atlas)
-    big.resize((atlas.width * 6, atlas.height * 6), Image.NEAREST).save("/tmp/icons_preview.png")
+    big.resize((atlas.width * 6, atlas.height * 6), Image.NEAREST).save(os.environ.get("ICONS_PREVIEW", "/tmp/icons_preview.png"))
     print(len(names), "значков →", OUT_PNG)
 
 

@@ -445,11 +445,11 @@ func _test_city() -> void:
 	player.walk_to(nav.counter_feet(1))
 	_walk(player)
 	city._process(0.016)
-	_check(city._btn_shift.visible, "у стойки видна кнопка «Смена»")
+	_check(city._btn_shift.is_visible_in_tree(), "у стойки видна кнопка «Смена»")
 	player.walk_to(WorldNav.feet_at(rc + Vector2i(8, 3)))
 	_walk(player)
 	city._process(0.016)
-	_check(not city._btn_shift.visible, "вдали от стойки кнопки нет")
+	_check(city._btn_shift.is_visible_in_tree(), "кнопка «Смена» на нижней панели видна из любого места")
 	_check(GameState.city_inside, "положение (в кафе) запомнено для возврата из других экранов")
 	# мебель: в общем слое сортировки и с материалом обрезки
 	var furniture := 0
@@ -653,7 +653,12 @@ func _test_city_input() -> void:
 	var closed := Vector2(120.0, 520.0)
 	_click(_screen_of(city, closed), true)
 	_click(_screen_of(city, closed), false)
-	_check(not player.is_moving(), "тап по чужому зданию — «Здесь закрыто», кот стоит")
+	_check(ListScreen.open_count == 1 and player.is_moving(), "тап по дому-месту (пекарня — «Лавка») сразу открывает его экран, кот идёт к двери")
+	for ch in city.get_children():
+		if ch is ListScreen:
+			(ch as ListScreen).close()
+	await get_tree().process_frame
+	player.stop()
 	# пока открыта пауза, тапы не обрабатываются
 	city._open_menu()
 	var pos := player.position

@@ -83,7 +83,12 @@ var _last_cell := Vector2i(-1, -1)
 
 var _ui: CanvasLayer
 var _coins_label: Label
-var _clock_btn: Button
+var _clock_chip: Control
+var _clock_label: Label
+var _star_chip: Control
+var _menu_btn: Button
+var _time_btn: Button
+var _goal_btn: Button
 var _btn_shift: Button
 var _menu: CanvasLayer
 var _menu_pages: Dictionary = {}
@@ -121,6 +126,10 @@ var _story_playing := false
 var _popup_queue: Array[Callable] = []
 var _popup_busy := false
 var _repair_board: RepairBoard
+var _marks: Node2D                         # таблички мест на карте (поверх домов и котов)
+var _place_marks: Dictionary = {}          # id места → {"node", "badge", "door"}
+var _edge_btns: Array[Button] = []         # стрелки у краёв экрана: место за кадром, где ждёт награда
+var _edge_place := ["", ""]
 
 
 func _ready() -> void:
@@ -231,6 +240,7 @@ func _build_world() -> void:
 			b.material = rm
 
 	_build_storefront()
+	_build_places()
 	var interior := _level.zones(StreetZone.Kind.CAFE_INTERIOR)
 	var at := (interior[0] as StreetZone).global_position if not interior.is_empty() else Vector2(256, 64)
 	# пол кафе обязан лечь в сетку мира: иначе клетки зала и тротуара не совпадут
@@ -513,22 +523,18 @@ func _build_ui() -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 2
 	add_child(_ui)
-	# шапка: монеты и рыбки слева (ширина по числу), часы и шестерёнка справа
-	_coins_chip = _chip("coin", str(GameState.coins), 8.0, 8.0)
+	# шапка: три ресурса слева (монеты, рыбки, звёзды; ширина по числу, касание ведёт туда, где ресурс тратится или добывается), меню справа
+	_coins_chip = _chip("coin", str(GameState.coins), _open_meta.bind("shop"))
 	_coins_label = _coins_chip.get_meta("label")
 	GameState.coins_changed.connect(_on_coins_changed)  # метод, а не лямбда: отпишется вместе со сценой
-	_fish_chip = _chip("fish", str(Economy.fish()), 0.0, 8.0)
+	_fish_chip = _chip("fish", str(Economy.fish()), _open_meta.bind("shop"))
 	_fish_label = _fish_chip.get_meta("label")
 	Economy.fish_changed.connect(_on_fish_changed)
+	_star_chip = _chip("star", str(GameState.stars_free()), _open_repairs)
 	_layout_chips()
-	_clock_btn = Ui.button("12:00", Rect2(216, 8, 76, 48), "", _ui, false, Ui.UI_CREAM)   # нажатие перематывает время на час
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		_clock_btn.add_theme_color_override(c, Ui.INK)
-	_clock_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
-	_clock_btn.pressed.connect(_skip_hour)
-	var gear := Ui.button("", Rect2(296, 8, 56, 48), "gear", _ui)   # настройки одним касанием
-	gear.pressed.connect(_open_settings)
+	_menu_btn = _icon_tile(_ui, Rect2(296, 8, 56, 48), "gear", "", _open_menu)   # меню и настройки
 	GameState.repair_done.connect(_on_repair_done)
+	# вторая строка: Уют слева (тапы сквозь плашку проходят к залу), часы справа
 	_cozy_chip = Control.new()
 	_cozy_chip.position = Vector2(8, 60)
 	_cozy_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -542,30 +548,49 @@ func _build_ui() -> void:
 	cheart.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cozy_chip.add_child(cheart)
 	_cozy_label = Ui.label("", Rect2(40, 2, 216, 28), Ui.FONT_SIZE, Ui.INK, _cozy_chip, HORIZONTAL_ALIGNMENT_LEFT, true)
+	_clock_chip = Control.new()
+	_clock_chip.position = Vector2(276, 60)
+	_clock_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(_clock_chip)
+	Ui.panel(Rect2(0, 0, 76, 36), Ui.UI_CREAM, _clock_chip)
+	_clock_label = Ui.label("12:00", Rect2(0, 2, 76, 28), Ui.FONT_SIZE, Ui.INK, _clock_chip, HORIZONTAL_ALIGNMENT_CENTER, true)
+	_build_goal()
+	_build_edges()
 	_build_dock()
 	_refresh_dock()
-	_btn_shift = Ui.button("Смена", Rect2(88, 488, 184, 56), "play", _ui)
-	_btn_shift.visible = false   # появляется, только когда кот у стойки
-	_btn_shift.pressed.connect(_start_shift)
 
 
-## Плашка шапки: значок + число на кремовой рамке. Ширина по тексту (не меньше 80), чтобы число не вылезало.
-func _chip(icon_name: String, text: String, x: float, y: float) -> Control:
+## Плашка ресурса в шапке: значок + число на кремовой рамке; вся плашка — кнопка. Ширина по тексту, чтобы число не вылезало.
+func _chip(icon_name: String, text: String, handler: Callable) -> Control:
 	var holder := Control.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.position = Vector2(x, y)
+	holder.position = Vector2(8, 8)
 	_ui.add_child(holder)
-	var panel := Ui.panel(Rect2(0, 0, 96, 48), Ui.UI_CREAM, holder)
+	var panel := Ui.panel(Rect2(0, 0, 80, 48), Ui.UI_CREAM, holder)
 	var ic := TextureRect.new()
 	ic.texture = Ui.icon(icon_name)
 	ic.stretch_mode = TextureRect.STRETCH_SCALE
 	ic.size = Vector2(32, 32)
-	ic.position = Vector2(8, 4)
+	ic.position = Vector2(4, 4)
 	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(ic)
-	var l := Ui.label(text, Rect2(44, 6, 44, 32), Ui.FONT_SIZE, Ui.INK, holder, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var l := Ui.label(text, Rect2(40, 6, 40, 32), Ui.FONT_SIZE, Ui.INK, holder, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var hit := Button.new()   # невидимая кнопка поверх плашки
+	hit.flat = true
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.size = Vector2(80, 48)
+	hit.set_meta("no_audit", true)
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		hit.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	hit.button_down.connect(func() -> void:
+		panel.modulate = Color(0.85, 0.85, 0.85)
+		Audio.sfx("click", 0.02))
+	hit.button_up.connect(func() -> void: panel.modulate = Color.WHITE)
+	hit.pressed.connect(handler)
+	holder.add_child(hit)
 	holder.set_meta("label", l)
 	holder.set_meta("panel", panel)
+	holder.set_meta("hit", hit)
 	return holder
 
 
@@ -573,26 +598,86 @@ func _chip_set(chip: Control, text: String) -> void:
 	var l: Label = chip.get_meta("label")
 	l.text = text
 	var tw := Ui.FONT_NARROW.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x
-	var w := Ui.snap(clampf(44.0 + tw + 10.0, 80.0, 124.0))
+	var w := Ui.snap(clampf(40.0 + tw + 10.0, 64.0, 112.0))
 	var panel: NinePatchRect = chip.get_meta("panel")
 	panel.size = Vector2(w / 2.0, 24)
 	panel.set_meta("outer", Rect2(chip.position, Vector2(w, 48)))
-	l.size.x = w - 44.0 - 4.0
+	l.size.x = w - 40.0 - 4.0
+	(chip.get_meta("hit") as Button).size = Vector2(w, 48)
 	chip.set_meta("w", w)
 
 
-## Монеты и рыбки идут подряд слева, каждая по своей ширине.
+## Монеты, рыбки и звёзды идут подряд слева, каждая плашка по своей ширине.
 func _layout_chips() -> void:
 	_chip_set(_coins_chip, str(GameState.coins))
 	_chip_set(_fish_chip, str(Economy.fish()))
+	_chip_set(_star_chip, str(GameState.stars_free()))
 	_fish_chip.position.x = _coins_chip.position.x + float(_coins_chip.get_meta("w")) + 4.0
+	_star_chip.position.x = _fish_chip.position.x + float(_fish_chip.get_meta("w")) + 4.0
+	for c in [_coins_chip, _fish_chip, _star_chip]:
+		((c as Control).get_meta("panel") as NinePatchRect).set_meta("outer", Rect2((c as Control).position, Vector2(float((c as Control).get_meta("w")), 48)))
 
 
 func _on_fish_changed(_v: int) -> void:
 	_layout_chips()
 
 
-## Нижняя панель: пять кнопок, до которых раньше надо было «проваливаться» через меню.
+## Плашка цели над нижней панелью: что делать дальше. Хватает звёзд — зовёт в ремонт, не хватает — в смену (сколько звёзд осталось до задачи).
+func _build_goal() -> void:
+	_goal_btn = Ui.button("…", Rect2(8, 496, 344, 48), "flag", _ui, true, Ui.UI_CREAM)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		_goal_btn.add_theme_color_override(c, Ui.INK)
+	_goal_btn.add_theme_color_override("font_outline_color", Ui.CREAM)
+	_goal_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_goal_btn.pressed.connect(_on_goal_pressed)
+
+
+## Ближайшая задача ремонта: {"def", "ready"}; ready — звёзд уже хватает. Пусто — всё сделано.
+func next_goal() -> Dictionary:
+	var open := GameState.open_repairs()
+	if open.is_empty():
+		return {}
+	var free := GameState.stars_free()
+	var best: Dictionary = open[0]
+	for r in open:
+		if int(r["cost"]) < int(best["cost"]):
+			best = r
+	return {"def": best, "ready": int(best["cost"]) <= free, "left": maxi(0, int(best["cost"]) - free)}
+
+
+func _refresh_goal() -> void:
+	if _goal_btn == null:
+		return
+	var g := next_goal()
+	_goal_btn.visible = _dock.visible and not g.is_empty()
+	if g.is_empty():
+		return
+	var name_text := tr(String((g["def"] as Dictionary)["name"]))
+	var ready := bool(g["ready"])
+	Ui.set_button_icon(_goal_btn, Ui.icon("hammer" if ready else "flag"))
+	Ui.set_button_text(_goal_btn, (tr("Можно: %s") % name_text) if ready else (tr("Ещё %d★: %s") % [int(g["left"]), name_text]))
+	if _goal_btn.has_meta("blink"):
+		(_goal_btn.get_meta("blink") as Tween).kill()
+		_goal_btn.remove_meta("blink")
+	_goal_btn.modulate = Color.WHITE
+	if ready:
+		var t := _goal_btn.create_tween().set_loops()
+		t.tween_property(_goal_btn, "modulate", Color(1.15, 1.1, 0.8), 0.5)
+		t.tween_property(_goal_btn, "modulate", Color.WHITE, 0.5)
+		_goal_btn.set_meta("blink", t)
+
+
+func _on_goal_pressed() -> void:
+	var g := next_goal()
+	if g.is_empty():
+		return
+	if bool(g["ready"]):
+		_open_repairs()
+	else:
+		_start_shift()
+
+
+## Нижняя панель: четыре раздела и крупная кнопка смены посередине — главное действие игры в одно касание из любого места города.
 func _build_dock() -> void:
 	_dock = Control.new()
 	_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -612,21 +697,29 @@ func _build_dock() -> void:
 	var defs := [
 		["dock_repair", "hammer", "Ремонт", _open_repairs],
 		["dock_quests", "quest", "Дела", _open_meta.bind("quests")],
+		["dock_shift", "play", "Смена", _start_shift],
 		["dock_decor", "sofa", "Декор", _open_decorate],
 		["dock_shop", "bag", "Лавка", _open_meta.bind("shop")],
-		["dock_menu", "dots", "Меню", _open_menu],
 	]
-	var bw := 68.0
+	var bw := 64.0
+	var mid_w := 84.0
 	var gap := 2.0
-	var x0 := Ui.snap((360.0 - (5.0 * bw + 4.0 * gap)) / 2.0)
+	var x := Ui.snap((360.0 - (4.0 * bw + mid_w + 4.0 * gap)) / 2.0)
 	for i in defs.size():
 		var d: Array = defs[i]
-		var bw_i := bw
-		var b := _icon_tile(_dock, Rect2(x0 + i * (bw + gap), 566.0, bw_i, 72.0), String(d[1]), String(d[2]), d[3])
+		var mid := String(d[0]) == "dock_shift"
+		var r := Rect2(x, 548.0, mid_w, 90.0) if mid else Rect2(x, 566.0, bw, 72.0)
+		var b := _icon_tile(_dock, r, String(d[1]), String(d[2]), d[3])
+		if mid:   # главная кнопка: выше остальных и золотистая
+			(b.get_child(0) as CanvasItem).self_modulate = Color(1.0, 0.86, 0.5)
+			(b.get_meta("icon") as Control).position.y = 12.0
+			(b.get_meta("label") as Control).position.y = 46.0
+			_btn_shift = b
 		_dock_btns[String(d[0])] = b
+		x += r.size.x + gap
 
 
-## Кнопка-плитка: значок сверху, подпись снизу (нижняя панель города, главное меню).
+## Кнопка-плитка: значок сверху, подпись снизу (нижняя панель города, главное меню). Без подписи — значок по центру.
 func _icon_tile(parent: Node, r: Rect2, icon_name: String, text: String, handler: Callable) -> Button:
 	var b := Ui.button("", r, "", parent)
 	b.pressed.connect(handler)
@@ -641,6 +734,8 @@ func _icon_tile(parent: Node, r: Rect2, icon_name: String, text: String, handler
 	var lab := Ui.label(text, Rect2(0, 36, r.size.x, 28), Ui.FONT_SIZE, Ui.CREAM, b, HORIZONTAL_ALIGNMENT_CENTER, true)
 	lab.add_theme_color_override("font_outline_color", Ui.INK)
 	lab.add_theme_constant_override("outline_size", Ui.PX)
+	lab.visible = text != ""
+	b.set_meta("label", lab)
 	var back := ColorRect.new()   # место под число/точку в углу
 	back.color = Color("e0432f")
 	back.position = Vector2(r.size.x - 24.0, -4.0)
@@ -665,19 +760,29 @@ func _refresh_dock() -> void:
 	_dock.visible = done and ListScreen.open_count == 0   # поверх списков нижняя панель не нужна
 	if _cozy_chip != null:
 		_cozy_chip.visible = _dock.visible
+		_clock_chip.visible = _dock.visible
 		_cozy_label.text = tr("Уют %d (чаевые +%d%%)") % [GameState.cozy_score(), int(round(GameState.cozy_tip_bonus() * 100.0))]
+	_refresh_goal()
+	_refresh_places()
 	if not done:
 		return
 	var affordable := GameState.open_repairs().any(func(r: Dictionary) -> bool: return int(r["cost"]) <= GameState.stars_free())
-	_set_badge("dock_repair", str(GameState.stars_free()) if GameState.stars_free() > 0 else "", affordable)
+	_set_badge("dock_repair", "!" if affordable else "", affordable)
 	var claim := Daily.claimable_count()
 	_set_badge("dock_quests", str(claim) if claim > 0 else "", false)
 	_set_badge("dock_shop", "!" if (Daily.gift_ready() or not Shop.deal_taken()) else "", false)
 	_set_badge("dock_menu", "!" if (Shop.season_claimable() > 0 or Events.claimable_count() > 0) else "", false)
+	var next := 0
+	for i in Data.levels.size():
+		next = i
+		if GameState.level_unlocked(i) and GameState.level_star_count(String(Data.levels[i]["id"])) == 0:
+			break
+	(_btn_shift.get_meta("label") as Label).text = tr("Смена %d") % (next + 1)
+	_layout_chips()
 
 
 func _set_badge(key: String, text: String, blink: bool) -> void:
-	var b: Button = _dock_btns[key]
+	var b: Button = _menu_btn if key == "dock_menu" else _dock_btns[key]
 	var badge: Label = b.get_meta("badge")
 	var back: ColorRect = b.get_meta("badge_bg")
 	badge.text = text
@@ -712,7 +817,7 @@ func _build_menu() -> void:
 	var mc: Rect2 = main.get_meta("content")
 	var tile_w := Ui.snap((mc.size.x - Ui.BTN_GAP) / 2.0)
 	var tiles := [
-		["Улучшения", "cart", _open_shop], ["Коты", "cat", _open_cat_book],
+		["Улучшения", "wrench", _open_shop], ["Коты", "cat", _open_cat_book],
 		["События", "calendar", _open_meta.bind("events")], ["Пасс", "crown", _open_meta.bind("season")],
 		["Дневник", "book", _open_diary], ["Настройки", "gear", _menu_page.bind("settings")],
 	]
@@ -724,7 +829,7 @@ func _build_menu() -> void:
 	if pc:
 		Ui.button("Выход", Rect2(mc.position.x, mc.position.y + 3.0 * 80.0 + Ui.BTN_H + Ui.BTN_GAP, mc.size.x, Ui.BTN_H), "exit", main).pressed.connect(get_tree().quit)
 	# настройки
-	var tiles_n := 4 + (1 if Platform.is_playtest() else 0)
+	var tiles_n := 5 + (1 if Platform.is_playtest() else 0)
 	var rows_n := int(ceil(tiles_n / 2.0))
 	var settings := _page("settings", Ui.LINE_H + 2.0 * 52.0 + 8.0 + rows_n * (SETTING_TILE_H + Ui.BTN_GAP) + Ui.BTN_H, "Настройки", true)
 	var sc: Rect2 = settings.get_meta("content")
@@ -739,7 +844,7 @@ func _build_menu() -> void:
 	_sfx_val = _sfx_slider.get_meta("value_label")
 	sy += 52.0 + 8.0
 	var stile_w := Ui.snap((sc.size.x - Ui.BTN_GAP) / 2.0)
-	var defs: Array = [["Погода", "cloud", _cycle_weather], ["Язык", "globe", _cycle_setting.bind("lang")], ["Качество", "bolt", _cycle_setting.bind("quality")], ["Аккаунт", "shield", _menu_page.bind("account")]]
+	var defs: Array = [["Погода", "cloud", _cycle_weather], ["Язык", "globe", _cycle_setting.bind("lang")], ["Качество", "bolt", _cycle_setting.bind("quality")], ["Время", "clock", _skip_hour_tile], ["Аккаунт", "shield", _menu_page.bind("account")]]
 	if Platform.is_playtest():
 		defs.append(["Для тестов", "bolt", _menu_page.bind("playtest")])
 	for i in defs.size():
@@ -752,6 +857,8 @@ func _build_menu() -> void:
 				_lang_btn = t
 			"Качество":
 				_quality_btn = t
+			"Время":
+				_time_btn = t
 	sy += rows_n * (SETTING_TILE_H + Ui.BTN_GAP)
 	Ui.button(tr("Назад"), Rect2(sc.position.x, sy, sc.size.x, Ui.BTN_H), "undo", settings, true).pressed.connect(_menu_page.bind("main"))
 	if Platform.is_playtest():   # страница тестировщика: лог событий, FPS, быстрый доступ к поздней игре
@@ -889,6 +996,7 @@ func _refresh_weather_btn() -> void:
 
 func _menu_page(page_name: String) -> void:
 	_refresh_weather_btn()
+	_set_tile_value(_time_btn, TimeOfDay.clock_text())
 	_refresh_setting_buttons()
 	for k in _menu_pages:
 		(_menu_pages[k] as Control).visible = k == page_name
@@ -1046,6 +1154,12 @@ func _skip_hour() -> void:
 		TimeOfDay.skip(1.0)
 
 
+## Плитка «Время» в настройках: касание переводит часы на час вперёд (утро, вечер, ночь — по желанию игрока).
+func _skip_hour_tile() -> void:
+	_skip_hour()
+	_set_tile_value(_time_btn, TimeOfDay.clock_text())
+
+
 ## Запускает нужную часть вступления по стадии (1 обучающая смена, 2 ставни за звезду, 3 расчистка); время стоит на 9:00.
 func _start_intro_if_needed() -> void:
 	var stage := GameState.intro_stage
@@ -1142,7 +1256,8 @@ func _process(delta: float) -> void:
 	_update_door()
 	_apply_daylight()
 	_update_camera()
-	_clock_btn.text = TimeOfDay.clock_text()
+	_clock_label.text = TimeOfDay.clock_text()
+	_update_edges()
 	GameState.city_inside = _depth(_player.position) > 0.5
 	if _shift_layer != null:
 		return
@@ -1154,7 +1269,6 @@ func _process(delta: float) -> void:
 	if dir != Vector2.ZERO:
 		_pending = ""
 		_player.nudge(dir, delta)
-	_btn_shift.visible = _in_counter_zone() and GameState.intro_stage >= GameState.INTRO_DONE
 
 
 ## Насколько глубоко в здание зашли лапки: 0 — снаружи (у фасада и дальше), 1 — полностью внутри.
@@ -1332,6 +1446,7 @@ func _on_player_arrived() -> void:
 
 func _on_coins_changed(_value: int) -> void:
 	_layout_chips()
+	_refresh_places()
 
 
 # ---------------------------------------------------------------- коморка, лестница, второй этаж
@@ -1758,6 +1873,150 @@ func _npc_tick(delta: float) -> void:
 		n["timer"] = randf_range(2.0, 6.0)
 
 
+# ---------------------------------------------------------------- места на карте
+
+## Дома улицы с назначением (StreetBuilding.place): табличка со значком и названием над входом, красная отметка — когда там что-то ждёт.
+func _build_places() -> void:
+	_marks = Node2D.new()
+	_marks.z_index = 5
+	_world.add_child(_marks)
+	for b in _building_nodes:
+		if b.is_cafe or not Data.places.has(b.place) or _place_marks.has(b.place):
+			continue
+		var def: Dictionary = Data.places[b.place]
+		var r := b.world_rect()
+		var mark := Node2D.new()
+		mark.position = Vector2(Ui.snap(r.position.x + r.size.x / 2.0), Ui.snap(r.end.y - 150.0))
+		_marks.add_child(mark)
+		var bob := Node2D.new()
+		mark.add_child(bob)
+		var plate := Sprite2D.new()   # 44×50, верх на чётной координате: пиксели таблички в общей сетке арта
+		plate.texture = PixelArt.place_plate()
+		plate.scale = Vector2(PX, PX)
+		plate.centered = false
+		plate.position = Vector2(-22, -26)
+		bob.add_child(plate)
+		var ic := Sprite2D.new()
+		ic.texture = Ui.icon(String(def["icon"]))
+		ic.scale = Vector2(PX, PX)
+		ic.position = Vector2(0, -4)
+		bob.add_child(ic)
+		var badge := ColorRect.new()
+		badge.color = Color("e0432f")
+		badge.size = Vector2(16, 16)
+		badge.position = Vector2(14, -34)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.visible = false
+		bob.add_child(badge)
+		var mark_l := Ui.label("!", Rect2(0, -6, 16, 28), Ui.FONT_SIZE, Color.WHITE, badge, HORIZONTAL_ALIGNMENT_CENTER, true)
+		mark_l.set_meta("world", true)
+		var name_text := tr(String(def["name"]))
+		var name_w := Ui.snap(Ui.FONT_NARROW.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.FONT_SIZE).x + 16.0)
+		var plaque := ColorRect.new()   # тёмная подложка: название читается на любом фасаде
+		plaque.color = Color(0.23, 0.165, 0.24, 0.9)
+		plaque.size = Vector2(name_w, 28)
+		plaque.position = Vector2(Ui.snap(-name_w / 2.0), 26)
+		plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mark.add_child(plaque)
+		var name_l := Ui.label(name_text, Rect2(0, 0, name_w, 28), Ui.FONT_SIZE, Ui.CREAM, plaque, HORIZONTAL_ALIGNMENT_CENTER, true)
+		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_l.set_meta("world", true)
+		var t := bob.create_tween().set_loops()
+		t.tween_method(func(v: float) -> void: bob.position.y = roundf(v / 2.0) * 2.0, 0.0, -6.0, 0.7).set_trans(Tween.TRANS_SINE)
+		t.tween_method(func(v: float) -> void: bob.position.y = roundf(v / 2.0) * 2.0, -6.0, 0.0, 0.7).set_trans(Tween.TRANS_SINE)
+		_place_marks[b.place] = {"node": mark, "badge": badge, "door": Vector2(r.position.x + r.size.x / 2.0, r.end.y + 20.0)}
+
+
+## Ждёт ли в месте что-то, что можно забрать или купить прямо сейчас.
+func place_badge(id: String) -> bool:
+	match id:
+		"shop":
+			return Daily.gift_ready() or not Shop.deal_taken()
+		"quests":
+			return Daily.claimable_count() > 0
+		"upgrades":
+			return Data.upgrades.any(func(u: Dictionary) -> bool: return GameState.can_buy_upgrade(String(u["id"])))
+		"events":
+			return Events.claimable_count() > 0
+		"season":
+			return Shop.season_claimable() > 0
+	return false
+
+
+func _refresh_places() -> void:
+	var done := GameState.intro_stage >= GameState.INTRO_DONE
+	if _marks != null:
+		_marks.visible = done
+	for id in _place_marks:
+		((_place_marks[id] as Dictionary)["badge"] as CanvasItem).visible = done and place_badge(String(id))
+
+
+## Касание по дому-месту: экран открывается сразу (ждать не надо), а кот тем временем идёт к двери.
+func _visit_place(id: String) -> void:
+	if _space == SPACE_CAFE and _place_marks.has(id):
+		_player.walk_to((_place_marks[id] as Dictionary)["door"])
+	_open_place(id)
+
+
+func _open_place(id: String) -> void:
+	match id:
+		"shop", "quests", "events", "season":
+			_open_meta(id)
+		"upgrades":
+			_open_shop()
+		"cats":
+			_open_cat_book()
+
+
+## Стрелки у краёв экрана: ближайшее место за кадром, где ждёт награда. Касание открывает его.
+func _build_edges() -> void:
+	for side in 2:
+		var b := _icon_tile(_ui, Rect2(4.0 if side == 0 else 308.0, 280, 48, 48), "gift", "", _on_edge_pressed.bind(side))
+		(b.get_child(0) as CanvasItem).self_modulate = Color(1.0, 0.86, 0.5)
+		b.visible = false
+		_edge_btns.append(b)
+
+
+func _on_edge_pressed(side: int) -> void:
+	if String(_edge_place[side]) != "":
+		_visit_place(String(_edge_place[side]))
+
+
+func _update_edges() -> void:
+	if _edge_btns.is_empty():
+		return
+	var show := _dock != null and _dock.visible and _xray < 0.5 and _levels_layer == null and _shift_layer == null and _repair_board == null
+	var best := ["", ""]
+	var dist := [INF, INF]
+	if show:
+		var xf := _world.get_global_transform_with_canvas()
+		for id in _place_marks:
+			var m: Dictionary = _place_marks[id]
+			if not (m["badge"] as CanvasItem).visible:
+				continue
+			var sx: float = (xf * (m["node"] as Node2D).position).x
+			var side := 0 if sx < 0.0 else (1 if sx > 360.0 else -1)
+			if side < 0:
+				continue
+			var d := absf(sx - 180.0)
+			if d < float(dist[side]):
+				dist[side] = d
+				best[side] = String(id)
+	for side in 2:
+		var b := _edge_btns[side]
+		b.visible = String(best[side]) != ""
+		if b.visible and String(best[side]) != String(_edge_place[side]):
+			(b.get_meta("icon") as TextureRect).texture = Ui.icon(String((Data.places[String(best[side])] as Dictionary)["icon"]))
+		_edge_place[side] = best[side]
+		if b.visible:
+			_set_edge_badge(b)
+
+
+func _set_edge_badge(b: Button) -> void:
+	(b.get_meta("badge") as Label).text = "!"
+	(b.get_meta("badge_bg") as ColorRect).visible = true
+
+
 # ---------------------------------------------------------------- ввод
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1790,7 +2049,10 @@ func _on_press(p: Vector2) -> void:
 			return
 	for b in _building_nodes:
 		if not b.is_cafe and b.world_rect().has_point(p):
-			_toast("Здесь закрыто", p)
+			if _place_marks.has(b.place) and GameState.intro_stage >= GameState.INTRO_DONE:
+				_visit_place(b.place)
+			else:
+				_toast("Здесь закрыто", p)
 			return
 	if _space == SPACE_UP and _upper_rect.has_point(p) and p.distance_to(_player.position) < _iris_r:
 		var d := (_spaces[_space] as InteriorSpace).portal_at(p - _upper_rect.position)

@@ -25,7 +25,6 @@ const COIN_POS := Vector2(28, 26)   # центр области плашки (6.
 const INK := Ui.INK
 
 const COFFEE_SHEET: Texture2D = preload("res://assets/cafe/drinks-and-pastries.png")  # сетка 16x16, 5 колонок
-const ICONS: Texture2D = preload("res://assets/ui/icons-essential.png")
 const FURN: Texture2D = preload("res://assets/cafe/neko-cafe-furnitures.png")
 
 var embedded := false   # true — смена идёт поверх города, а не отдельной сценой
@@ -305,7 +304,7 @@ func _pastry_menu() -> Array[String]:
 
 func _build_hud() -> void:
 	Ui.panel(Rect2(8, 6, 112, 48), Ui.UI_CREAM, self).z_index = 80
-	_coin_icon = _sprite(_atlas(ICONS, Rect2(210, 209, 11, 14)), COIN_POS, 2.0)
+	_coin_icon = _sprite(Ui.icon("coin"), COIN_POS, 2.0)
 	_coin_icon.z_index = 81
 	_coins_label = _label("0", Rect2(44, 12, 76, 32), INK)
 	_coins_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

@@ -300,7 +300,7 @@ func _check_label(l: Label) -> void:
 		var need := _text_size(font, text, size)
 		if need.x > rect.size.x + 1.0:
 			_add("подпись «%s» шире рамки (%d > %d)" % [text.left(30).replace("\n", " "), need.x, rect.size.x])
-	if rect.position.x < -1.0 or rect.end.x > 361.0 and rect.size.x < 400.0 or rect.position.y < -1.0 or rect.end.y > 641.0 and rect.size.y < 400.0:
+	if not l.has_meta("world") and (rect.position.x < -1.0 or rect.end.x > 361.0 and rect.size.x < 400.0 or rect.position.y < -1.0 or rect.end.y > 641.0 and rect.size.y < 400.0):   # подписи в мире (таблички мест) живут в координатах улицы
 		_add("подпись «%s» за краем экрана %s" % [text.left(24), rect])
 	if int(rect.position.x) % 2 != 0 or int(rect.position.y) % 2 != 0:
 		_add("подпись «%s» не по сетке арта: (%s, %s)" % [text.left(24), rect.position.x, rect.position.y])
