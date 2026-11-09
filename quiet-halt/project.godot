@@ -1,0 +1,81 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Тихая Заводь"
+config/description="Уютный life-sim: вы — новый смотритель станции в сонном курортном городке."
+run/main_scene="res://scenes/menu.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Clock="*res://scripts/autoload/clock.gd"
+Data="*res://scripts/autoload/data.gd"
+World="*res://scripts/autoload/world.gd"
+Game="*res://scripts/autoload/game.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.78, 0.86, 0.92, 1)
+
+[shader_globals]
+
+world_focus={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+world_curve={
+"type": "float",
+"value": 0.0022
+}
+foliage_tint={
+"type": "vec3",
+"value": Vector3(0.45, 0.78, 0.32)
+}
+blossom_tint={
+"type": "vec3",
+"value": Vector3(0.45, 0.78, 0.32)
+}
+grass_tint={
+"type": "vec3",
+"value": Vector3(0.45, 0.74, 0.34)
+}
+snow_amount={
+"type": "float",
+"value": 0.0
+}
+night_amount={
+"type": "float",
+"value": 0.0
+}
+sky_top={
+"type": "vec3",
+"value": Vector3(0.35, 0.6, 0.9)
+}
+sky_horizon={
+"type": "vec3",
+"value": Vector3(0.8, 0.88, 0.95)
+}
+sun_dir={
+"type": "vec3",
+"value": Vector3(0.3, 0.8, 0.4)
+}

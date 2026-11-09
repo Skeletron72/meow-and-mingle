@@ -1,0 +1,38 @@
+[
+ {"id":"net","name":"Сачок","category":"tool","shape":"net","color":[0.85,0.78,0.55],"price":0,"desc":"Для бабочек, стрекоз и светлячков."},
+ {"id":"rod","name":"Удочка","category":"tool","shape":"rod","color":[0.62,0.42,0.28],"price":0,"desc":"Забросьте у воды и ждите поклёвки."},
+ {"id":"shovel","name":"Лопата","category":"tool","shape":"shovel","color":[0.62,0.66,0.72],"price":0,"desc":"Копать землю. Земля любит тайны."},
+
+ {"id":"apple","name":"Яблоко","category":"fruit","shape":"fruit","color":[0.86,0.25,0.22],"price":80,"desc":"Хрустит, как первый снег."},
+ {"id":"pear","name":"Груша","category":"fruit","shape":"fruit","color":[0.78,0.82,0.30],"price":90,"desc":"Сочная и пахнет мёдом."},
+ {"id":"cherry","name":"Вишня","category":"fruit","shape":"fruit","color":[0.62,0.10,0.22],"price":70,"desc":"Маленькая и очень красная."},
+
+ {"id":"tulip","name":"Тюльпан","category":"flower","shape":"flower","color":[0.95,0.45,0.58],"price":40,"desc":"Весенний гость."},
+ {"id":"cornflower","name":"Василёк","category":"flower","shape":"flower","color":[0.35,0.50,0.95],"price":40,"desc":"Синий, как летнее небо."},
+ {"id":"aster","name":"Астра","category":"flower","shape":"flower","color":[0.72,0.45,0.88],"price":40,"desc":"Осенняя звёздочка."},
+ {"id":"hellebore","name":"Морозник","category":"flower","shape":"flower","color":[0.92,0.95,0.98],"price":60,"desc":"Цветёт даже под снегом."},
+
+ {"id":"seed_tulip","name":"Семена тюльпана","category":"seed","shape":"seed","color":[0.95,0.45,0.58],"price":15,"buy":60,"plant":"flower_tulip","desc":"Посадить на траве."},
+ {"id":"seed_cornflower","name":"Семена василька","category":"seed","shape":"seed","color":[0.35,0.50,0.95],"price":15,"buy":60,"plant":"flower_cornflower","desc":"Посадить на траве."},
+ {"id":"seed_aster","name":"Семена астры","category":"seed","shape":"seed","color":[0.72,0.45,0.88],"price":15,"buy":60,"plant":"flower_aster","desc":"Посадить на траве."},
+ {"id":"sapling_apple","name":"Саженец яблони","category":"sapling","shape":"sapling","color":[0.86,0.25,0.22],"price":100,"buy":400,"plant":"sapling_apple","desc":"Через несколько дней вырастет дерево."},
+ {"id":"sapling_pear","name":"Саженец груши","category":"sapling","shape":"sapling","color":[0.78,0.82,0.30],"price":100,"buy":400,"plant":"sapling_pear","desc":"Через несколько дней вырастет дерево."},
+ {"id":"sapling_cherry","name":"Саженец вишни","category":"sapling","shape":"sapling","color":[0.95,0.60,0.72],"price":100,"buy":400,"plant":"sapling_cherry","desc":"Через несколько дней вырастет дерево."},
+
+ {"id":"roach","name":"Плотва","category":"fish","shape":"fish","color":[0.70,0.78,0.85],"price":100,"fish":{"seasons":[0,2,3],"hours":[0,24],"weight":8},"desc":"Серебристая и юркая."},
+ {"id":"crucian","name":"Карась","category":"fish","shape":"fish","color":[0.85,0.72,0.35],"price":120,"fish":{"seasons":[0,1,2],"hours":[0,24],"weight":10},"desc":"Классика пруда."},
+ {"id":"perch","name":"Окунь","category":"fish","shape":"fish","color":[0.45,0.70,0.40],"price":180,"fish":{"seasons":[1,2],"hours":[5,22],"weight":6},"desc":"Полосатый и сердитый."},
+ {"id":"carp","name":"Карп","category":"fish","shape":"fish","color":[0.90,0.62,0.30],"price":300,"fish":{"seasons":[0,1],"hours":[17,24],"weight":4},"desc":"Крупный. Любит сумерки."},
+ {"id":"pike","name":"Щука","category":"fish","shape":"fish","color":[0.40,0.62,0.45],"price":450,"fish":{"seasons":[2,3],"hours":[0,24],"weight":3},"desc":"Зубастая. Осторожно."},
+ {"id":"goldfish","name":"Золотая рыбка","category":"fish","shape":"fish","color":[1.0,0.80,0.15],"price":1500,"fish":{"seasons":[1],"hours":[17,22],"weight":0.6},"desc":"Говорят, исполняет желания. Но молчит."},
+ {"id":"boot","name":"Старый сапог","category":"junk","shape":"junk","color":[0.40,0.32,0.28],"price":5,"fish":{"seasons":[0,1,2,3],"hours":[0,24],"weight":2},"desc":"Кто-то очень торопился."},
+ {"id":"can","name":"Консервная банка","category":"junk","shape":"junk","color":[0.65,0.65,0.68],"price":5,"fish":{"seasons":[0,1,2,3],"hours":[0,24],"weight":2},"desc":"Пустая."},
+
+ {"id":"butterfly","name":"Лимонница","category":"bug","shape":"bug","color":[0.98,0.90,0.30],"price":150,"bug":{"kind":"butterfly","seasons":[0,1,2],"hours":[7,19],"weight":10},"desc":"Жёлтая бабочка."},
+ {"id":"dragonfly","name":"Стрекоза","category":"bug","shape":"bug","color":[0.30,0.80,0.85],"price":200,"bug":{"kind":"butterfly","seasons":[1,2],"hours":[9,18],"weight":5},"desc":"Блестящие крылья."},
+ {"id":"firefly","name":"Светлячок","category":"bug","shape":"bug","color":[0.85,1.0,0.40],"price":220,"bug":{"kind":"firefly","seasons":[0,1,2],"hours":[20,24],"weight":10},"desc":"Крошечный фонарик."},
+ {"id":"moth","name":"Ночной мотылёк","category":"bug","shape":"bug","color":[0.80,0.75,0.65],"price":130,"bug":{"kind":"firefly","seasons":[0,1,2],"hours":[0,5],"weight":6},"desc":"Тянется к свету."},
+
+ {"id":"key_dispatch","name":"Ключ от диспетчерской","category":"key","shape":"key","color":[0.95,0.80,0.30],"price":0,"desc":"Старый латунный ключ. Куда он ведёт?"},
+ {"id":"_button","name":"Пуговица","category":"currency","shape":"button","color":[0.95,0.80,0.35],"price":0,"desc":"Местная валюта."}
+]

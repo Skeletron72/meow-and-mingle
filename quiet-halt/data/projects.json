@@ -1,0 +1,16 @@
+[
+ {"id":"clock","name":"Починить вокзальные часы","desc":"Стрелки встали 11 лет назад. Пора вернуть станции пульс.","cost":400,"requires":[],"min_days":0,
+  "effects":[{"op":"place","id":"clock_face","cell":[40,10]},{"op":"flag","flag":"clock_fixed"}],"done_text":"Часы снова идут! Их тиканье слышно по всей станции."},
+ {"id":"benches","name":"Скамейки на перроне","desc":"Чтобы пассажирам было где ждать. И где болтать.","cost":300,"requires":[],"min_days":0,
+  "effects":[{"op":"place","id":"bench","cell":[29,8]},{"op":"place","id":"bench","cell":[48,8]},{"op":"place","id":"bench","cell":[34,16]},{"op":"place","id":"bench","cell":[45,16]}],"done_text":"Новые скамейки сияют свежей краской."},
+ {"id":"lamps","name":"Фонари вдоль Променада","desc":"«Свет — это адрес», — написано в старом журнале.","cost":700,"requires":["clock"],"min_days":0,
+  "effects":[{"op":"place","id":"lamp","cell":[37,22]},{"op":"place","id":"lamp","cell":[43,22]},{"op":"place","id":"lamp","cell":[37,26]},{"op":"place","id":"lamp","cell":[43,26]},{"op":"place","id":"lamp","cell":[37,30]},{"op":"place","id":"lamp","cell":[43,30]},{"op":"flag","flag":"lamps_lit"}],"done_text":"Фонари зажгутся с первыми сумерками."},
+ {"id":"bridge","name":"Мост через речку","desc":"За рекой — лес, озеро и старое депо. Туда пока не пройти.","cost":1200,"requires":["benches"],"min_days":0,
+  "effects":[{"op":"paint","rect":[38,32,5,4],"type":7},{"op":"height","rect":[38,32,5,4],"h":0.0},{"op":"place","id":"bridge_rails","cell":[38,32]},{"op":"flag","flag":"bridge_built"}],"done_text":"Мост готов. Теперь можно дойти до озера!"},
+ {"id":"fountain","name":"Фонтан на привокзальной площади","desc":"Весёлый плеск оживит площадь.","cost":1800,"requires":["lamps"],"min_days":0,
+  "effects":[{"op":"place","id":"fountain","cell":[39,16]}],"done_text":"Фонтан бьёт струёй. Ворсинки в восторге."},
+ {"id":"flowershop","name":"Открыть цветочную лавку","desc":"Заколоченная лавка у Променада ждёт хозяйку.","cost":2000,"requires":["bridge"],"min_days":0,
+  "effects":[{"op":"replace","from":"lot_boarded","id":"shop_flowers","cell":[43,18],"rot":3},{"op":"villager","id":"trostinka"},{"op":"flag","flag":"flowershop_open"}],"done_text":"Цветочная лавка открыта! На станцию приехала Тростинка."},
+ {"id":"cafe","name":"Открыть кафе «Пар и Пряник»","desc":"Горячий чай, булочки и сплетни — что ещё нужно городу?","cost":3000,"requires":["flowershop","fountain"],"min_days":0,
+  "effects":[{"op":"replace","from":"lot_boarded","id":"cafe","cell":[33,18],"rot":1},{"op":"villager","id":"flanel"},{"op":"flag","flag":"cafe_open"}],"done_text":"Кафе открыто! Фланель уже заваривает чай."}
+]

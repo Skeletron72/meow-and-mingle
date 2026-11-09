@@ -1,0 +1,7 @@
+.godot/
+build/
+*.import~
+.import/
+export.cfg
+*.translation
+/android/

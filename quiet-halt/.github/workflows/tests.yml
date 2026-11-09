@@ -1,0 +1,17 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  godot-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Установить Godot и Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libglu1-mesa unzip
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          sudo mv Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --headless --path . --import || true
+      - name: Автотесты
+        run: tests/run_all.sh
