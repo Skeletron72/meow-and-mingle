@@ -12,8 +12,8 @@ config_version=5
 
 config/name="Meow & Mingle"
 config/version="0.1.0"
-config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene="res://scenes/city.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icons/icon_512.png"
 
 [autoload]
@@ -29,6 +29,34 @@ Daily="*res://autoload/daily.gd"
 Shop="*res://autoload/shop.gd"
 Events="*res://autoload/events.gd"
 Audio="*res://autoload/audio.gd"
+
+[display]
+
+window/size/viewport_width=360
+window/size/viewport_height=640
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/stretch/mode="canvas_items"
+window/handheld/orientation=1
+
+[gui]
+
+theme/custom="res://assets/ui/theme.tres"
+
+[internationalization]
+
+locale/fallback="ru"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
 
 [shader_globals]
 
@@ -56,33 +84,3 @@ weather_heat={
 "type": "float",
 "value": 0.0
 }
-
-[gui]
-
-theme/custom="res://assets/ui/theme.tres"
-
-[internationalization]
-
-locale/fallback="ru"
-
-[display]
-
-window/size/viewport_width=360
-window/size/viewport_height=640
-window/size/window_width_override=540
-window/size/window_height_override=960
-window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
-window/handheld/orientation=1
-
-[physics]
-
-3d/physics_engine="Jolt Physics"
-
-[rendering]
-
-textures/canvas_textures/default_texture_filter=0
-
-rendering_device/driver.windows="d3d12"
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
