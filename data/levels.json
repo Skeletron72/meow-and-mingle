@@ -34,7 +34,7 @@
 		"id": "l2",
 		"chapter": 1,
 		"name": "Тёплое утро",
-		"customers": 6,
+		"customers": 7,
 		"interval": [
 			8.7,
 			11.6
@@ -65,7 +65,7 @@
 		"id": "l3",
 		"chapter": 1,
 		"name": "Двое в очереди",
-		"customers": 7,
+		"customers": 8,
 		"interval": [
 			8.3,
 			11.2
@@ -96,7 +96,7 @@
 		"id": "l4",
 		"chapter": 1,
 		"name": "Кофе и чай",
-		"customers": 7,
+		"customers": 9,
 		"interval": [
 			8.0,
 			10.8
@@ -129,7 +129,7 @@
 		"id": "l5",
 		"chapter": 1,
 		"name": "Обед в кафе",
-		"customers": 8,
+		"customers": 10,
 		"interval": [
 			7.7,
 			10.4
@@ -164,7 +164,7 @@
 		"id": "l6",
 		"chapter": 1,
 		"name": "Молочная пенка",
-		"customers": 8,
+		"customers": 10,
 		"interval": [
 			7.3,
 			10.1
@@ -198,7 +198,7 @@
 		"id": "l7",
 		"chapter": 1,
 		"name": "Тучка заходит",
-		"customers": 9,
+		"customers": 11,
 		"interval": [
 			7.0,
 			9.7
@@ -234,7 +234,7 @@
 		"id": "l8",
 		"chapter": 1,
 		"name": "Сухарик спешит",
-		"customers": 9,
+		"customers": 12,
 		"interval": [
 			6.7,
 			9.3
@@ -269,7 +269,7 @@
 		"id": "l9",
 		"chapter": 1,
 		"name": "Проверка",
-		"customers": 10,
+		"customers": 13,
 		"interval": [
 			6.3,
 			8.9
@@ -305,7 +305,7 @@
 		"id": "l10",
 		"chapter": 1,
 		"name": "Субботний аврал",
-		"customers": 12,
+		"customers": 15,
 		"interval": [
 			5.4,
 			7.7
@@ -341,7 +341,7 @@
 		"id": "l11",
 		"chapter": 2,
 		"name": "Новое меню",
-		"customers": 10,
+		"customers": 13,
 		"interval": [
 			7.0,
 			9.5
@@ -376,7 +376,7 @@
 		"id": "l12",
 		"chapter": 2,
 		"name": "Какао для всех",
-		"customers": 10,
+		"customers": 13,
 		"interval": [
 			6.8,
 			9.2
@@ -411,7 +411,7 @@
 		"id": "l13",
 		"chapter": 2,
 		"name": "Сырники Маруси",
-		"customers": 11,
+		"customers": 14,
 		"interval": [
 			6.5,
 			8.9
@@ -446,7 +446,7 @@
 		"id": "l14",
 		"chapter": 2,
 		"name": "Облепиховый день",
-		"customers": 11,
+		"customers": 15,
 		"interval": [
 			6.3,
 			8.6
@@ -481,7 +481,7 @@
 		"id": "l15",
 		"chapter": 2,
 		"name": "Раф по-маминому",
-		"customers": 12,
+		"customers": 16,
 		"interval": [
 			6.0,
 			8.3
@@ -516,7 +516,7 @@
 		"id": "l16",
 		"chapter": 2,
 		"name": "Утро с эклерами",
-		"customers": 12,
+		"customers": 16,
 		"interval": [
 			5.8,
 			8.0
@@ -552,7 +552,7 @@
 		"id": "l17",
 		"chapter": 2,
 		"name": "Баюн заказывает",
-		"customers": 13,
+		"customers": 17,
 		"interval": [
 			5.5,
 			7.7
@@ -588,7 +588,7 @@
 		"id": "l18",
 		"chapter": 2,
 		"name": "Очередь за угол",
-		"customers": 13,
+		"customers": 18,
 		"interval": [
 			5.3,
 			7.4
@@ -625,7 +625,7 @@
 		"id": "l19",
 		"chapter": 2,
 		"name": "Проба рецептов",
-		"customers": 14,
+		"customers": 19,
 		"interval": [
 			5.0,
 			7.1
@@ -662,7 +662,7 @@
 		"id": "l20",
 		"chapter": 2,
 		"name": "Ярмарка",
-		"customers": 16,
+		"customers": 22,
 		"interval": [
 			4.3,
 			6.1
@@ -700,7 +700,7 @@
 		"id": "l21",
 		"chapter": 3,
 		"name": "Свет в окнах",
-		"customers": 12,
+		"customers": 16,
 		"interval": [
 			6.0,
 			8.0
@@ -735,7 +735,7 @@
 		"id": "l22",
 		"chapter": 3,
 		"name": "Матча для Рыжика",
-		"customers": 12,
+		"customers": 16,
 		"interval": [
 			5.8,
 			7.8
@@ -770,7 +770,7 @@
 		"id": "l23",
 		"chapter": 3,
 		"name": "Тихий вечер",
-		"customers": 13,
+		"customers": 17,
 		"interval": [
 			5.6,
 			7.5
@@ -805,7 +805,7 @@
 		"id": "l24",
 		"chapter": 3,
 		"name": "Письма из ящика",
-		"customers": 13,
+		"customers": 18,
 		"interval": [
 			5.3,
 			7.3
@@ -841,7 +841,7 @@
 		"id": "l25",
 		"chapter": 3,
 		"name": "Дымка ждёт",
-		"customers": 14,
+		"customers": 19,
 		"interval": [
 			5.1,
 			7.0
@@ -878,7 +878,7 @@
 		"id": "l26",
 		"chapter": 3,
 		"name": "Ночная смена",
-		"customers": 14,
+		"customers": 20,
 		"interval": [
 			4.9,
 			6.8
@@ -916,7 +916,7 @@
 		"id": "l27",
 		"chapter": 3,
 		"name": "Гости с вещами",
-		"customers": 15,
+		"customers": 21,
 		"interval": [
 			4.7,
 			6.5
@@ -954,7 +954,7 @@
 		"id": "l28",
 		"chapter": 3,
 		"name": "Дождливый четверг",
-		"customers": 15,
+		"customers": 22,
 		"interval": [
 			4.4,
 			6.3
@@ -992,7 +992,7 @@
 		"id": "l29",
 		"chapter": 3,
 		"name": "Проверка мамы",
-		"customers": 16,
+		"customers": 23,
 		"interval": [
 			4.2,
 			6.0
@@ -1031,7 +1031,7 @@
 		"id": "l30",
 		"chapter": 3,
 		"name": "Открытие!",
-		"customers": 18,
+		"customers": 26,
 		"interval": [
 			3.6,
 			5.2
@@ -1071,7 +1071,7 @@
 		"id": "l31",
 		"chapter": 4,
 		"name": "Осенний рынок",
-		"customers": 14,
+		"customers": 19,
 		"interval": [
 			5.6,
 			7.4
@@ -1107,7 +1107,7 @@
 		"id": "l32",
 		"chapter": 4,
 		"name": "Листопад",
-		"customers": 14,
+		"customers": 19,
 		"interval": [
 			5.4,
 			7.2
@@ -1142,7 +1142,7 @@
 		"id": "l33",
 		"chapter": 4,
 		"name": "Дождь и сбитень",
-		"customers": 15,
+		"customers": 20,
 		"interval": [
 			5.2,
 			7.0
@@ -1179,7 +1179,7 @@
 		"id": "l34",
 		"chapter": 4,
 		"name": "Горячий шоколад",
-		"customers": 15,
+		"customers": 21,
 		"interval": [
 			5.0,
 			6.7
@@ -1216,7 +1216,7 @@
 		"id": "l35",
 		"chapter": 4,
 		"name": "Туман над крышей",
-		"customers": 16,
+		"customers": 22,
 		"interval": [
 			4.8,
 			6.5
@@ -1254,7 +1254,7 @@
 		"id": "l36",
 		"chapter": 4,
 		"name": "Первый снег",
-		"customers": 16,
+		"customers": 23,
 		"interval": [
 			4.6,
 			6.3
@@ -1294,7 +1294,7 @@
 		"id": "l37",
 		"chapter": 4,
 		"name": "Критик у двери",
-		"customers": 17,
+		"customers": 24,
 		"interval": [
 			4.4,
 			6.1
@@ -1336,7 +1336,7 @@
 		"id": "l38",
 		"chapter": 4,
 		"name": "Сезон варенья",
-		"customers": 17,
+		"customers": 25,
 		"interval": [
 			4.2,
 			5.8
@@ -1380,7 +1380,7 @@
 		"id": "l39",
 		"chapter": 4,
 		"name": "Проверка зимой",
-		"customers": 18,
+		"customers": 26,
 		"interval": [
 			4.0,
 			5.6
@@ -1427,7 +1427,7 @@
 		"id": "l40",
 		"chapter": 4,
 		"name": "Ярмарка ратуши",
-		"customers": 20,
+		"customers": 30,
 		"interval": [
 			3.4,
 			4.9
@@ -1474,7 +1474,7 @@
 		"id": "l41",
 		"chapter": 5,
 		"name": "Терраса открыта",
-		"customers": 15,
+		"customers": 21,
 		"interval": [
 			5.2,
 			7.0
@@ -1510,7 +1510,7 @@
 		"id": "l42",
 		"chapter": 5,
 		"name": "Курьер Кефир",
-		"customers": 15,
+		"customers": 21,
 		"interval": [
 			5.0,
 			6.8
@@ -1548,7 +1548,7 @@
 		"id": "l43",
 		"chapter": 5,
 		"name": "Летний полдень",
-		"customers": 16,
+		"customers": 22,
 		"interval": [
 			4.8,
 			6.6
@@ -1591,7 +1591,7 @@
 		"id": "l44",
 		"chapter": 5,
 		"name": "Уличные столики",
-		"customers": 16,
+		"customers": 23,
 		"interval": [
 			4.7,
 			6.3
@@ -1635,7 +1635,7 @@
 		"id": "l45",
 		"chapter": 5,
 		"name": "Пик на веранде",
-		"customers": 17,
+		"customers": 24,
 		"interval": [
 			4.5,
 			6.1
@@ -1683,7 +1683,7 @@
 		"id": "l46",
 		"chapter": 5,
 		"name": "Закатный чай",
-		"customers": 17,
+		"customers": 25,
 		"interval": [
 			4.3,
 			5.9
@@ -1731,7 +1731,7 @@
 		"id": "l47",
 		"chapter": 5,
 		"name": "Ярмарка во дворе",
-		"customers": 18,
+		"customers": 26,
 		"interval": [
 			4.1,
 			5.7
@@ -1781,7 +1781,7 @@
 		"id": "l48",
 		"chapter": 5,
 		"name": "Кофе на вынос",
-		"customers": 18,
+		"customers": 27,
 		"interval": [
 			4.0,
 			5.4
@@ -1831,7 +1831,7 @@
 		"id": "l49",
 		"chapter": 5,
 		"name": "Проверка летом",
-		"customers": 19,
+		"customers": 28,
 		"interval": [
 			3.8,
 			5.2
@@ -1883,7 +1883,7 @@
 		"id": "l50",
 		"chapter": 5,
 		"name": "Ночь на террасе",
-		"customers": 22,
+		"customers": 33,
 		"interval": [
 			3.2,
 			4.5
@@ -1936,7 +1936,7 @@
 		"id": "l51",
 		"chapter": 6,
 		"name": "Дом, милый дом",
-		"customers": 16,
+		"customers": 23,
 		"interval": [
 			5.0,
 			6.6
@@ -1975,7 +1975,7 @@
 		"id": "l52",
 		"chapter": 6,
 		"name": "Мамина кухня",
-		"customers": 16,
+		"customers": 23,
 		"interval": [
 			4.8,
 			6.4
@@ -2017,7 +2017,7 @@
 		"id": "l53",
 		"chapter": 6,
 		"name": "Семейный обед",
-		"customers": 17,
+		"customers": 24,
 		"interval": [
 			4.6,
 			6.2
@@ -2062,7 +2062,7 @@
 		"id": "l54",
 		"chapter": 6,
 		"name": "Гости из города",
-		"customers": 17,
+		"customers": 25,
 		"interval": [
 			4.5,
 			6.0
@@ -2109,7 +2109,7 @@
 		"id": "l55",
 		"chapter": 6,
 		"name": "Перед праздником",
-		"customers": 18,
+		"customers": 26,
 		"interval": [
 			4.3,
 			5.8
@@ -2157,7 +2157,7 @@
 		"id": "l56",
 		"chapter": 6,
 		"name": "Все наши",
-		"customers": 18,
+		"customers": 27,
 		"interval": [
 			4.1,
 			5.6
@@ -2208,7 +2208,7 @@
 		"id": "l57",
 		"chapter": 6,
 		"name": "Шумный вечер",
-		"customers": 19,
+		"customers": 28,
 		"interval": [
 			3.9,
 			5.4
@@ -2261,7 +2261,7 @@
 		"id": "l58",
 		"chapter": 6,
 		"name": "Звёздная ночь",
-		"customers": 20,
+		"customers": 30,
 		"interval": [
 			3.8,
 			5.2
@@ -2316,7 +2316,7 @@
 		"id": "l59",
 		"chapter": 6,
 		"name": "Письмо от мамы",
-		"customers": 22,
+		"customers": 32,
 		"interval": [
 			3.6,
 			5.0
@@ -2372,7 +2372,7 @@
 		"id": "l60",
 		"chapter": 6,
 		"name": "Мама вернулась!",
-		"customers": 25,
+		"customers": 36,
 		"interval": [
 			3.1,
 			4.3

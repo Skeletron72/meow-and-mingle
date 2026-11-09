@@ -39,6 +39,8 @@ const COLD_PRICE := 0.7      # остывший напиток: цена ×0,7 �
 const RIDDLE_PATIENCE := 1.5 # загадочный гость думает дольше
 const RIDDLE_PRICE := 2
 var _critic_seen := false   # критик приходит раз за смену
+const SHIFT_XP := 4            # очки пасса за любую законченную смену
+const SHIFT_XP_PER_STAR := 2   # и за каждую звезду этой смены (даже уже полученную раньше)
 var _points := 0            # очки смены
 var _points_cap := 0        # сколько очков можно было набрать у уже пришедших гостей
 var _points_lost := 0       # сколько из них потеряно (ушёл, не то налили)
@@ -504,9 +506,9 @@ func _pick_pastry_mods() -> Array[String]:
 	return out
 
 
-## Терпение гостей: таланты котов и уют кафе.
+## Терпение гостей: таланты котов, уют кафе и подушки (оборудование).
 func _patience_bonus() -> float:
-	return 1.0 if tutorial else 1.0 + GameState.perk_total("patience") + GameState.cozy_patience_bonus()
+	return 1.0 if tutorial else 1.0 + GameState.perk_total("patience") + GameState.cozy_patience_bonus() + GameState.equip_bonus("patience")
 
 
 func _spawn_customer() -> void:
@@ -1024,7 +1026,7 @@ func _serve(e: Dictionary = {}, skip_rescue := false) -> void:
 		var price := int(round(float(Data.drinks[drink_id]["price"]) * GameState.price_mult(drink_id)))
 		var combo := false
 		if pastry_id != "":
-			price += int(Data.pastries[pastry_id]["price"])
+			price += int(round(float(Data.pastries[pastry_id]["price"]) * (1.0 + GameState.equip_bonus("pastry_price"))))
 			var topped := (order.get("pastry_mods", []) as Array).size()
 			if topped > 0:
 				price += 3 * topped   # начинка на выпечке
@@ -1043,7 +1045,7 @@ func _serve(e: Dictionary = {}, skip_rescue := false) -> void:
 		if cold:
 			price = int(round(price * COLD_PRICE))
 		tip = maxi(1, int(round(price * 0.2)))
-		var tip_mult := 1.0 + GameState.perk_total("tips") + GameState.cozy_tip_bonus()
+		var tip_mult := 1.0 + GameState.perk_total("tips") + GameState.cozy_tip_bonus() + GameState.equip_bonus("tips")
 		tip = int(round(tip * tip_mult))
 		var cozy_share := GameState.cozy_tip_bonus() / tip_mult   # доля чаевых, которую дал Уют (для итогов смены)
 		if pastry_id != "":
@@ -1217,6 +1219,7 @@ func _finish_run() -> void:
 			Daily.report("perfect")
 	Daily.report("stars", new_stars)
 	Shop.add_season_xp(new_stars * 10, "stars")
+	Shop.add_season_xp(SHIFT_XP + SHIFT_XP_PER_STAR * stars, "shift")   # пасс растёт и от переигровок: иначе к концу сезона его не закрыть одними заданиями
 	var bonus := new_stars * 10
 	if bonus > 0:
 		GameState.add_coins(bonus)

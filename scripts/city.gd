@@ -632,17 +632,28 @@ func _build_goal() -> void:
 	_goal_btn.pressed.connect(_on_goal_pressed)
 
 
-## Ближайшая задача ремонта: {"def", "ready"}; ready — звёзд уже хватает. Пусто — всё сделано.
+## Что делать дальше: {"kind", "text", ...}. По порядку: ремонт, на который хватает звёзд ("repair"); разовое улучшение, на которое хватает монет
+## ("buy": без молочника и витрины нет латте и выпечки, а магазин легко не найти); иначе — сколько звёзд осталось до задачи ("stars") или какую смену пройти, чтобы задача открылась ("level"). Пусто — всё сделано.
 func next_goal() -> Dictionary:
 	var open := GameState.open_repairs()
-	if open.is_empty():
-		return {}
 	var free := GameState.stars_free()
-	var best: Dictionary = open[0]
+	var best: Dictionary = {}
 	for r in open:
-		if int(r["cost"]) < int(best["cost"]):
+		if best.is_empty() or int(r["cost"]) < int(best["cost"]):
 			best = r
-	return {"def": best, "ready": int(best["cost"]) <= free, "left": maxi(0, int(best["cost"]) - free)}
+	if not best.is_empty() and int(best["cost"]) <= free:
+		return {"kind": "repair", "def": best, "ready": true, "left": 0, "text": tr("Можно: %s") % tr(String(best["name"]))}
+	for u in Data.upgrades:
+		if GameState.can_buy_upgrade(String(u["id"])):
+			return {"kind": "buy", "def": u, "ready": true, "left": 0, "text": tr("Купи: %s") % tr(String(u["name"]))}
+	if best.is_empty():   # открытых задач нет: ближайшая ждёт, пока игрок пройдёт нужную смену
+		var cleared := GameState.levels_cleared()
+		for r in Data.repairs:
+			if not GameState.has_repair(String(r["id"])) and GameState._requires_done(r) and int(r.get("after", 0)) > cleared:
+				return {"kind": "level", "def": r, "ready": false, "left": 0, "text": tr("Цель: пройти смену %d") % int(r["after"])}
+		return {}
+	var left := int(best["cost"]) - free
+	return {"kind": "stars", "def": best, "ready": false, "left": left, "text": tr("Ещё %d★: %s") % [left, tr(String(best["name"]))]}
 
 
 func _refresh_goal() -> void:
@@ -652,10 +663,9 @@ func _refresh_goal() -> void:
 	_goal_btn.visible = _dock.visible and not g.is_empty()
 	if g.is_empty():
 		return
-	var name_text := tr(String((g["def"] as Dictionary)["name"]))
 	var ready := bool(g["ready"])
-	Ui.set_button_icon(_goal_btn, Ui.icon("hammer" if ready else "flag"))
-	Ui.set_button_text(_goal_btn, (tr("Можно: %s") % name_text) if ready else (tr("Ещё %d★: %s") % [int(g["left"]), name_text]))
+	Ui.set_button_icon(_goal_btn, Ui.icon({"repair": "hammer", "buy": "wrench", "stars": "flag", "level": "flag"}[String(g["kind"])]))
+	Ui.set_button_text(_goal_btn, String(g["text"]))
 	if _goal_btn.has_meta("blink"):
 		(_goal_btn.get_meta("blink") as Tween).kill()
 		_goal_btn.remove_meta("blink")
@@ -671,10 +681,13 @@ func _on_goal_pressed() -> void:
 	var g := next_goal()
 	if g.is_empty():
 		return
-	if bool(g["ready"]):
-		_open_repairs()
-	else:
-		_start_shift()
+	match String(g["kind"]):
+		"repair":
+			_open_repairs()
+		"buy":
+			_open_shop()
+		_:
+			_start_shift()
 
 
 ## Нижняя панель: четыре раздела и крупная кнопка смены посередине — главное действие игры в одно касание из любого места города.
@@ -799,7 +812,7 @@ func _set_badge(key: String, text: String, blink: bool) -> void:
 		b.set_meta("blink", t)
 
 
-## Меню внутри игры (пауза). Страницы: главная → «Улучшения» (магазин), «Настройки» → «Аккаунт» → «Сбросить прогресс»
+## Меню внутри игры (пауза). Страницы: главная → «Мастерская» (улучшения и оборудование), «Настройки» → «Аккаунт» → «Сбросить прогресс»
 ## (спрятан глубоко и требует подтверждения).
 func _build_menu() -> void:
 	_menu = CanvasLayer.new()
@@ -817,7 +830,7 @@ func _build_menu() -> void:
 	var mc: Rect2 = main.get_meta("content")
 	var tile_w := Ui.snap((mc.size.x - Ui.BTN_GAP) / 2.0)
 	var tiles := [
-		["Улучшения", "wrench", _open_shop], ["Коты", "cat", _open_cat_book],
+		["Мастерская", "wrench", _open_shop], ["Коты", "cat", _open_cat_book],
 		["События", "calendar", _open_meta.bind("events")], ["Пасс", "crown", _open_meta.bind("season")],
 		["Дневник", "book", _open_diary], ["Настройки", "gear", _menu_page.bind("settings")],
 	]
@@ -1102,10 +1115,10 @@ func _confirm_reset() -> void:
 
 # ---------------------------------------------------------------- магазин улучшений
 
-## «Улучшения»: общий экран-список. Карточка — значок, что даёт, цена-кнопка; недоступные (нет монет / нет условия) — серые.
+## «Мастерская» (улучшения): общий экран-список. Карточка — значок, что даёт, цена-кнопка; недоступные (нет монет / нет условия) — серые.
 func _open_shop() -> void:
 	var sc := ListScreen.new()
-	sc.title = "Улучшения"
+	sc.title = "Мастерская"
 	sc.header_provider = func() -> Array: return [{"icon": "coin", "text": str(GameState.coins)}]
 	sc.provider = func(_tab: int) -> Array: return _upgrade_rows()
 	sc.layer = 12
@@ -1113,8 +1126,10 @@ func _open_shop() -> void:
 	_upgrade_screen = sc
 
 
+## «Мастерская»: сначала разовые улучшения, которые ещё не куплены, затем оборудование с уровнями, в конце — уже купленное.
 func _upgrade_rows() -> Array:
 	var rows: Array = []
+	var owned_rows: Array = []
 	for u in Data.upgrades:
 		var id := String(u["id"])
 		var owned := GameState.has_upgrade(id)
@@ -1129,9 +1144,30 @@ func _upgrade_rows() -> Array:
 		if owned:
 			row["sub"] = tr("Куплено")
 			row["action"] = {"text": tr("Есть"), "icon": "check", "enabled": false}
+			owned_rows.append(row)
 		else:
 			row["action"] = {"text": str(int(u["price"])), "icon": "coin", "enabled": not locked and GameState.coins >= int(u["price"]), "press": _buy_upgrade.bind(id)}
+			rows.append(row)
+	for e in Data.equipment:
+		var id := String(e["id"])
+		var lvl := GameState.equip_level(id)
+		var nx := GameState.equip_next(id)
+		var shown := lvl if nx.is_empty() else int(nx["level"])
+		var effect := tr(String(e["desc"])) % int(round(float(e["per"]) * shown * 100.0))
+		var row := {"title": String(e["name"]), "icon": String(e["icon"])}
+		if nx.is_empty():
+			row["sub"] = tr("Макс.: %s") % effect
+			row["action"] = {"text": tr("Есть"), "icon": "check", "enabled": false}
+		elif GameState.levels_cleared() < int(nx["after"]):
+			row["sub"] = tr("Ур. %d — после смены %d") % [shown, int(nx["after"])]
+			row["icon"] = "lock"
+			row["enabled"] = false
+			row["action"] = {"text": str(int(nx["price"])), "icon": "coin", "enabled": false}
+		else:
+			row["sub"] = tr("Ур. %d: %s") % [shown, effect]
+			row["action"] = {"text": str(int(nx["price"])), "icon": "coin", "enabled": GameState.coins >= int(nx["price"]), "press": _buy_equip.bind(id)}
 		rows.append(row)
+	rows.append_array(owned_rows)
 	return rows
 
 
@@ -1144,6 +1180,17 @@ func _buy_upgrade(id: String) -> void:
 				Fx.burst(_upgrade_screen, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
 				Ui.toast(_upgrade_screen, tr(String(u["flavor"])), Vector2(180, 600))
 	_on_upgrade_bought(id)
+	_layout_chips()
+
+
+func _buy_equip(id: String) -> void:
+	if not GameState.buy_equip(id):
+		return
+	if _upgrade_screen != null and is_instance_valid(_upgrade_screen):
+		Fx.burst(_upgrade_screen, Vector2(180, 300), "star", Color("ffe08a"), 14, 260.0, 200.0, 1.0, 1.2)
+		var e := GameState.equip_def(id)
+		Ui.toast(_upgrade_screen, "%s: %s" % [tr(String(e["name"])), tr(String(e["desc"])) % int(round(float(e["per"]) * GameState.equip_level(id) * 100.0))], Vector2(180, 600))
+		_upgrade_screen.refresh()
 	_layout_chips()
 
 
@@ -1447,6 +1494,7 @@ func _on_player_arrived() -> void:
 func _on_coins_changed(_value: int) -> void:
 	_layout_chips()
 	_refresh_places()
+	_refresh_goal()
 
 
 # ---------------------------------------------------------------- коморка, лестница, второй этаж
@@ -1935,7 +1983,8 @@ func place_badge(id: String) -> bool:
 		"quests":
 			return Daily.claimable_count() > 0
 		"upgrades":
-			return Data.upgrades.any(func(u: Dictionary) -> bool: return GameState.can_buy_upgrade(String(u["id"])))
+			return Data.upgrades.any(func(u: Dictionary) -> bool: return GameState.can_buy_upgrade(String(u["id"]))) \
+				or Data.equipment.any(func(e: Dictionary) -> bool: return GameState.can_buy_equip(String(e["id"])))
 		"events":
 			return Events.claimable_count() > 0
 		"season":
@@ -1971,7 +2020,7 @@ func _open_place(id: String) -> void:
 ## Стрелки у краёв экрана: ближайшее место за кадром, где ждёт награда. Касание открывает его.
 func _build_edges() -> void:
 	for side in 2:
-		var b := _icon_tile(_ui, Rect2(4.0 if side == 0 else 308.0, 280, 48, 48), "gift", "", _on_edge_pressed.bind(side))
+		var b := _icon_tile(_ui, Rect2(4.0 if side == 0 else 308.0, 420, 48, 48), "gift", "", _on_edge_pressed.bind(side))
 		(b.get_child(0) as CanvasItem).self_modulate = Color(1.0, 0.86, 0.5)
 		b.visible = false
 		_edge_btns.append(b)
@@ -2249,7 +2298,7 @@ func _end_shift(served: int, earned: int) -> void:
 	if level_id != "" and GameState.level_star_count(level_id) >= 1:
 		_play_stories("level", level_id)   # конец главы: сюжетная сцена
 	if GameState.shifts_played == 3 and served > 0 and GameState.upgrades.is_empty():   # третья смена: пора в магазин улучшений
-		get_tree().create_timer(1.6).timeout.connect(func() -> void: Ui.toast(_ui, tr("Загляни в «Улучшения» в меню!"), Vector2(180, 210)))
+		get_tree().create_timer(1.6).timeout.connect(func() -> void: Ui.toast(_ui, tr("Загляни в «Мастерскую»: там улучшения!"), Vector2(180, 210)))
 
 
 # ---------------------------------------------------------------- меню в игре

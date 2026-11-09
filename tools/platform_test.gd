@@ -578,10 +578,29 @@ func _test_ui_screens() -> void:
 	city._upgrade_screen.close()
 	await get_tree().process_frame
 	var keep_bonus := GameState.stars_bonus
+	var keep_coins := GameState.coins
 	GameState.stars_bonus = -GameState.stars_total() + GameState.stars_bonus + GameState.stars_spent   # свободных звёзд — ноль
+	GameState.coins = 0
 	city._refresh_dock()
 	goal = city.next_goal()
-	_check(not goal.is_empty() and not bool(goal["ready"]) and int(goal["left"]) > 0, "звёзд не хватает — цель показывает, сколько осталось, и ведёт в смену")
+	_check(not goal.is_empty() and String(goal["kind"]) == "stars" and int(goal["left"]) > 0, "звёзд не хватает — цель показывает, сколько осталось, и ведёт в смену")
+	GameState.coins = 5000
+	GameState.upgrades = []
+	_check(String(city.next_goal()["kind"]) == "buy", "хватает монет на разовое улучшение (молочник) — цель зовёт в мастерскую")
+	# оборудование с уровнями: цена растёт, уровень закрыт до нужной смены, прибавки складываются
+	GameState.equipment = {}
+	_check(GameState.equip_bonus("tips") == 0.0 and int(GameState.equip_next("tip_jar")["price"]) == 150, "оборудование начинается с нулевого уровня")
+	GameState.level_stars = {}
+	_check(not GameState.can_buy_equip("tip_jar"), "уровень оборудования закрыт, пока не пройдено нужное число смен")
+	GameState.level_stars = {"l1": 7, "l2": 7, "l3": 7, "l4": 7, "l5": 7, "l6": 7}
+	_check(GameState.buy_equip("tip_jar") and GameState.coins == 5000 - 150 and GameState.equip_level("tip_jar") == 1, "покупка уровня списывает монеты")
+	_check(is_equal_approx(GameState.equip_bonus("tips"), 0.05), "банка для чаевых: +5% за уровень")
+	_check(not GameState.can_buy_equip("tip_jar"), "второй уровень — только после 10-й смены")
+	_check(GameState.buy_equip("grinder") and is_equal_approx(GameState.price_mult("tea"), 1.04), "кофемолка поднимает цену всех напитков")
+	var shop_rows: Array = city._upgrade_rows()
+	_check(shop_rows.size() == Data.upgrades.size() + Data.equipment.size(), "в мастерской — разовые улучшения и всё оборудование")
+	GameState.equipment = {}
+	GameState.coins = keep_coins
 	GameState.stars_bonus = keep_bonus
 	city._refresh_dock()
 	city._open_repairs()
@@ -1129,7 +1148,7 @@ func _test_city_meta() -> void:
 	var labels: Array[String] = []
 	for l in city._menu_pages["main"].find_children("*", "Label", true, false):
 		labels.append((l as Label).text)
-	_check(labels.has("Улучшения") and labels.has("Коты") and labels.has("События") and labels.has("Пасс") and labels.has("Дневник") and labels.has("Настройки"), "в меню плитки: улучшения, коты, события, пасс, дневник, настройки (%s)" % [labels])
+	_check(labels.has("Мастерская") and labels.has("Коты") and labels.has("События") and labels.has("Пасс") and labels.has("Дневник") and labels.has("Настройки"), "в меню плитки: мастерская, коты, события, пасс, дневник, настройки (%s)" % [labels])
 	# уровень с бустерами: сначала выбор
 	Economy.add_booster("auto", 1, "t")
 	city._start_level(0)

@@ -9,6 +9,7 @@ var furniture: Dictionary = {} # id -> Dictionary (режим украшения
 var default_layout: Array[Dictionary] = []  # расстановка кафе у игрока из старых сохранений
 var intro_layout: Array[Dictionary] = []    # расстановка нового игрока: только стол и пуфик
 var upgrades: Array[Dictionary] = []        # функциональные улучшения (data/upgrades.json), по порядку
+var equipment: Array[Dictionary] = []       # оборудование с уровнями за монеты (data/equipment.json): цена напитков и выпечки, чаевые, терпение
 var levels: Array[Dictionary] = []          # уровни-смены (data/levels.json), по порядку
 var credits: Array[Dictionary] = []         # титры (data/credits.json)
 var boosters: Array[Dictionary] = []       # бустеры (data/boosters.json)
@@ -41,6 +42,7 @@ func _ready() -> void:
 	default_layout = _read_array("res://data/default_layout.json")
 	intro_layout = _read_array("res://data/intro_layout.json")
 	upgrades = _read_array("res://data/upgrades.json")
+	equipment = _read_array("res://data/equipment.json")
 	levels = _read_array("res://data/levels.json")
 	repairs = _read_array("res://data/repairs.json")
 	chapters = _read_array("res://data/chapters.json")

@@ -18,7 +18,7 @@ T=(0 3.1 7.1 12.6 18.6 23.3 26.3); E=(3.1 7.1 12.6 18.6 23.3 26.3 28.5)
 VF="[0:v]fps=30"
 for i in 0 1 2 3 4 5 6; do
   printf '%s' "${C[$i]}" > "$TMP/c$i.txt"
-  VF+=",drawtext=fontfile=$FONT:textfile=$TMP/c$i.txt:fontsize=60:fontcolor=0xfffaee:box=1:boxcolor=0x3b2a3d@0.88:boxborderw=26:x=(w-text_w)/2:y=250:enable='between(t,${T[$i]},${E[$i]})'"
+  VF+=",drawtext=fontfile=$FONT:textfile=$TMP/c$i.txt:fontsize=60:fontcolor=0xfffaee:box=1:boxcolor=0x3b2a3d@0.88:boxborderw=26:x=(w-text_w)/2:y=330:enable='between(t,${T[$i]},${E[$i]})'"
 done
 VF+="[main]"
 ffmpeg -v error -y -i "$RAW" -loop 1 -t 3.6 -framerate 30 -i "$TMP/end.png" -filter_complex \

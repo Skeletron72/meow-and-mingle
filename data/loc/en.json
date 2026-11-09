@@ -858,5 +858,19 @@
  "Можно: %s": "Ready: %s",
  "Ещё %d★: %s": "%d★ to go: %s",
  "Смена %d": "Shift %d",
- "Время": "Time"
+ "Время": "Time",
+ "Кофемолка": "Grinder",
+ "Противень": "Baking tray",
+ "Подушки гостям": "Guest cushions",
+ "напитки дороже на %d%%": "drinks cost %d%% more",
+ "выпечка дороже на %d%%": "pastries cost %d%% more",
+ "чаевые +%d%%": "tips +%d%%",
+ "терпение гостей +%d%%": "guest patience +%d%%",
+ "Макс.: %s": "Max: %s",
+ "Ур. %d — после смены %d": "Lv. %d — after shift %d",
+ "Ур. %d: %s": "Lv. %d: %s",
+ "Купи: %s": "Buy: %s",
+ "Банка чаевых": "Tip jar",
+ "Загляни в «Мастерскую»: там улучшения!": "Visit the Workshop for upgrades!",
+ "Цель: пройти смену %d": "Goal: clear shift %d"
 }

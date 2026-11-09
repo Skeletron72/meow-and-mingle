@@ -8,3 +8,5 @@ build/
 *.jks
 export_credentials.cfg
 .env
+
+__pycache__/

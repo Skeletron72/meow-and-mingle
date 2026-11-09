@@ -38,6 +38,7 @@ var intro_cleaned: Dictionary = {}  # id объекта расчистки -> с
 var tutorial_served := 0
 var level_stars := {}              # id уровня → маска звёзд: 1 пройден, 2 точность, 4 скорость
 var upgrades: Array[String] = []    # купленные функциональные улучшения (id из data/upgrades.json)
+var equipment: Dictionary = {}      # оборудование: id → уровень (data/equipment.json)
 var keepsakes: Array[String] = []   # найденные в коробках памятные вещи
 var stars_bonus := 0               # звёзды не из уровней (награда за обучение и т. п.)
 var stars_spent := 0               # потрачено на ремонт
@@ -74,6 +75,7 @@ func new_game() -> void:
 	intro_cleaned = {}
 	tutorial_served = 0
 	upgrades = []
+	equipment = {}
 	keepsakes = []
 	level_stars = {}
 	stars_bonus = 0
@@ -455,6 +457,57 @@ func buy_upgrade(id: String) -> bool:
 	return true
 
 
+# ---------------------------------------------------------------- оборудование с уровнями (монеты)
+
+func equip_def(id: String) -> Dictionary:
+	for e in Data.equipment:
+		if String(e["id"]) == id:
+			return e
+	return {}
+
+
+func equip_level(id: String) -> int:
+	return int(equipment.get(id, 0))
+
+
+func equip_max(id: String) -> int:
+	return (equip_def(id).get("prices", []) as Array).size()
+
+
+## Суммарная прибавка оборудования по виду: "price" (напитки), "pastry_price", "tips", "patience". Доля: 0.08 = +8%.
+func equip_bonus(kind: String) -> float:
+	var sum := 0.0
+	for e in Data.equipment:
+		if String(e["kind"]) == kind:
+			sum += float(e["per"]) * equip_level(String(e["id"]))
+	return sum
+
+
+## Следующий уровень: {"level", "price", "after"} (after — сколько смен-уровней надо пройти). Пусто — уровень максимальный.
+func equip_next(id: String) -> Dictionary:
+	var def := equip_def(id)
+	var lvl := equip_level(id)
+	if def.is_empty() or lvl >= equip_max(id):
+		return {}
+	return {"level": lvl + 1, "price": int((def["prices"] as Array)[lvl]), "after": int((def["after"] as Array)[lvl])}
+
+
+func can_buy_equip(id: String) -> bool:
+	var nx := equip_next(id)
+	return not nx.is_empty() and coins >= int(nx["price"]) and levels_cleared() >= int(nx["after"])
+
+
+func buy_equip(id: String) -> bool:
+	if not can_buy_equip(id):
+		return false
+	var nx := equip_next(id)
+	spend_coins(int(nx["price"]))
+	equipment[id] = int(nx["level"])
+	save_game()
+	Platform.track("equip_buy", {"id": id, "level": int(nx["level"]), "coins_left": coins})
+	return true
+
+
 func _needs_met(item: Dictionary) -> bool:
 	for k in item.get("needs", []):
 		if not has_unlock(String(k)):
@@ -495,10 +548,10 @@ func cats_available() -> Array[Dictionary]:
 	return out
 
 
-## Множитель цены напитка от улучшений (кофемашина Pro).
+## Множитель цены напитка от улучшений (кофемашина Pro: кофе +25%) и оборудования (кофемолка: все напитки).
 func price_mult(drink_id: String) -> float:
 	var base: String = Data.drinks[drink_id]["recipe"]["base"]
-	return 1.25 if has_upgrade("espresso_pro") and base == "coffee" else 1.0
+	return (1.25 if has_upgrade("espresso_pro") and base == "coffee" else 1.0) * (1.0 + equip_bonus("price"))
 
 
 func add_coins(amount: int) -> void:
@@ -656,6 +709,7 @@ func save_game() -> void:
 		"intro_cleaned": intro_cleaned,
 		"tutorial_served": tutorial_served,
 		"upgrades": upgrades,
+		"equipment": equipment,
 		"keepsakes": keepsakes,
 		"level_stars": level_stars,
 		"weather_mode": Weather.mode,
@@ -756,6 +810,11 @@ func load_game() -> void:
 	intro_cleaned = data.get("intro_cleaned", {})
 	tutorial_served = int(data.get("tutorial_served", 0))
 	upgrades = _string_array(data.get("upgrades", []))
+	equipment = {}
+	var raw_eq: Variant = data.get("equipment", {})
+	if raw_eq is Dictionary:
+		for e in Data.equipment:   # только известные предметы, уровень в пределах таблицы цен
+			equipment[String(e["id"])] = clampi(int((raw_eq as Dictionary).get(String(e["id"]), 0)), 0, (e["prices"] as Array).size())
 	keepsakes = _string_array(data.get("keepsakes", []))
 	level_stars = _sanitize_stars(data.get("level_stars", {}))
 	stars_bonus = maxi(int(data.get("stars_bonus", 0)), 0)
