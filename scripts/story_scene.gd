@@ -47,7 +47,7 @@ func _ready() -> void:
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_label.position.y = BASE_Y + 12.0 + Ui.LINE_H + 4.0
 	_label.size = Vector2(336 - 2 * Ui.PAGE_PAD_X, Ui.LINE_H * 3.0)
-	var skip := Ui.button(tr("Пропустить"), Rect2(222, 590, 126, 40), "", _root, true)
+	var skip := Ui.button(tr("Пропустить"), Rect2(222, 584, 126, 48), "", _root, true)
 	skip.pressed.connect(_finish)
 	var hint := Ui.label(tr("Нажми — дальше"), Rect2(12, 596, 206, 32), Ui.FONT_SIZE, Color("b8a58c"), _root, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var blink := hint.create_tween().set_loops()

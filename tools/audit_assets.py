@@ -28,6 +28,7 @@ RULES = [
     ("assets/shaders/*", "собственные", "OK", "-"),
     ("assets/audio/*", "собственные (tools/generators/make_audio.py)", "OK", "синтез из кода, права у проекта"),
     ("icon.svg", "собственные", "OK", "-"),
+    ("assets/icons/*", "собственные (tools/generators/make_store_icon.py)", "OK", "иконка нарисована кодом; персонаж и кружка — свои"),
     ("assets/packs/modern-interiors-free/*", "Modern Interiors Free (LimeZu)", "BLOCK", "только некоммерческое использование"),
 ]
 SKIP_EXT = (".import", ".uid")

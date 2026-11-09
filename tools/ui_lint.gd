@@ -21,6 +21,9 @@ func _ready() -> void:
 		await _run_all(lang)
 	for i in _issues:
 		print("UI: ", i)
+	print("TAP-ЦЕЛИ меньше %d px: %d" % [int(MIN_TAP), _small_taps.size()])
+	for k in _small_taps:
+		print("  мало: ", k, " ", _small_taps[k])
 	print("UI LINT: экранов проверено %d, замечаний %d" % [_checked, _issues.size()])
 	get_tree().quit(1 if not _issues.is_empty() else 0)
 
@@ -264,6 +267,9 @@ func _walk(n: Node, buttons: Array[Button]) -> void:
 	elif n is Button:
 		var b := n as Button
 		_check_button(b)
+		var gs := b.get_global_rect().size
+		if not b.disabled and minf(gs.x, gs.y) < MIN_TAP and b.size.x > 8.0:   # статистика, не замечание: проверка размера цели для пальца
+			_small_taps["%s | %s" % [_screen, b.text if b.text != "" else b.name]] = Vector2i(int(gs.x), int(gs.y))
 		if b.text != "" and b.size.x > 8:
 			buttons.append(b)
 	for c in n.get_children():
@@ -316,6 +322,10 @@ func _check_button(b: Button) -> void:
 		_add("кнопка «%s» за краем экрана %s" % [text.left(24), rect])
 	if int(rect.position.x) % 2 != 0 or int(rect.position.y) % 2 != 0 or int(rect.size.x) % 2 != 0 or int(rect.size.y) % 2 != 0:
 		_add("кнопка «%s» не по сетке арта: %s" % [text.left(24), rect])
+
+
+const MIN_TAP := 44.0   # минимальная цель нажатия, логических px (≈ dp на телефоне шириной 360)
+var _small_taps := {}
 
 
 func _add(msg: String) -> void:
