@@ -36,8 +36,8 @@ func _ready() -> void:
 	title.add_theme_color_override("font_outline_color", Color("5b3a22"))
 	title.add_theme_constant_override("outline_size", Ui.PX * 2)
 	_face = Sprite2D.new()
-	_face.scale = Vector2(8, 8)
-	_face.position = Vector2(180, 276)
+	_face.scale = Vector2(4, 4)   # крупный план — ×4, как гости в смене и кадры дневника
+	_face.position = Vector2(180, 300)
 	_root.add_child(_face)
 	var h := 152.0
 	Ui.panel(Rect2(12, BASE_Y, 336, h), Ui.UI_WOOD, _root)

@@ -1,14 +1,14 @@
 class_name RecipeBook
 extends CanvasLayer
 ## Шпаргалка рецептов прямо в смене: открытые напитки с «составом» значками (основа, молоко, сироп, добавки). Одно касание кнопки-книги на прилавке;
-## смена на паузе, пока окно открыто (в main — флаг `_paused`, время ожидания гостей и остывание не идут). Листается по 6 строк.
+## смена на паузе, пока окно открыто (в main — флаг `_paused`, время ожидания гостей и остывание не идут). Листается по 5 строк. Весь текст — основным кеглем (пиксель шрифта = пиксель арта).
 
 signal closed
 
-const PER_PAGE := 6
+const PER_PAGE := 5
 const X := 12.0
 const W := 336.0
-const ROW_H := 56.0
+const ROW_H := 64.0
 const CHIP := 32.0
 
 var title_text := "Рецепты"
@@ -28,6 +28,7 @@ func _ready() -> void:
 	_root = Control.new()
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
+	Audio.sfx("page", 0.04)
 	_build()
 
 
@@ -75,7 +76,7 @@ func _build() -> void:
 		y += ROW_H
 	# подсказка про выпечку внизу и кнопки
 	var by := top + h - Ui.PAGE_PAD_BOTTOM - Ui.BTN_H
-	var note := Ui.label(tr("Начинки — и на выпечку: бросай на правую половину подноса."), Rect2(cx, by - 2.0 * Ui.LINE_H - 8.0, cw, 2.0 * Ui.LINE_H), 20, Ui.INK.lightened(0.2), _root, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var note := Ui.label(tr("Начинки можно и на выпечку: справа на подносе."), Rect2(cx, by - 2.0 * Ui.LINE_H - 8.0, cw, 2.0 * Ui.LINE_H), Ui.FONT_SIZE, Ui.INK.lightened(0.2), _root, HORIZONTAL_ALIGNMENT_CENTER, true)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.size = Vector2(cw, 2.0 * Ui.LINE_H)
 	note.position.x = cx
@@ -107,15 +108,16 @@ func _row(id: String, x: float, y: float, w: float) -> void:
 	cup.position = Vector2(x + 4.0, y + (ROW_H - 4.0 - CHIP) / 2.0)
 	cup.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(cup)
-	var name_w := 112.0
-	var name := Ui.label(tr(String(Data.drinks[id]["name"])), Rect2(x + 4.0 + CHIP + 4.0, y, name_w, ROW_H - 4.0), 20, Ui.INK, _root, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var chips := ingredient_textures(id)
+	var chip_step := CHIP - 6.0
+	var name_w := w - (4.0 + CHIP + 4.0) - chips.size() * chip_step - 8.0   # названию — всё место слева от состава
+	var name := Ui.label(tr(String(Data.drinks[id]["name"])), Rect2(x + 4.0 + CHIP + 4.0, y, name_w, ROW_H - 4.0), Ui.FONT_SIZE, Ui.INK, _root, HORIZONTAL_ALIGNMENT_LEFT, true)
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name.size = Vector2(name_w, ROW_H - 4.0)
 	name.position = Vector2(x + 4.0 + CHIP + 4.0, y)
 	name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name.set_meta("max_h", ROW_H - 4.0)
-	var chips := ingredient_textures(id)
-	var cx := x + w - 4.0 - chips.size() * (CHIP - 2.0)   # состав прижат к правому краю плашки
+	var cx := x + w - 4.0 - chips.size() * chip_step   # состав прижат к правому краю плашки
 	for t in chips:
 		var tr_ := TextureRect.new()
 		tr_.texture = t
@@ -124,11 +126,12 @@ func _row(id: String, x: float, y: float, w: float) -> void:
 		tr_.position = Vector2(cx, y + (ROW_H - 4.0 - CHIP) / 2.0)
 		tr_.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_root.add_child(tr_)
-		cx += CHIP - 2.0
+		cx += chip_step
 
 
 func _turn(d: int) -> void:
 	_page = clampi(_page + d, 0, page_count() - 1)
+	Audio.sfx("page", 0.06)
 	_build()
 
 

@@ -1,128 +1,116 @@
 #!/usr/bin/env python3
-"""Иконка игры: пиксельный кот за чашкой латте на тёплом фоне. Рисуется из спрайтов игры (кот, чашка) крупными пикселями, фон — постеризованный
-градиент с дизерингом Байера, как в самой игре.
+"""Иконка игры в ОДНОЙ сетке пикселей: кот выглядывает из-за чашки латте. Кот и чашка — спрайты игры в их родном масштабе 1:1 на поле 32×32,
+фон (маркиза, стена и столешница) нарисован в той же сетке; затем всё поле увеличивается целым числом — ни один элемент не мельче и не крупнее другого.
+
   python3 tools/generators/make_store_icon.py
-Пишет: store/ru/icon/icon_512_{a,b,c}.png (варианты для A/B-теста), assets/icons/ (иконка проекта и слои адаптивной иконки Android 432×432)."""
+
+Пишет: store/ru/icon/icon_512_{a,b,c}.png (варианты), assets/icons/icon_512.png и icon_192.png, слои адаптивной иконки Android 432×432.
+Масштабы целые: 512 = 32×16, 192 = 32×6, 432 = 36×12 (поле 36×36: кот и чашка в безопасной зоне 24×24)."""
 import os
 
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+N = 32
+VARIANTS = {   # кот, клетка чашки в листе напитков, стена (верх, низ), столешница (свет, тень), кайма стола
+    "a": ("cat-orange-front.png", (4, 1), ((255, 236, 200), (250, 214, 160)), ((214, 142, 88), (184, 112, 66)), (122, 72, 44)),
+    "b": ("cat-black-front.png", (2, 1), ((150, 190, 180), (116, 160, 152)), ((96, 122, 118), (72, 96, 96)), (44, 60, 62)),
+    "c": ("cat-waiter-front.png", (3, 0), ((255, 222, 190), (250, 190, 150)), ((208, 104, 80), (176, 78, 62)), (116, 44, 40)),
+}
 
 
 def load(path):
     return Image.open(os.path.join(ROOT, path)).convert("RGBA")
 
 
-def crop_content(im):
+def sprite(path, col, row):
+    im = load(path).crop((col * 16, row * 16, col * 16 + 16, row * 16 + 16))
     return im.crop(im.getbbox())
 
 
-def cat(name, row=0):
-    sheet = load(f"assets/cats/{name}")
-    return crop_content(sheet.crop((0, 16 * row, 16, 16 * row + 16)))
+AWNING = ((224, 80, 63), (255, 241, 214), (143, 42, 34))   # полосы маркизы кафе: красная, кремовая, тень под кромкой
 
 
-def cell(col, row):
-    sheet = load("assets/cafe/drinks-and-pastries.png")
-    return crop_content(sheet.crop((col * 16, row * 16, col * 16 + 16, row * 16 + 16)))
-
-
-def gradient(size, top, bottom, px, steps=5):
-    """Вертикальный градиент, постеризованный в steps ступеней с дизерингом Байера (клетка px)."""
-    n = size // px
-    im = Image.new("RGBA", (size, size))
+def background(n, wall, table, edge, table_y, awning=True):
+    """Стена: две ступени цвета с шахматной строкой между ними (дизеринг в той же сетке). Сверху — полосатая маркиза кафе с фестонами,
+    ниже — столешница с тёмной каймой. Всё в клетках поля."""
+    im = Image.new("RGBA", (n, n))
+    px = im.load()
+    aw = 5 if awning else 0
+    mid = aw + (table_y - aw) // 2
     for y in range(n):
         for x in range(n):
-            t = y / (n - 1)
-            v = t * (steps - 1)
-            lo = int(v)
-            frac = v - lo
-            lvl = lo + (1 if frac > (BAYER[y % 4][x % 4] + 0.5) / 16.0 else 0)
-            u = min(lvl, steps - 1) / (steps - 1)
-            c = tuple(int(top[i] + (bottom[i] - top[i]) * u) for i in range(3)) + (255,)
-            im.paste(c, (x * px, y * px, (x + 1) * px, (y + 1) * px))
+            if y < table_y:
+                c = wall[0] if y < mid else wall[1]
+                if y == mid - 1 and (x + y) % 2 == 0:
+                    c = wall[1]
+                elif y == mid and (x + y) % 2 == 0:
+                    c = wall[0]
+            elif y == table_y:
+                c = edge
+            else:
+                c = table[0] if y < table_y + 3 else table[1]
+            if awning:
+                stripe = AWNING[(x // 4) % 2]
+                if y < aw:
+                    c = stripe
+                elif y == aw and x % 4 in (1, 2):      # фестон: закруглённый низ каждой полосы
+                    c = stripe
+                elif y == aw or (y == aw + 1 and x % 4 in (1, 2)):
+                    c = AWNING[2]
+            px[x, y] = c + (255,)
     return im
 
 
-def scaled(im, k):
+def subject(variant):
+    """Кот и чашка одним слоем 16×23: чашка стоит впереди и закрывает подбородок и тело, глаза над краем чашки."""
+    cat_file, cup_cell = VARIANTS[variant][0], VARIANTS[variant][1]
+    cat = sprite("assets/cats/" + cat_file, 0, 0)                 # 14×14
+    cup = sprite("assets/cafe/drinks-and-pastries.png", *cup_cell)  # до 16×16
+    w = max(cat.width, cup.width)
+    h = 9 + cup.height   # чашка начинается на 9-й строке кота: глаза (строки 5–7) остаются над ней
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    im.alpha_composite(cat, ((w - cat.width) // 2, 0))
+    im.alpha_composite(cup, ((w - cup.width) // 2, 9))
+    return im
+
+
+def art(variant, n=N):
+    _, _, wall, table, edge = VARIANTS[variant]
+    sub = subject(variant)
+    top = 7 + (n - 7 - sub.height) // 2 - 1    # под маркизой, чуть выше центра оставшегося поля
+    table_y = top + sub.height - 5             # чашка стоит на столе: стол начинается под её нижней третью
+    im = background(n, wall, table, edge, table_y)
+    im.alpha_composite(sub, ((n - sub.width) // 2, top))
+    return im
+
+
+def up(im, k):
     return im.resize((im.width * k, im.height * k), Image.NEAREST)
 
 
-def compose(size, bg, cat_im, cup_im, ck, uk, cat_xy, cup_xy, extras=()):
-    out = bg.copy()
-    # лёгкая тень под чашкой
-    sh = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    c = scaled(cat_im, ck)
-    out.alpha_composite(c, cat_xy)
-    u = scaled(cup_im, uk)
-    shadow = Image.new("RGBA", u.size, (0, 0, 0, 0))
-    ssh = u.split()[3].point(lambda a: 70 if a else 0)
-    shadow.putalpha(ssh)
-    out.alpha_composite(shadow, (cup_xy[0], cup_xy[1] + uk))
-    out.alpha_composite(u, cup_xy)
-    for e in extras:
-        out.alpha_composite(e[0], e[1])
-    return out
-
-
-def steam(size, x, y, k, color=(255, 255, 255, 235)):
-    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    px = im.load()
-    pts = [(0, 0), (1, 1), (1, 2), (0, 3), (0, 4), (1, 5)]
-    for a, b in pts:
-        for dx in range(k):
-            for dy in range(k):
-                px[x + a * k + dx, y + b * k + dy] = color
-    return im
-
-
-def place(size, bg, cat_im, cup_im, ck, uk, cup_dx, cup_dy, extras=()):
-    """Кот по центру сверху, чашка (меньше) у нижнего края справа от центра — перекрывает только тело, мордочка открыта."""
-    cat_xy = ((size - cat_im.width * ck) // 2, 28)
-    cup_xy = ((size - cup_im.width * uk) // 2 + cup_dx, size - cup_im.height * uk - cup_dy)
-    return compose(size, bg, cat_im, cup_im, ck, uk, cat_xy, cup_xy, extras)
-
-
-def make(variant):
-    size = 512
-    if variant == "a":      # рыжий кот и латте, кремово-персиковый фон
-        bg = gradient(size, (255, 233, 196), (240, 168, 104), 8)
-        k = place(size, bg, cat("cat-orange-front.png"), cell(4, 1), 30, 12, 96, 20)
-    elif variant == "b":    # чёрный кот и эспрессо, тёмно-бирюзовый фон (цвет стеллажа игры)
-        bg = gradient(size, (98, 138, 134), (52, 78, 80), 8)
-        k = place(size, bg, cat("cat-black-front.png"), cell(2, 1), 30, 12, 96, 20)
-    else:                   # кот-официант и круассан, тёплый красный фон
-        bg = gradient(size, (255, 214, 168), (214, 102, 76), 8)
-        k = place(size, bg, cat("cat-waiter-front.png"), cell(1, 4), 30, 12, 96, 20)
-    return k
-
-
 def adaptive():
-    """Слои адаптивной иконки Android: передний (кот и чашка в безопасной зоне 288×288 из 432), фон, монохромный."""
-    size = 432
-    bgl = gradient(size, (255, 233, 196), (240, 168, 104), 6)
-    bgl.save(os.path.join(ROOT, "assets/icons/adaptive_background_432.png"))
-    cat_im, cup_im = cat("cat-orange-front.png"), cell(4, 1)
-    fg = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ck, uk = 16, 7   # кот и чашка помещаются в безопасную зону 288×288
-    c = scaled(cat_im, ck)
-    fg.alpha_composite(c, ((size - c.width) // 2, 70))
-    u = scaled(cup_im, uk)
-    fg.alpha_composite(u, ((size - u.width) // 2 + 52, 70 + c.height - u.height + 6))
+    """Слои адаптивной иконки Android на поле 36×36 по 12 px: фон отдельно, кот с чашкой — в безопасной зоне (центральные 24 клетки)."""
+    n, k = 36, 12
+    _, _, wall, table, edge = VARIANTS["a"]
+    sub = subject("a")
+    top = (n - sub.height) // 2
+    bg = background(n, wall, table, edge, top + sub.height - 5, False)   # маску системы маркиза не переживёт: фон слоя — только стена и стол
+    up(bg, k).save(os.path.join(ROOT, "assets/icons/adaptive_background_432.png"))
+    fg = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    fg.alpha_composite(sub, ((n - sub.width) // 2, top))
+    fg = up(fg, k)
     fg.save(os.path.join(ROOT, "assets/icons/adaptive_foreground_432.png"))
     mono = Image.new("RGBA", fg.size, (0, 0, 0, 0))
-    mono.putalpha(fg.split()[3])
     mono.paste((255, 255, 255, 255), mask=fg.split()[3])
     mono.save(os.path.join(ROOT, "assets/icons/adaptive_monochrome_432.png"))
 
 
 if __name__ == "__main__":
     out = os.path.join(ROOT, "store/ru/icon")
-    for v in "abc":
-        make(v).save(os.path.join(out, f"icon_512_{v}.png"))
-    make("a").save(os.path.join(ROOT, "assets/icons/icon_512.png"))
-    make("a").resize((192, 192), Image.NEAREST).save(os.path.join(ROOT, "assets/icons/icon_192.png"))
+    for v in VARIANTS:
+        up(art(v), 16).save(os.path.join(out, f"icon_512_{v}.png"))
+    up(art("a"), 16).save(os.path.join(ROOT, "assets/icons/icon_512.png"))
+    up(art("a"), 6).save(os.path.join(ROOT, "assets/icons/icon_192.png"))
     adaptive()
     print("готово")

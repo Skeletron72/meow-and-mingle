@@ -1,10 +1,12 @@
 extends Node
 ## Autoload "Audio": звуки и музыка. Две шины — Music и SFX; громкость берётся из настроек (GameState.settings["music"/"sfx"]).
 ## Звуки: `Audio.sfx("coin")` (небольшой разброс высоты, чтобы повторы не «жужжали»). Музыка: `Audio.music("city")` / `Audio.music("shift")`
-## плавно переходит из одной петли в другую. Файлы — assets/audio/*.ogg, их делает tools/generators/make_audio.py.
+## плавно переходит из одной петли в другую. Файлы — assets/audio/*.ogg: настоящие записи (CC0), их собирает tools/build_audio.py
+## из assets/audio_src/ (источники и авторы — docs/legal/AUDIO_SOURCES.md).
 ## При выключенном звуке (громкость 0) и в безголовом режиме файлы не воспроизводятся.
 
-const SFX := ["click", "back", "coin", "pour", "success", "fail", "angry", "bell", "shutter", "box", "tap", "star", "pop", "whoosh", "meow1", "meow2"]
+const SFX := ["click", "back", "coin", "pour", "success", "fail", "angry", "bell", "shutter", "box", "tap", "star", "pop", "whoosh", "meow1", "meow2",
+	"pick", "steam", "purr", "page", "jingle_win", "jingle_lose"]
 const MUSIC := {"city": "music_city", "shift": "music_shift"}
 const POOL := 8
 const MIN_GAP_MSEC := 40   # один и тот же звук чаще раза в 40 мс не играем
@@ -113,6 +115,19 @@ func music(track: String) -> void:
 	new.volume_db = -40.0
 	new.play()
 	tw.tween_property(new, "volume_db", -6.0, 1.2)
+
+
+## Приглушает музыку на время джингла (итог смены), потом возвращает громкость.
+func duck(seconds: float) -> void:
+	if not _active():
+		return
+	var m := _music[0]
+	if not m.playing:
+		return
+	var tw := create_tween()
+	tw.tween_property(m, "volume_db", -22.0, 0.25)
+	tw.tween_interval(seconds)
+	tw.tween_property(m, "volume_db", -6.0, 0.8)
 
 
 func current_music() -> String:

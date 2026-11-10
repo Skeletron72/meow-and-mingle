@@ -201,7 +201,7 @@ func _build_table() -> void:
 			continue   # в обучении лишних полок нет
 		_table.shelves.append(top)
 		if open.is_empty() and r > 0:
-			var sign := Ui.label(tr("Откроется: %s") % tr(String(locked_text[r])), Rect2(8.0, top + 58.0, 344.0, 24.0), 20, Ui.INK.lightened(0.15), self, HORIZONTAL_ALIGNMENT_CENTER, true)
+			var sign := Ui.label(tr("Откроется: %s") % tr(String(locked_text[r])), Rect2(8.0, top + 58.0, 344.0, 28.0), Ui.FONT_SIZE, Ui.INK.lightened(0.15), self, HORIZONTAL_ALIGNMENT_CENTER, true)
 			sign.z_index = 3
 			continue
 		var open_ids := {}
@@ -237,7 +237,7 @@ func _place_silhouette(s: Dictionary, cx: float, top: float) -> void:
 	var icon := _sprite(tex, c - BrewArt.content_offset(tex, String(s["kind"]) == "base") * 4.0, 4.0)
 	icon.z_index = 2
 	icon.modulate = Color(0.0, 0.0, 0.0, 0.32)
-	var q := Ui.label("?", Rect2(cx - 34.0, top + 58.0, 68.0, 24.0), 20, Ui.INK.lightened(0.2), self, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var q := Ui.label("?", Rect2(cx - 34.0, top + 58.0, 68.0, 28.0), Ui.FONT_SIZE, Ui.INK.lightened(0.2), self, HORIZONTAL_ALIGNMENT_CENTER, true)
 	q.z_index = 3
 
 
@@ -261,7 +261,7 @@ func _place_source(s: Dictionary, cx: float, top: float) -> void:
 		_rail_n += 1
 	if String(s["kind"]) == "pastry":
 		_table.plates.append(Vector2(cx, top + 56.0))
-	var cap := Ui.label(tr(String(s["title"])), Rect2(cx - step / 2.0 + 2.0, top + 58.0, step - 4.0, 24.0), 20, Ui.INK, self, HORIZONTAL_ALIGNMENT_CENTER, true)   # на передней планке полки
+	var cap := Ui.label(tr(String(s["title"])), Rect2(cx - step / 2.0, top + 58.0, step, 28.0), Ui.FONT_SIZE, Ui.INK, self, HORIZONTAL_ALIGNMENT_CENTER, true)   # на передней планке полки
 	cap.z_index = 3
 	var rest_y := icon.position.y
 	var bob := icon.create_tween().set_loops()   # предметы «дышат» — приподнимаются на целый пиксель сетки, без масштаба
@@ -446,14 +446,14 @@ func _refresh_clue(force := false) -> void:
 	_clue.z_index = 70
 	_clue.set_meta("key", key)
 	add_child(_clue)
-	Ui.panel(Rect2(12, 48, 336, 58), Ui.UI_CREAM, _clue)
-	var l := Ui.label(tr(String(Data.drinks[key]["riddle"])), Rect2(22, 52, 264 if not _hint_used else 316, 48), 20, Ui.INK, _clue, HORIZONTAL_ALIGNMENT_CENTER, true)
+	Ui.panel(Rect2(12, 44, 336, 70), Ui.UI_CREAM, _clue)
+	var l := Ui.label(tr(String(Data.drinks[key]["riddle"])), Rect2(22, 50, 264 if not _hint_used else 316, 56), Ui.FONT_SIZE, Ui.INK, _clue, HORIZONTAL_ALIGNMENT_CENTER, true)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.max_lines_visible = 2
-	l.position = Vector2(22, 52)
-	l.size = Vector2(264 if not _hint_used else 316, 48)
+	l.position = Vector2(22, 50)
+	l.size = Vector2(264 if not _hint_used else 316, 56)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.set_meta("max_h", 48.0)
+	l.set_meta("max_h", 56.0)
 	if not _hint_used and not tutorial and Shop.ad_ready("riddle_hint"):   # подсказка за ролик
 		var hb := Ui.button("", Rect2(292, 54, 48, 44), "video", _clue)
 		hb.pressed.connect(_riddle_hint)
@@ -600,7 +600,7 @@ func _try_autofill(e: Dictionary) -> void:
 	var order: Dictionary = e["order"]
 	_cup.fill(String(order["drink"]), String(order["pastry"]), order.get("pastry_mods", []))
 	_toast(tr("Автосборка!"), Vector2(180, 430))
-	Audio.sfx("pop")
+	Audio.sfx("pick")
 	Fx.burst(_fx, _tray.position + Vector2(0, -30), "sparkle", Color("ffe9a0"), 8, 130.0, 100.0, 0.7, 1.0)
 	_refresh_cup()
 
@@ -984,6 +984,8 @@ func _add_ingredient(kind: String, id: String, at: Vector2) -> void:
 		Fx.burst(_fx, at, "sparkle", Color("ffe9a0"), 7, 130.0, 100.0, 0.7, 1.0)
 	else:
 		Audio.sfx("pour")
+		if id == "coffee":
+			Audio.sfx("steam", 0.03)   # кофемашина выдыхает пар
 		Fx.burst(_fx, _tray.position + Vector2(-40, -30), "drop", color, 10, 150.0, 520.0, 0.7, 1.0, 60.0)
 	Fx.ring(_fx, _tray.position + Vector2(0, -6), Color(color, 0.9).lightened(0.2), 70.0, 0.5)
 	if kind == "base" and "double" in _cup.mods:
@@ -1121,8 +1123,11 @@ func _on_tray_delivered(e: Dictionary, ok: bool, total: int, tip: int, bonus: in
 	var c := cat.center()
 	if ok:
 		cat.react_happy()
-		Audio.sfx("success", 0.0)
-		Audio.sfx("meow1" if randf() < 0.5 else "meow2", 0.08, -4.0)
+		Audio.sfx("success", 0.03)
+		if bonus > 0:
+			Audio.sfx("purr", 0.05, -2.0)   # подали быстро — гость мурчит
+		else:
+			Audio.sfx("meow1" if randf() < 0.5 else "meow2", 0.08, -4.0)
 		Fx.burst(_fx, c + Vector2(0, -36), "heart", Color("ff6b8b"), 8, 160.0, 90.0, 1.1, 1.0, 55.0)
 		Fx.burst(_fx, c + Vector2(0, -30), "star", Color("ffe08a"), 6, 190.0, 160.0, 0.9, 1.0)
 		Fx.ring(_fx, c, Color("ffd27a"), 90.0, 0.55)
@@ -1228,6 +1233,8 @@ func _finish_run() -> void:
 
 
 func _show_results(mask: int, bonus: int, cap: int) -> void:
+	Audio.duck(5.0)
+	Audio.sfx("jingle_win" if mask != 0 else "jingle_lose", 0.0, -3.0)
 	_result = Node2D.new()
 	_result.z_index = 150
 	add_child(_result)

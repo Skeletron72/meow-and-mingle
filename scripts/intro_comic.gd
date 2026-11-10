@@ -236,13 +236,13 @@ func _panel_home(art: Node2D) -> void:
 	var bob := cat.create_tween().set_loops()
 	bob.tween_property(cat, "position:y", 104.0, 0.9).set_trans(Tween.TRANS_SINE)
 	bob.tween_property(cat, "position:y", 108.0, 0.9).set_trans(Tween.TRANS_SINE)
-	_spr(art, DRINKS, Vector2(180, 92), 2.0, Rect2(32, 16, 16, 16))
-	var key := _spr(art, Fx.tex("key"), Vector2(210, 90), 3.0)
+	_spr(art, DRINKS, Vector2(204, 84), 4.0, Rect2(32, 16, 16, 16))   # всё в кадре — в одной сетке ×4
+	var key := _spr(art, Fx.tex("key"), Vector2(264, 76), 4.0)
 	var kb := key.create_tween().set_loops()
 	kb.tween_property(key, "rotation", 0.12, 0.8).set_trans(Tween.TRANS_SINE)
 	kb.tween_property(key, "rotation", -0.12, 0.8).set_trans(Tween.TRANS_SINE)
 	_halo(art, Vector2(190, 110), Vector2(260, 200), Color(1.0, 0.75, 0.4, 0.45))
-	var sp := Fx.burst(art, Vector2(210, 84), "sparkle", Color("fff3b0"), 4, 40.0, 0.0, 1.2, 0.8)
+	var sp := Fx.burst(art, Vector2(264, 70), "sparkle", Color("fff3b0"), 4, 40.0, 0.0, 1.2, 0.8)
 	sp.loop = true
 	Fx.motes(art, Rect2(60, 60, 200, 100), 12)
 
@@ -263,11 +263,11 @@ func _panel_street(art: Node2D) -> void:
 			for wx in range(int(x + 6), int(x + w - 8), 14):
 				if rng.randf() < 0.55:
 					_r(art, wx, wy, 6, 8, Color("ffcf70"))
-	for tx in range(0, 296, 32):   # тротуар из тайлов
-		for ty in range(160, 226, 32):
-			_spr(art, TILES, Vector2(tx + 16, ty + 16), 2.0, Rect2(0, 0, 16, 16)).modulate = Color(1.0, 0.82, 0.7)
+	for tx in range(0, 296, 64):   # тротуар из тайлов (кадр в сетке ×4, как кот)
+		for ty in range(160, 226, 64):
+			_spr(art, TILES, Vector2(tx + 32, ty + 32), 4.0, Rect2(0, 0, 16, 16)).modulate = Color(1.0, 0.82, 0.7)
 	_r(art, 0, 160, ART_SIZE.x, 6, Color(0.3, 0.2, 0.3, 0.55))
-	var lamp := _spr(art, LAMP, Vector2(56, 196), 2.0)
+	var lamp := _spr(art, LAMP, Vector2(56, 196), 4.0)
 	lamp.offset = Vector2(0, -float(LAMP.get_height()) / 2.0)
 	_halo(art, Vector2(56, 100), Vector2(120, 120), Color(1.0, 0.8, 0.45, 0.5))
 	# кот идёт спиной слева направо
@@ -293,17 +293,18 @@ func _panel_facade(art: Node2D) -> void:
 	_r(art, 70, 96, 156, 32, Color("3f2815"))                       # вывеска
 	_r(art, 74, 100, 148, 24, Color("5a4a40"))
 	var sign := Ui.label("Тёплая Лапка", Rect2(70, 98, 156, 28), Ui.FONT_SIZE, Color("9a8a78"), art, HORIZONTAL_ALIGNMENT_CENTER, true)
-	sign.rotation = -0.02
 	for x in [92, 196]:
 		_r(art, x, 80, 2, 16, Color("4a4256"))
 	_web(art, Vector2(6, 128), 1, 1, 24)
 	_web(art, Vector2(290, 128), -1, 1, 24)
 	_web(art, Vector2(150, 96), 1, 1, 16)
-	var cat := _cat(art, "back", Vector2(148, 206), 3.0)
+	var cat := _cat(art, "back", Vector2(148, 204), 2.0)   # кот в той же сетке ×2, что и дом
 	cat.offset = Vector2(0, -8)
-	var sway := cat.create_tween().set_loops()
-	sway.tween_property(cat, "rotation", 0.04, 1.2).set_trans(Tween.TRANS_SINE)
-	sway.tween_property(cat, "rotation", -0.04, 1.2).set_trans(Tween.TRANS_SINE)
+	var sway := cat.create_tween().set_loops()   # переминается: сдвиг на целый пиксель арта, без поворота
+	sway.tween_interval(0.9)
+	sway.tween_callback(func() -> void: cat.position.x = 150.0)
+	sway.tween_interval(0.9)
+	sway.tween_callback(func() -> void: cat.position.x = 148.0)
 	Fx.motes(art, Rect2(40, 90, 220, 120), 14)
 
 
@@ -329,18 +330,18 @@ func _panel_lock(art: Node2D) -> void:
 		rattle.tween_property(shutter, "position:x", -5.0, 0.05)
 	rattle.tween_property(shutter, "position:x", 0.0, 0.05)
 	rattle.tween_interval(0.9)
-	var cat := _cat(art, "side", Vector2(70, 170), 7.0)
+	var cat := _cat(art, "side", Vector2(84, 166), 4.0)   # кадр в сетке ×4: кот, ключ и надпись
 	cat.offset = Vector2(0, -2)
-	var key := _spr(art, Fx.tex("key"), Vector2(150, 150), 4.0)
-	key.rotation = -0.8
-	var kk := key.create_tween().set_loops()
-	kk.tween_property(key, "rotation", -0.5, 0.12)
-	kk.tween_property(key, "rotation", -0.9, 0.12)
+	var key := _spr(art, Fx.tex("key"), Vector2(136, 160), 4.0)
+	var kk := key.create_tween().set_loops()   # ключ дёргается на целые пиксели, без поворота
+	kk.tween_callback(func() -> void: key.position.x = 140.0)
+	kk.tween_interval(0.12)
+	kk.tween_callback(func() -> void: key.position.x = 136.0)
+	kk.tween_interval(0.12)
 	var onom := Ui.label("ДЁРГ!", Rect2(150, 70, 140, 56), Ui.FONT_SIZE_BIG, Color("ffd640"), art, HORIZONTAL_ALIGNMENT_CENTER, true)
 	onom.add_theme_color_override("font_outline_color", Color("5b2a1a"))
 	onom.add_theme_constant_override("outline_size", 8)
 	onom.pivot_offset = Vector2(70, 28)
-	onom.rotation = -0.14
 	var pulse := onom.create_tween().set_loops()
 	pulse.tween_property(onom, "scale", Vector2(1.15, 1.15), 0.18).set_trans(Tween.TRANS_BACK)
 	pulse.tween_property(onom, "scale", Vector2.ONE, 0.18)
@@ -378,7 +379,7 @@ func _panel_decision(art: Node2D) -> void:
 	cloud.scale_amount_max = 4.0
 	cloud.emission_sphere_radius = 40.0
 	cloud.emitting = true
-	var mya := _cat(art, "front", Vector2(80, 172), 6.0)
+	var mya := _cat(art, "front", Vector2(80, 180), 4.0)   # оба кота в одной сетке ×4
 	Fx.squash_hop(mya, 8.0)
 	var hop := mya.create_tween().set_loops()
 	hop.tween_interval(1.4)

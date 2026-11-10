@@ -11,7 +11,8 @@
 | Galmuri (SIL OFL 1.1) | шрифт интерфейса | OFL 1.1 | ATTR | файл `OFL-Galmuri.txt` рядом со шрифтом; упомянуть в титрах (есть) |
 | Mega Cozy UI Pack (dobo_ui) | рамки, кнопки, иконки (`assets/ui`) | проверена владельцем проекта 2026-11-04 | OK | титры (есть); сохранить скрин/чек в `docs/legal/receipts/` |
 | City Essentials (Ranitaya) | здания и предметы улицы (`assets/street`) | проверена владельцем проекта 2026-11-04 | OK | титры (есть); сохранить скрин/чек |
-| Собственные | тайлы земли, шейдеры, эффекты (код), звук (синтез) | права у проекта | OK | — |
+| Собственные | тайлы земли, шейдеры, эффекты (код), значки, иконка | права у проекта | OK | — |
+| Записи CC0 с OpenGameArt (Kenney, MintoDog, Kerzoven и др.) | все звуки и музыка (`assets/audio`, исходники `assets/audio_src`) | CC0 | OK | список и ссылки: `AUDIO_SOURCES.md`; сохранить снимки страниц в `docs/legal/receipts/` |
 | Modern Interiors Free (LimeZu) | **не используется** | только некоммерческое | BLOCK | **удалено** из рабочего дерева; из истории git — `git filter-repo` (см. ниже) |
 | Cosy Cabin, Pixel 16 interiors | не используются | не проверены | — | удалены из рабочего дерева |
 
@@ -27,7 +28,7 @@
                   --path assets/packs/pixel-16-interiors --invert-paths
   ```
   (это переписывает историю и требует force-push; делается один раз владельцем, остальным — заново клонировать).
-- Музыка и звуки: только собственный синтез (`tools/generators/make_audio.py`) или купленные паки с чеком в `docs/legal/receipts/`.
+- Музыка и звуки: записи CC0 с OpenGameArt (`docs/legal/AUDIO_SOURCES.md`, сборка `tools/build_audio.py`); новые звуки — только CC0 или купленные паки с чеком в `docs/legal/receipts/`.
 
 ## Что я не могу проверить сам
 

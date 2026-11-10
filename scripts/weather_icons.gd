@@ -1,6 +1,6 @@
 class_name WeatherIcons
 extends RefCounted
-## Пиксельные значки погоды 13×13 (рисуются кодом): авто (облако с солнцем), ясно, дождь, туман, жара, снег.
+## Пиксельные значки погоды 13×13 на поле 16×16 (рисуются кодом): авто (облако с солнцем), ясно, дождь, туман, жара, снег.
 ## Тёмная обводка в один пиксель — значок читается и на терракотовой кнопке. Показываются в масштабе 2, как вся графика интерфейса.
 
 const OL := Color("2b2230")
@@ -18,7 +18,9 @@ static func icon(kind: int) -> Texture2D:
 		2: _fog(img)
 		3: _sun(img, 6, 5, 4, Color("ff9a3a"), Color("ff5a2a")); _waves(img)
 		4: _flake(img)
-	var t := ImageTexture.create_from_image(img)
+	var full := Image.create(16, 16, false, Image.FORMAT_RGBA8)   # поле 16×16, как у всех значков: рисуется ровно ×2, без растяжения
+	full.blit_rect(img, Rect2i(0, 0, 13, 13), Vector2i(1, 1))
+	var t := ImageTexture.create_from_image(full)
 	_cache[kind] = t
 	return t
 

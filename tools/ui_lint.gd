@@ -3,10 +3,12 @@ extends Node
 ##  • текст, который не влезает в свою подпись или кнопку (обрезается многоточием или вылезает);
 ##  • подписи и кнопки, вылезающие за экран 360×640;
 ##  • координаты не по сетке арта (нечётные пиксели): из-за них линии и значки «пляшут» на полпикселя;
-##  • перекрытие кнопок друг с другом внутри одного окна.
+##  • перекрытие кнопок друг с другом внутри одного окна;
+##  • масштаб пикселя: спрайты, рамки и шрифт рисуются только ×2 (крупный план — ×4), дробные и прочие масштабы — замечание (итог в строке GRID).
 ## Запуск: godot --headless --path . res://tools/ui_lint.tscn      (код выхода 1, если нашлись замечания)
 
 var _issues: Array[String] = []
+var _grid: Dictionary = {}    # экран → {масштаб пикселя (логических px на пиксель арта) → сколько узлов и пример}
 var _checked := 0
 var _screen := ""
 
@@ -21,6 +23,18 @@ func _ready() -> void:
 		await _run_all(lang)
 	for i in _issues:
 		print("UI: ", i)
+	var odd := {}   # масштаб → [сколько узлов, пример, на скольких экранах, первый экран]
+	for scr in _grid:
+		for key in _grid[scr]:
+			if String(key) == "2":
+				continue
+			if not odd.has(key):
+				odd[key] = [0, _grid[scr][key][1], 0, String(scr)]
+			odd[key][0] = int(odd[key][0]) + int(_grid[scr][key][0])
+			odd[key][2] = int(odd[key][2]) + 1
+	print("GRID: масштабов пикселя кроме ×2: %d" % odd.size())
+	for kk in odd:
+		print("  сетка ×%s: %d узлов на %d экранах; напр. %s (%s)" % [kk, odd[kk][0], odd[kk][2], odd[kk][1], odd[kk][3]])
 	print("TAP-ЦЕЛИ меньше %d px: %d" % [int(MIN_TAP), _small_taps.size()])
 	for k in _small_taps:
 		print("  мало: ", k, " ", _small_taps[k])
@@ -262,6 +276,7 @@ func _walk(n: Node, buttons: Array[Button]) -> void:
 		return
 	if n is ScrollContainer:
 		return   # прокручиваемое (каталог украшения): за краем — нормально
+	_grid_stat(n)
 	if n is Label:
 		_check_label(n as Label)
 	elif n is Button:
@@ -326,6 +341,49 @@ func _check_button(b: Button) -> void:
 
 const MIN_TAP := 44.0   # минимальная цель нажатия, логических px (≈ dp на телефоне шириной 360)
 var _small_taps := {}
+
+
+## Сетка пикселей: во сколько логических пикселей рисуется один пиксель текстуры или шрифта у узла. На экране должен быть один масштаб (2);
+## всё остальное попадает в статистику GRID (печатается в конце), нецелый или неравный по осям масштаб — замечание.
+func _grid_stat(n: Node) -> void:
+	var k := Vector2.ZERO
+	var what := ""
+	if n is Sprite2D and (n as Sprite2D).texture != null:
+		k = (n as Sprite2D).get_global_transform().get_scale()
+		what = "спрайт " + (n as Sprite2D).texture.resource_path.get_file()
+	elif n is TextureRect and (n as TextureRect).texture != null:
+		var t := n as TextureRect
+		k = t.get_global_transform().get_scale()
+		if t.stretch_mode == TextureRect.STRETCH_SCALE and t.texture.get_size().x > 0.0:
+			k *= t.size / t.texture.get_size()
+		what = "картинка %s %s" % [t.texture.resource_path.get_file(), t.texture.get_size()]
+	elif n is NinePatchRect and (n as NinePatchRect).texture != null:
+		k = (n as NinePatchRect).get_global_transform().get_scale()
+		what = "рамка"
+	elif n is Label and (n as Label).text.strip_edges() != "":
+		var fs := float((n as Label).get_theme_font_size("font_size")) / 12.0   # Galmuri11 рисуется в сетке 12 px
+		k = (n as Label).get_global_transform().get_scale() * fs
+		what = "текст «%s»" % (n as Label).text.left(16)
+	elif n is Button and (n as Button).text.strip_edges() != "":
+		var fs2 := float((n as Button).get_theme_font_size("font_size")) / 12.0
+		k = (n as Button).get_global_transform().get_scale() * fs2
+		what = "кнопка «%s»" % (n as Button).text.left(16)
+	if k == Vector2.ZERO:
+		return
+	k = k.abs()
+	var key := str(snappedf(k.x, 0.01)) if is_equal_approx(k.x, k.y) else "%s×%s" % [str(snappedf(k.x, 0.01)), str(snappedf(k.y, 0.01))]
+	if key == "2.0":
+		key = "2"
+	if not _grid.has(_screen):
+		_grid[_screen] = {}
+	var d: Dictionary = _grid[_screen]
+	if key != "2" and key != "4.0":   # правило: один пиксель арта = 2 логических; крупный план (гости в смене, кадры дневника, портрет) — ровно ×4
+		_add("масштаб пикселя ×%s вне сетки (можно только ×2 и ×4): %s" % [key, what])
+	if OS.has_environment("GRID_VERBOSE") and key != "2" and not _screen.begins_with("[en]"):
+		print("G| %s | ×%s | %s" % [_screen, key, what])
+	if not d.has(key):
+		d[key] = [0, what]
+	d[key][0] = int(d[key][0]) + 1
 
 
 func _add(msg: String) -> void:
